@@ -1,13 +1,23 @@
 # Connect Gmail
 
-1. Choose **Access**: **Read-only** to search and read mail, **Read and draft**
-   to also prepare drafts you send yourself, or **Read and write** to send mail
-   and organize your inbox too.
+1. Choose **Access**:
+   - **Read-only** to let agents search and read your mail, threads, labels,
+     drafts and attachments.
+   - **Read and draft** to also let agents create, edit and delete drafts. You
+     review and send them yourself in Gmail; Houston refuses every send.
+   - **Read and write** to also let agents send mail and replies, and label,
+     archive and trash messages. Houston never deletes mail permanently.
 2. Choose an available sign-in option and select **Connect Gmail**.
-3. Choose your Google account and approve access. You will return to Houston.
+3. Choose your Google account and approve access. If Google shows a checkbox
+   per permission, tick them all: Houston refuses a partial grant. You will return
+   to Houston.
+
+Houston calls Gmail only when your agent asks it to and never syncs your mailbox
+in the background. Each Gmail connection asks only for its own permissions, so
+connecting Gmail does not grant access to your other Google services.
 
 > If you connect with Composio, it requires full Gmail access. Houston limits its use to the access level
-> you select. With **Read and draft**, you review and send drafts yourself in Gmail.
+> you select.
 
 ## Advanced
 

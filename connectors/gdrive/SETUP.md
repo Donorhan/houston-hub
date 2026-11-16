@@ -1,14 +1,18 @@
 # Connect your Google account
 
 1. Choose the access level:
-   - **Read-only** to let agents read without changing anything.
-   - **Read and write** to also let agents upload, organize, share and delete files.
+   - **Read-only** to let agents search, read, download and export your files
+     in My Drive and shared drives, and see who they are shared with.
+   - **Read and write** to also let agents upload, rename, move, copy, share,
+     trash and permanently delete files.
 2. Select **Continue with Google**, choose your account, and approve the
    permissions Google lists. If Google shows a checkbox per permission, tick
    them all: Houston refuses a partial grant.
 
-Each Google Drive connection asks only for its own permissions, so connecting
-Google Drive does not grant access to your other Google services.
+Houston calls Google Drive only when your agent asks it to and never syncs your
+files in the background. Each Google Drive connection asks only for its own
+permissions, so connecting Google Drive does not grant access to your other
+Google services.
 
 ## Advanced: changing access and troubleshooting
 
