@@ -7363,5 +7363,6 @@
       }
     }
   ],
-  "schema_version": 1
+  "schema_version": 1,
+  "verification_key": "54848c730c341fab25af20e1520bf0d624fd17131dfbffef7933a01f55bc0a83"
 }
