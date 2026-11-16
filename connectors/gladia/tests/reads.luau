@@ -36,7 +36,9 @@ return {
 
 		-- A finished job comes back unchanged, transcript included.
 		responses = {{body = '{"id":"' .. ID .. '","request_id":"G-1","version":2,"status":"done","created_at":"2026-11-09T10:00:00Z","completed_at":"2026-11-09T10:01:00Z","kind":"pre-recorded","post_session_metadata":{},"file":{"id":"f1","filename":"call.wav","source":null,"audio_duration":42.5,"number_of_channels":1},"request_params":{"diarization":true},"result":{"metadata":{"audio_duration":42.5,"number_of_distinct_channels":1,"billing_time":42.5,"transcription_time":3.1},"transcription":{"full_transcript":"Hello there.","languages":["en"],"utterances":[{"start":0.1,"end":1.2,"confidence":0.98,"channel":0,"speaker":0,"text":"Hello there.","language":"en","words":[{"word":"Hello","start":0.1,"end":0.5,"confidence":0.99}]}]}}}'}}
-		local job = c.getTranscription({id = ID})
+		local getArgs = {id = ID}
+		local job = c.getTranscription(getArgs)
+		assert(getArgs.id == ID, "getTranscription changed the caller's options")
 		last("GET", API .. "/" .. ID)
 		assert(job.status == "done" and job.result.transcription.full_transcript == "Hello there.")
 		local utterance = job.result.transcription.utterances[1]
@@ -71,10 +73,13 @@ return {
 
 		-- The audio streams to a session file.
 		responses = {{headers = {["content-type"] = {"audio/wav"}}, body = "RIFF....WAVEfmt "}}
-		local saved = c.downloadAudio({id = ID, path = "audio/call.wav"})
+		local downloadArgs = {id = ID, path = "audio/call.wav"}
+		local saved = c.downloadAudio(downloadArgs)
+		assert(downloadArgs.id == ID and downloadArgs.path == "audio/call.wav", "downloadAudio changed the caller's options")
 		last("GET", API .. "/" .. ID .. "/file")
 		assert(saved.path == "audio/call.wav" and saved.size == 16 and saved.contentType == "audio/wav" and type(saved.url) == "string")
 		assert(await(fs.open("audio/call.wav", "r"):readAll()) == "RIFF....WAVEfmt ")
+		assert(fails({"downloadAudio has no option format"}, c.downloadAudio, {id = ID, path = "audio/call.wav", format = "wav"}) == 0)
 
 		-- Expired audio fails with Gladia's error code and leaves no file behind.
 		responses = {{status = 404, body = '{"timestamp":"2026-11-09T10:00:00Z","path":"/v2/transcription/x/file","request_id":"G-2","statusCode":404,"message":"Not found","error_code":"retention_period_expired"}'}}

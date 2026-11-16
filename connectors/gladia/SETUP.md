@@ -28,6 +28,11 @@ year on Free, three weeks on paid plans, and custom or zero retention on
 Enterprise. After that the audio and result are gone, and only job metadata
 remains. Delete a job in time if you need it removed sooner.
 
+Enterprise [zero data retention](https://docs.gladia.io/chapters/limits-and-specifications/data-retention)
+disables file uploads and later retrieval of transcripts and audio. It requires
+externally hosted recordings and your own callback endpoint to receive results;
+the upload-and-poll workflow is unavailable with that setting.
+
 ### Changing access and revoking
 
 - To change the access level, edit the connection in Houston; the same key keeps
