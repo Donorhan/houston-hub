@@ -3,7 +3,6 @@
 type Options = {[string]: any}
 
 local API = "https://api.gladia.io"
-local DOCS = "https://docs.gladia.io/api-reference/v2/"
 -- Gladia accepts files up to 1000 MB and transcribes at most 135 minutes per job.
 local MAX_UPLOAD = 1000 * 1000 * 1000
 local MAX_BODY = 8 * 1024 * 1024
@@ -78,7 +77,7 @@ local function failStatus(operation: string, response: HttpResponse): never
 	if retry and retry[1] then message ..= "; Retry-After: " .. string.sub(retry[1], 1, 32) end
 	if status == 401 then
 		message ..= ". Check that the API key is valid and still belongs to this Gladia account"
-	elseif status == 403 then
+	elseif status == 403 and operation == "deleteTranscription" then
 		message ..= ". Gladia deletes a job only once it is neither queued nor processing"
 	elseif status == 429 then
 		message ..= ". The Gladia account is at its concurrency or request-rate limit; wait before trying again"
@@ -92,11 +91,12 @@ local function failStatus(operation: string, response: HttpResponse): never
 	})
 end
 
-local function send(operation: string, method: string, href: string, headers: HttpHeaders?, body: any?): HttpResponse
+local function send(operation: string, method: string, href: string, headers: HttpHeaders?, body: (string | StreamReader)?): HttpResponse
 	local sent, result: any = pcall(function()
 		return await(http.request({method = method, url = href, headers = headers, body = body}))
 	end)
 	if not sent then
+		if body ~= nil and type(body) ~= "string" then pcall(function() body:close() end) end
 		if type(result) == "table" and result.code == "timeout" then
 			houston.fail({
 				operation = operation,
@@ -184,13 +184,14 @@ and pii_redaction sections when the job asked for them. Houston returns at most 
 full result of a very long recording can exceed it.
 Gladia keeps audio and results for the account's retention period (3 weeks on paid plans, a year on
 Free), then answers HTTP 404 with error_code retention_period_expired.
+Enterprise zero data retention disables uploads and later retrieval of results and audio. Use an
+external audio_url and callback=true with callback_config.url to receive results at your own endpoint.
 Gladia answers HTTP 429 when the account's concurrency or request rate is exhausted; wait and retry.
 Live transcription over WebSocket is not available through this connector.]],
 	functions = {},
 }
 local exports: {[string]: any} = {help = help}
 
-local ID = {type = "string", minLength = 1}
 local READ = {readOnlyHint = true, openWorldHint = true}
 local WRITE = {readOnlyHint = false, destructiveHint = false, openWorldHint = true}
 local DESTRUCTIVE = {readOnlyHint = false, destructiveHint = true, openWorldHint = true}
@@ -223,6 +224,7 @@ between calls, wait. Polling faster does not finish the job.]],
 function exports.getTranscription(input: any): Options
 	local args = options(input)
 	local id = jobId(args.id)
+	args.id = nil
 	done("getTranscription", args)
 	local job = decode("getTranscription", send("getTranscription", "GET", API .. "/v2/transcription/" .. id))
 	assert(type(job.id) == "string" and type(job.status) == "string", "Gladia returned an invalid job")
@@ -278,6 +280,7 @@ function exports.downloadAudio(input: any): Options
 	local args = options(input)
 	local id = jobId(args.id)
 	local path = text(args.path, "path")
+	args.id, args.path = nil, nil
 	done("downloadAudio", args)
 	local contentType: string? = nil
 	local saved = save(path, function()
@@ -331,18 +334,27 @@ to createTranscription instead. Gladia keeps the file for the account's retentio
 	function exports.uploadAudio(input: any): Options
 		local args = options(input)
 		local path = text(args.path, "path")
+		args.path = nil
 		done("uploadAudio", args)
 		assert(await(fs.exists(path)), "path " .. path .. " is not a session file")
 		local size = await(fs.stat(path)).size
 		assert(size > 0, "path " .. path .. " is empty")
 		assert(size <= MAX_UPLOAD, "Gladia accepts files up to 1000 MB; split or shorten this one")
 		local filename = string.match(path, "[^/]+$") or path
-		local body, contentType = http.multipart({
-			{name = "audio", filename = filename, contentType = mediaType(filename), body = fs.open(path, "r")},
-		})
+		local file = fs.open(path, "r")
+		local ok, form = pcall(function()
+			await(file)
+			return multipart.create({
+				{name = "audio", filename = filename, contentType = mediaType(filename), body = file},
+			})
+		end)
+		if not ok then
+			pcall(function() await(file:close()) end)
+			error(form, 0)
+		end
 		local value = decode(
 			"uploadAudio",
-			send("uploadAudio", "POST", API .. "/v2/upload", {["Content-Type"] = {contentType}}, body)
+			send("uploadAudio", "POST", API .. "/v2/upload", {["Content-Type"] = {form.contentType}}, form.body)
 		)
 		assert(type(value.audio_url) == "string" and value.audio_url ~= "", "Gladia returned no audio_url")
 		return value
@@ -442,6 +454,7 @@ permanent and the job cannot be transcribed again without uploading or fetching 
 	function exports.deleteTranscription(input: any): Options
 		local args = options(input)
 		local id = jobId(args.id)
+		args.id = nil
 		done("deleteTranscription", args)
 		return decode("deleteTranscription", send("deleteTranscription", "DELETE", API .. "/v2/transcription/" .. id))
 	end

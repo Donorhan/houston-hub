@@ -21,5 +21,5 @@ said, who said it and when.
 > two separately billed jobs.
 
 Read-only access reads and downloads but cannot create or delete anything. This
-connector covers recorded audio up to 135 minutes and 1000 MB per job, not live
-transcription from a microphone.
+connector covers recorded audio up to 135 minutes (4 hours 15 minutes on Enterprise)
+and 1000 MB per job, not live transcription from a microphone.

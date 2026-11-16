@@ -5,8 +5,7 @@ return {
 	configure = function()
 		calls = 0
 		fs = fixture.files()
-		local multipart = http.multipart
-		http = {multipart = multipart, request = function(req)
+		http = {request = function(req)
 			calls += 1
 			if req.body ~= nil and type(req.body) ~= "string" then await(req.body:readAll()) end
 			assert(string.match(req.url, "^https://api%.gladia%.io/v2/") ~= nil, req.url)

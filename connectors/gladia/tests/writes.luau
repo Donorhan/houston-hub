@@ -4,8 +4,10 @@ return {
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
-		local multipart = http.multipart
-		http = {multipart = multipart, request = function(req)
+		http = {request = function(req)
+			if req.url == "https://api.gladia.io/v2/upload" then
+				assert(type(req.body) ~= "string", "audio must reach HTTP as a stream")
+			end
 			if req.body ~= nil and type(req.body) ~= "string" then req.body = await(req.body:readAll()) end
 			table.insert(requests, req)
 			assert(#responses > 0, "unexpected request: " .. req.method .. " " .. req.url)
@@ -45,7 +47,9 @@ return {
 		-- uploadAudio streams the session file as the multipart audio part, with its media type.
 		write("calls/meeting.m4a", "fake-m4a-bytes")
 		responses = {{body = '{"audio_url":"' .. AUDIO .. '","audio_metadata":{"id":"6c09400e-23d2-4bd2-be55-96a5ececfa3b","filename":"meeting.m4a","source":null,"extension":"m4a","size":14,"audio_duration":1.5,"number_of_channels":1}}'}}
-		local uploaded = c.uploadAudio({path = "calls/meeting.m4a"})
+		local uploadArgs = {path = "calls/meeting.m4a"}
+		local uploaded = c.uploadAudio(uploadArgs)
+		assert(uploadArgs.path == "calls/meeting.m4a", "uploadAudio changed the caller's options")
 		local req = last("POST", API .. "/v2/upload")
 		local contentType = req.headers["Content-Type"][1]
 		assert(string.match(contentType, "^multipart/form%-data; boundary=") ~= nil, contentType)
@@ -60,6 +64,7 @@ return {
 		c.uploadAudio({path = "voice.xyz"})
 		assert(string.find(last("POST", API .. "/v2/upload").body, "application/octet-stream", 1, true))
 		assert(fails({"path missing.wav is not a session file"}, c.uploadAudio, {path = "missing.wav"}) == 0)
+		assert(fails({"uploadAudio has no option filename"}, c.uploadAudio, {path = "voice.xyz", filename = "override.wav"}) == 0)
 		write("empty.wav", "")
 		assert(fails({"path empty.wav is empty"}, c.uploadAudio, {path = "empty.wav"}) == 0)
 		responses = {{body = '{"audio_metadata":{}}'}}
@@ -102,11 +107,14 @@ return {
 
 		-- deleteTranscription answers 202 without a body.
 		responses = {{status = 202, body = ""}}
-		assert(c.deleteTranscription({id = ID}).success == true)
+		local deleteArgs = {id = ID}
+		assert(c.deleteTranscription(deleteArgs).success == true)
+		assert(deleteArgs.id == ID, "deleteTranscription changed the caller's options")
 		last("DELETE", API .. "/v2/transcription/" .. ID)
 		responses = {{status = 403, body = '{"statusCode":403,"message":"Forbidden"}'}}
 		fails({"Gladia HTTP 403: Forbidden", "neither queued nor processing", '"retryable":false'}, c.deleteTranscription, {id = ID})
 		assert(fails({"id must be a Gladia job UUID"}, c.deleteTranscription, {id = "all"}) == 0)
+		assert(fails({"deleteTranscription has no option force"}, c.deleteTranscription, {id = ID, force = true}) == 0)
 		assert(#responses == 0)
 	end,
 }
