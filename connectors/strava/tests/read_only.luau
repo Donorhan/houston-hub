@@ -63,6 +63,14 @@ return {
 		responses = {{body = '{"id":1,"value":0.12345678901234567,"exponent":12345678901234567e2,"negative":-9007199254740993,"edge":9007199254740991}'}}
 		local mixed = c.getClubById({id = 1})
 		assert(mixed.value == 0.12345678901234567 and mixed.exponent == 12345678901234567e2 and mixed.negative == "-9007199254740993" and mixed.edge == 9007199254740991)
+		-- A backslash closing a string, and escaped quotes, keep the string state right.
+		responses = {{body = '{"a":"x\\\\","id":12345678987654321,"b":"\\u0022 \\" 98765432109876543","c":[-12345678987654321]}'}}
+		local escaped = c.getClubById({id = 1})
+		assert(escaped.a == "x\\" and escaped.id == "12345678987654321" and escaped.b == '" " 98765432109876543' and escaped.c[1] == "-12345678987654321", json.encode(escaped))
+		-- A large page full of strings decodes within the VM's memory.
+		responses = {{body = "[" .. string.rep('{"k":"v","x":1},', 150000) .. '{"id":12345678987654321}]'}}
+		local large = c.getLoggedInAthleteActivities({per_page = 200})
+		assert(#large == 150001 and large[150001].id == "12345678987654321")
 
 		local reads = {
 			{c.getLoggedInAthleteZones, nil, "/athlete/zones", '{"heart_rate":{"custom_zones":false,"zones":[]}}'},

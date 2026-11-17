@@ -57,6 +57,8 @@ return {
 		upstream(502, "", {}, c.getRouteAsGPX, {id = 1, path = "route.gpx"}, {"Strava HTTP 502", '"retryable":true'})
 		assert(not await(fs.exists("route.gpx")), "a failed export wrote its file")
 
+		upstream(200, "[" .. string.rep(" ", 8 * 1024 * 1024) .. "]", {}, c.getLoggedInAthleteActivities, nil, {"Strava's response is over 8 MiB", '"retryable":false'})
+
 		-- A success with an unexpected body is refused rather than returned.
 		for _, case in {{c.getLoggedInAthlete, nil, "[]", "object"}, {c.getLapsByActivityId, {id = 1}, "{}", "array"},
 			{c.getActivityStreams, {id = 1, keys = {"time"}}, "<html></html>", "data"}, {c.getLoggedInAthlete, nil, "not json", "object"}} do

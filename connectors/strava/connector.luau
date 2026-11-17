@@ -97,43 +97,54 @@ local function form(fields: {Field}): string
 	return table.concat(parts, "&")
 end
 
--- Replaces a JSON integer token beyond 2^53 - 1 by the same digits as a JSON string.
-local function quoteUnsafe(token: string): string
-	if not string.match(token, "^%-?%d+$") then return token end
-	local digits = string.gsub(token, "^%-", "")
-	if #digits > 16 or (#digits == 16 and digits > "9007199254740991") then return '"' .. token .. '"' end
-	return token
-end
+local BACKSLASH = string.byte("\\")
+local LONG_DIGITS = "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d+"
 
 -- Luau numbers keep 53 bits, so integers beyond 2^53 - 1 (segment effort, comment and route IDs)
--- would lose digits: decode them as strings of digits instead. Only the text between JSON strings
--- holds number tokens, and the scan is skipped when no run of 16 digits exists.
+-- would lose digits: decode them as strings of digits instead. Only runs of 16 or more digits are
+-- candidates, quoted when they lie outside every JSON string and form a whole integer token. The
+-- string state advances once over quotes and escapes, so the scan is linear and keeps only the
+-- positions to quote.
 local function decode(raw: string): any
-	if not string.find(raw, "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d") then return json.decode(raw) end
-	local parts: {string} = {}
-	local position = 1
-	while position <= #raw do
-		local quote = string.find(raw, '"', position, true)
-		local outside = string.sub(raw, position, if quote then quote - 1 else #raw)
-		table.insert(parts, (string.gsub(outside, "[%-%d][%d%.eE+%-]*", quoteUnsafe)))
-		if not quote then break end
-		local finish = quote + 1
-		while true do
-			local at = string.find(raw, '[\\"]', finish)
-			if not at then
-				finish = #raw
-				break
-			end
-			if string.sub(raw, at, at) == "\\" then
-				finish = at + 2
+	if not string.find(raw, LONG_DIGITS) then return json.decode(raw) end
+	local splices: {number} = {}
+	local cursor, inString = 1, false
+	local special = string.find(raw, '[\\"]')
+	local at = 1
+	while true do
+		local start, finish = string.find(raw, LONG_DIGITS, at)
+		if not start or not finish then break end
+		while special and special < start do
+			local position: number = special
+			if string.byte(raw, position) == BACKSLASH then
+				cursor = position + 2
 			else
-				finish = at
-				break
+				inString = not inString
+				cursor = position + 1
+			end
+			special = string.find(raw, '[\\"]', cursor)
+		end
+		if not inString then
+			local first = if string.sub(raw, start - 1, start - 1) == "-" then start - 1 else start
+			local whole = not string.find(string.sub(raw, first - 1, first - 1), "[%d%.eE+%-]")
+				and not string.find(string.sub(raw, finish + 1, finish + 1), "[%.eE]")
+			local digits = finish - start + 1
+			if whole and (digits > 16 or (digits == 16 and string.sub(raw, start, finish) > "9007199254740991")) then
+				table.insert(splices, first)
+				table.insert(splices, finish)
 			end
 		end
-		table.insert(parts, string.sub(raw, quote, finish))
-		position = finish + 1
+		at = finish + 1
 	end
+	if #splices == 0 then return json.decode(raw) end
+	local parts: {string} = {}
+	local last = 1
+	for index = 1, #splices, 2 do
+		table.insert(parts, string.sub(raw, last, splices[index] - 1))
+		table.insert(parts, '"' .. string.sub(raw, splices[index], splices[index + 1]) .. '"')
+		last = splices[index + 1] + 1
+	end
+	table.insert(parts, string.sub(raw, last))
 	return json.decode(table.concat(parts))
 end
 
@@ -217,7 +228,12 @@ local function call(operation: string, request: Call): any
 	local query = if request.query and #request.query > 0 then "?" .. table.concat(request.query, "&") else ""
 	local response = await(http.request({method = request.method, url = API .. request.path .. query, headers = headers, body = body}))
 	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response, request.idempotent) end
-	local raw = await(response.body:readAll())
+	local read, raw = pcall(function(): string return await(response.body:readAll()) end)
+	if not read then
+		if not string.find(tostring(raw), "limit_exceeded", 1, true) then error(raw, 0) end
+		houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode, retryable = false,
+			message = "Strava's response is over 8 MiB: request fewer stream keys, a smaller per_page or a shorter period"})
+	end
 	local opening = if request.expect == "array" then "^%s*%[" elseif request.expect == "object" then "^%s*{" else "^%s*[{%[]"
 	local ok, value = pcall(decode, raw)
 	if not ok or type(value) ~= "table" or not string.match(raw, opening) then
