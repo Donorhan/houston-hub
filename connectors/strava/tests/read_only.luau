@@ -1,6 +1,6 @@
--- A read-only connection: every read sends Strava's exact route and query, with no credential.
+-- A connection with Read access: every read sends Strava's exact route and query, with no credential.
 return {
-	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {access = "read-only"}, auth_method = "oauth", auth_config = {}},
+	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, access = {data = "read"}, config = {}, auth_method = "oauth", auth_config = {}},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
@@ -32,7 +32,7 @@ return {
 			.. "getGearById,getKudoersByActivityId,getLapsByActivityId,getLoggedInAthlete,getLoggedInAthleteActivities,getLoggedInAthleteClubs,"
 			.. "getLoggedInAthleteStarredSegments,getLoggedInAthleteZones,getRouteAsGPX,getRouteAsTCX,getRouteById,getRouteStreams,"
 			.. "getRoutesByAthleteId,getSegmentById,getSegmentEffortById,getSegmentEffortStreams,getSegmentStreams,getStats,getZonesByActivityId",
-			"read-only got " .. table.concat(names, ","))
+			"read got " .. table.concat(names, ","))
 		assert(#requests == 0, "initialization and help are offline")
 
 		responses = {{body = '{"id":134815,"firstname":"Marianne","lastname":"T.","bikes":[{"id":"b12345678","name":"EMC"}],"shoes":[]}'}}

@@ -1,11 +1,11 @@
 # Connect Strava
 
-1. Choose **Read-only** or **Read and write** and select **Authorize connection**.
+1. Choose **Read** or **Write** for **Access** and select **Authorize connection**.
 2. Sign in to Strava if asked. Strava lists the permissions Houston asks for: keep every box
    ticked and select **Authorize**.
 
 > If you untick a permission, Houston cannot finish connecting: authorize again with every box
-> ticked. Switching a connection to **Read and write** asks Strava for the extra permissions.
+> ticked. Switching a connection to **Write** asks Strava for the extra permissions.
 
 ## Advanced
 
