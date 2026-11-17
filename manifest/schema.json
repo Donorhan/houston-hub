@@ -604,6 +604,10 @@
         "placeholder": {
           "type": "string"
         },
+        "reauthorize_on_change": {
+          "description": "Config fields only. false lets a change to this field save on an OAuth or Composio connection without asking the account holder to authorize again; every other change re-authorizes. Only valid when no scope group, proxy rule, auth method or other field references the field.",
+          "type": "boolean"
+        },
         "required": {
           "type": "boolean"
         },

@@ -171,6 +171,7 @@ func Schema() ([]byte, error) {
 		map[string]any{"if": map[string]any{"required": []string{"multiline"}}, "then": map[string]any{"properties": map[string]any{"type": map[string]any{"const": "string"}, "options": false, "display": map[string]any{"const": "plain"}}}},
 		map[string]any{"if": map[string]any{"required": []string{"format"}}, "then": map[string]any{"required": []string{"multiline"}, "properties": map[string]any{"multiline": map[string]any{"const": true}}}},
 	}
+	props("Field")["reauthorize_on_change"].(map[string]any)["description"] = "Config fields only. false lets a change to this field save on an OAuth or Composio connection without asking the account holder to authorize again; every other change re-authorizes. Only valid when no scope group, proxy rule, auth method or other field references the field."
 	props("Field")["format"].(map[string]any)["description"] = "json requires valid JSON and pem one or more PEM certificates; the string value is preserved and connectors validate its meaning."
 	props("TLS")["mode"] = map[string]any{"type": "string", "anyOf": []any{map[string]any{"enum": TLSModes}, map[string]any{"pattern": `^\{\{.+\}\}$`}}, "description": "A TLS mode, or one reference to a config or publisher field whose options are TLS modes."}
 	props("TLS")["ca"].(map[string]any)["description"] = "PEM certificates that replace the trusted authorities, or one reference to a pem-formatted config or publisher field."

@@ -69,7 +69,18 @@ type Field struct {
 	Display     string   `json:"display,omitempty"`
 	Multiline   bool     `json:"multiline,omitempty"`
 	Format      string   `json:"format,omitempty"`
+	// ReauthorizeOnChange, when false, lets a change to this config field save
+	// on an OAuth or Composio connection without asking the account holder to
+	// authorize again. Every other change re-authorizes.
+	ReauthorizeOnChange *bool `json:"reauthorize_on_change,omitempty"`
 }
+
+// Reauthorizes reports whether changing the field asks the account holder of
+// an OAuth or Composio connection to authorize again.
+func (f Field) Reauthorizes() bool {
+	return f.ReauthorizeOnChange == nil || *f.ReauthorizeOnChange
+}
+
 type Option struct {
 	Value string `json:"value"`
 	Label string `json:"label"`
