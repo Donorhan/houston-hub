@@ -26,7 +26,7 @@ return {
 			"GET " .. API .. "/athlete/activities?after=1767225600&per_page=200", "GET " .. API .. "/athlete/clubs?page=2",
 			"GET " .. API .. "/athletes/134815/stats", "GET " .. API .. "/athletes/134815/routes",
 			"GET " .. API .. "/activities/16532880011?include_all_efforts=true", "GET " .. API .. "/activities/16532880011/laps",
-			"GET " .. API .. "/activities/16532880011/zones", "GET " .. API .. "/activities/16532880011/comments?after_cursor=abc123%2520",
+			"GET " .. API .. "/activities/16532880011/zones", "GET " .. API .. "/activities/16532880011/comments?after_cursor=abc123%20",
 			"GET " .. API .. "/activities/16532880011/kudos", "GET " .. API .. "/activities/16532880011/streams?keys=time%2Cwatts&key_by_type=true",
 			"GET " .. API .. "/clubs/231407", "GET " .. API .. "/gear/b12345678", "GET " .. API .. "/routes/3344425285447071234",
 			"GET " .. API .. "/routes/3344425285447071234/streams", "GET " .. API .. "/routes/3344425285447071234/export_gpx",

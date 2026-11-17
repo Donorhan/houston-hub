@@ -460,7 +460,7 @@ after_cursor; an empty array ends the list.]],
 	inputSchema = {
 		type = "object",
 		properties = {id = ID, page_size = {type = "integer", minimum = 1, maximum = 200, description = "Comments per page; Strava's default is 30."},
-			after_cursor = {type = "string", minLength = 1, description = "cursor of the last comment of the previous page."}},
+			after_cursor = {type = "string", pattern = "^[A-Za-z0-9._~%-]+$", description = "cursor of the last comment of the previous page, unchanged."}},
 		required = {"id"},
 		additionalProperties = false,
 		examples = {{id = 16532880011, page_size = 50}, {id = 16532880011, after_cursor = "abc123%20"}} :: {any},
@@ -471,7 +471,13 @@ function exports.getCommentsByActivityId(input: any): {Options}
 	local args = options(input, "getCommentsByActivityId", {"id", "page_size", "after_cursor"})
 	local query: {string} = {}
 	if args.page_size ~= nil then table.insert(query, "page_size=" .. integer(args.page_size, "page_size", 1, 200)) end
-	if args.after_cursor ~= nil then table.insert(query, "after_cursor=" .. url.encode(text(args.after_cursor, "after_cursor"))) end
+	if args.after_cursor ~= nil then
+		-- Strava's cursors come URL-encoded (such as "abc123%20"), so they are sent as given, limited to
+		-- characters that cannot end the value or add a parameter.
+		local cursor = text(args.after_cursor, "after_cursor")
+		assert(string.match(cursor, "^[%w%-%._~%%]+$") ~= nil, "after_cursor must be a comment's cursor, passed unchanged")
+		table.insert(query, "after_cursor=" .. cursor)
+	end
 	return get("getCommentsByActivityId", "/activities/" .. id(args.id, "id") .. "/comments", query, "array")
 end
 

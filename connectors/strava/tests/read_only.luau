@@ -58,7 +58,7 @@ return {
 		-- Large integers inside strings, and long decimals, are left untouched.
 		responses = {{body = '[{"id":12345678987654321,"text":"PR \\"9007199254740993\\" at 12345678901234567 m","cursor":"abc123%20","activity_id":16532880011}]'}}
 		local comments = c.getCommentsByActivityId({id = "16532880011", page_size = 50, after_cursor = "abc123%20"})
-		last(API .. "/activities/16532880011/comments?page_size=50&after_cursor=abc123%2520")
+		last(API .. "/activities/16532880011/comments?page_size=50&after_cursor=abc123%20")
 		assert(comments[1].id == "12345678987654321" and comments[1].text == 'PR "9007199254740993" at 12345678901234567 m', comments[1].text)
 		responses = {{body = '{"id":1,"value":0.12345678901234567,"exponent":12345678901234567e2,"negative":-9007199254740993,"edge":9007199254740991}'}}
 		local mixed = c.getClubById({id = 1})
@@ -130,6 +130,7 @@ return {
 		rejects("session", c.getRouteAsGPX, {id = 1, path = "../x.gpx"})
 		rejects("session", c.getRouteAsTCX, {id = 1, path = "/abs.tcx"})
 		rejects("takes one options object", c.getRouteById, 7)
+		rejects("after_cursor must be a comment's cursor", c.getCommentsByActivityId, {id = 1, after_cursor = "x&page_size=200"})
 		assert(#responses == 0)
 	end,
 }
