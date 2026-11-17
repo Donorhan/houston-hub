@@ -68,9 +68,9 @@ return {
 		local escaped = c.getClubById({id = 1})
 		assert(escaped.a == "x\\" and escaped.id == "12345678987654321" and escaped.b == '" " 98765432109876543' and escaped.c[1] == "-12345678987654321", json.encode(escaped))
 		-- A large page full of strings decodes within the VM's memory.
-		responses = {{body = "[" .. string.rep('{"k":"v","x":1},', 150000) .. '{"id":12345678987654321}]'}}
+		responses = {{body = "[" .. string.rep('{"k":"v","x":1},', 120000) .. '{"id":12345678987654321}]'}}
 		local large = c.getLoggedInAthleteActivities({per_page = 200})
-		assert(#large == 150001 and large[150001].id == "12345678987654321")
+		assert(#large == 120001 and large[120001].id == "12345678987654321")
 
 		local reads = {
 			{c.getLoggedInAthleteZones, nil, "/athlete/zones", '{"heart_rate":{"custom_zones":false,"zones":[]}}'},

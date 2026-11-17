@@ -129,7 +129,7 @@ local LONG_DIGITS = "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d+"
 local function decode(raw: string): any
 	if not string.find(raw, LONG_DIGITS) then return json.decode(raw) end
 	local splices: {number} = {}
-	local cursor, inString = 1, false
+	local inString = false
 	local special = string.find(raw, '[\\"]')
 	local at = 1
 	while true do
@@ -137,13 +137,9 @@ local function decode(raw: string): any
 		if not start or not finish then break end
 		while special and special < start do
 			local position: number = special
-			if string.byte(raw, position) == BACKSLASH then
-				cursor = position + 2
-			else
-				inString = not inString
-				cursor = position + 1
-			end
-			special = string.find(raw, '[\\"]', cursor)
+			local escape = string.byte(raw, position) == BACKSLASH
+			if not escape then inString = not inString end
+			special = string.find(raw, '[\\"]', position + (if escape then 2 else 1))
 		end
 		if not inString then
 			local first = if string.sub(raw, start - 1, start - 1) == "-" then start - 1 else start
