@@ -42,11 +42,11 @@ return {
 		-- The 15-minute limit is retryable after the quarter hour; the daily one is not.
 		upstream(429, '{"message":"Rate Limit Exceeded","errors":[{"resource":"Application","field":"rate limit","code":"exceeded"}]}',
 			{["x-ratelimit-limit"] = {"200,2000"}, ["x-ratelimit-usage"] = {"214,640"}, ["x-readratelimit-limit"] = {"100,1000"}, ["x-readratelimit-usage"] = {"101,320"}},
-			c.getLoggedInAthlete, nil, {"Strava HTTP 429: Rate Limit Exceeded", "requests 214/200 in 15 minutes, 640/2000 today", "reads 101/100 in 15 minutes, 320/1000 today",
+			c.getLoggedInAthlete, nil, {"Strava HTTP 429: Rate Limit Exceeded", "requests 214/200 in 15 minutes, 640/2000 today", "non-upload requests 101/100 in 15 minutes, 320/1000 today",
 				"the 15-minute limit resets on the quarter hour", '"retryable":true'})
 		upstream(429, '{"message":"Rate Limit Exceeded"}', {["x-ratelimit-limit"] = {"200,2000"}, ["x-ratelimit-usage"] = {"12,1990"},
 			["x-readratelimit-limit"] = {"100,1000"}, ["x-readratelimit-usage"] = {"10,1000"}},
-			c.getLoggedInAthlete, nil, {"reads 10/100 in 15 minutes, 1000/1000 today", "the daily limit resets at midnight UTC", '"retryable":false'})
+			c.getLoggedInAthlete, nil, {"non-upload requests 10/100 in 15 minutes, 1000/1000 today", "the daily limit resets at midnight UTC", '"retryable":false'})
 		upstream(429, "", {["x-ratelimit-limit"] = {"bogus"}}, c.getLoggedInAthlete, nil, {"Strava HTTP 429", '"retryable":true'}, {"today"})
 
 		-- Server errors are retryable for reads and updates, never for creates that may have applied.

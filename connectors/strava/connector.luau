@@ -186,7 +186,7 @@ local function fail(operation: string, response: HttpResponse, idempotent: boole
 	local daily = false
 	if status == 429 then
 		local overall, overallDaily = usage(response.headers, "ratelimit", "requests")
-		local reads, readsDaily = usage(response.headers, "readratelimit", "reads")
+		local reads, readsDaily = usage(response.headers, "readratelimit", "non-upload requests")
 		if overall then message ..= "; " .. overall end
 		if reads then message ..= "; " .. reads end
 		daily = overallDaily or readsDaily
@@ -268,10 +268,11 @@ Lists return one page as an array: page starts at 1 and per_page is 1 to 200 (St
 activities since 1 January 2026 (epoch seconds):
 local page = strava.getLoggedInAthleteActivities({after = 1767225600, per_page = 200, page = 1})
 
-Rate limits belong to Houston's Strava app and are shared by every athlete who connects it. Strava's
-defaults are 100 reads per 15 minutes and 1,000 per day, within 200 requests per 15 minutes and
-2,000 per day in all. Prefer per_page = 200 and summary lists over loops of single reads, and
-fetch only the streams needed. A 429 error reports the usage and when the limit resets.
+Rate limits belong to Houston's Strava app and are shared by every athlete who connects it: an
+overall limit and a lower one for every call except createActivity and createUpload, each per 15
+minutes (reset on the quarter hour) and per day (reset at midnight UTC). Prefer per_page = 200 and
+summary lists over loops of single reads, and fetch only the streams needed. A 429 error reports
+the current usage and limits.
 
 Errors read 'Strava HTTP <status>: <message> (<resource> <field> <code>)'. 404 means the record
 does not exist or is not visible to the athlete. A missing permission (field
@@ -321,7 +322,7 @@ end
 
 help.functions.getLoggedInAthleteZones = {
 	description = [[The athlete's heart rate and power zones: {heart_rate = {custom_zones, zones = {{min, max}}},
-power = {zones}}. Power zones need a Strava subscription.]],
+power = {zones}}.]],
 	inputSchema = {type = "object", additionalProperties = false, examples = {{}}},
 	annotations = READ,
 }
@@ -501,7 +502,8 @@ end
 
 help.functions.getRoutesByAthleteId = {
 	description = [[One page of the connected athlete's routes (id is getLoggedInAthlete().id): an array of {id, id_str,
-name, description, type (1 ride, 2 run), sub_type, distance, elevation_gain, estimated_moving_time,
+name, description, type (1 Ride, 2 Run, 3 Walk, 4 Hike, 5 Trail Run, 6 Gravel Ride, 7 Mountain
+Bike Ride), sub_type (1 Road, 2 MTB, 3 Gravel, 4 Trail, 5 Mixed), distance, elevation_gain, estimated_moving_time,
 private, starred, map = {summary_polyline}, created_at, ...}.]],
 	inputSchema = {type = "object", properties = {id = ID, page = PAGE, per_page = PER_PAGE}, required = {"id"},
 		additionalProperties = false, examples = {{id = 134815, per_page = 200}}},
@@ -599,8 +601,8 @@ end
 help.functions.getEffortsBySegmentId = {
 	description = [[The athlete's efforts on one segment, as an array of {id, activity = {id}, elapsed_time, moving_time,
 start_date, start_date_local, distance, pr_rank, average_heartrate?, average_watts?, ...}.
-start_date_local and end_date_local (ISO 8601) bound the efforts' start. Needs a Strava
-subscription.]],
+start_date_local and end_date_local (ISO 8601) bound the efforts' start. There is no page option: for
+more than per_page efforts, query shorter date ranges. Needs a Strava subscription.]],
 	inputSchema = {
 		type = "object",
 		properties = {segment_id = ID, start_date_local = {type = "string", minLength = 1, description = "ISO 8601, such as 2026-01-01T00:00:00Z."},
