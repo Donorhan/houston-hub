@@ -77,7 +77,7 @@
     },
     "path_access": {
       "default": "{\n  \"/Finance\": \"read-only\",\n  \"/Incoming\": \"read-write\"\n}",
-      "description": "Unlisted folders are denied; the most specific rule wins. read-write folders also need Write for Files.",
+      "description": "Give each folder read-only or read-write. read-write folders also need Write for Files. Unlisted folders are denied, and the most specific rule wins.",
       "format": "json",
       "if": "{{ is config.folder_policy true }}",
       "label": "Folder access JSON",
