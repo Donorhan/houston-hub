@@ -1,38 +1,88 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Dropbox",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
-      "label": "Access",
-      "options": [
+  "access": [
+    {
+      "name": "files",
+      "label": "Files",
+      "description": "Find, read, download, upload and organize files and folders.",
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "none",
+          "label": "None"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Custom folder access",
-          "value": "custom"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "type": "string"
+      "default": "read"
+    },
+    {
+      "name": "sharing",
+      "label": "Sharing",
+      "description": "Shared links, shared folders and files, and their members.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Write"
+        }
+      ],
+      "default": "read"
+    },
+    {
+      "name": "file_requests",
+      "label": "File requests",
+      "description": "Requests that let others upload files to your Dropbox.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Write"
+        }
+      ],
+      "default": "read"
+    }
+  ],
+  "config": {
+    "folder_policy": {
+      "default": false,
+      "description": "Houston limits file operations to the folders you list; sharing, file requests and batch operations become unavailable.",
+      "label": "Limit to folders",
+      "order": 1,
+      "type": "boolean"
     },
     "path_access": {
       "default": "{\n  \"/Finance\": \"read-only\",\n  \"/Incoming\": \"read-write\"\n}",
-      "description": "Unlisted folders are denied; the most specific rule wins.",
+      "description": "Unlisted folders are denied; the most specific rule wins. read-write folders also need Write for Files.",
       "format": "json",
-      "if": "{{ is config.access \"custom\" }}",
+      "if": "{{ is config.folder_policy true }}",
       "label": "Folder access JSON",
       "multiline": true,
-      "order": 1,
+      "order": 2,
       "required": true,
       "type": "string"
     }
@@ -63,25 +113,44 @@
       "scopes": [
         {
           "values": [
-            "account_info.read",
+            "account_info.read"
+          ]
+        },
+        {
+          "if": "{{ allows access.files \"read\" }}",
+          "values": [
             "files.metadata.read",
-            "files.content.read",
-            "sharing.read",
+            "files.content.read"
+          ]
+        },
+        {
+          "if": "{{ allows access.sharing \"read\" }}",
+          "values": [
+            "sharing.read"
+          ]
+        },
+        {
+          "if": "{{ allows access.file_requests \"read\" }}",
+          "values": [
             "file_requests.read"
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ allows access.files \"write\" }}",
           "values": [
-            "files.content.write",
-            "sharing.write",
-            "file_requests.write"
+            "files.content.write"
           ]
         },
         {
-          "if": "{{ is config.access \"custom\" }}",
+          "if": "{{ allows access.sharing \"write\" }}",
           "values": [
-            "files.content.write"
+            "sharing.write"
+          ]
+        },
+        {
+          "if": "{{ allows access.file_requests \"write\" }}",
+          "values": [
+            "file_requests.write"
           ]
         }
       ],

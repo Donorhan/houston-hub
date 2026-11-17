@@ -2,7 +2,7 @@
 type Options = {[string]: any}
 type Endpoint = {
 	method: string, path: string, query: {string}?, required: {string}?, body: (boolean | string)?, parts: {string}?,
-	write: boolean?, scope: string?, about: string?, doc: string?,
+	access: string?, scope: string?, about: string?, doc: string?,
 }
 
 local API = "https://app.pennylane.com/api/external/v2"
@@ -43,171 +43,171 @@ local endpoints: {[string]: Endpoint} = {
 	getCustomerInvoices = {method = "GET", path = "/customer_invoices", query = join(LIST, {"include"}), scope = "customer_invoices",
 		about = "Invoices and credit notes. Filter: id, date, customer_id, billing_subscription_id, quote_id, invoice_number, draft, credit_note, external_reference, flow_id, category_id (in). Sort: id, date. include='invoice_lines' (experimental)."},
 	getCustomerInvoice = {method = "GET", path = "/customer_invoices/{id}", scope = "customer_invoices"},
-	postCustomerInvoices = {method = "POST", path = "/customer_invoices", required = {"date", "deadline", "customer_id", "invoice_lines"}, scope = "customer_invoices",
+	postCustomerInvoices = {method = "POST", path = "/customer_invoices", access = "data:write", required = {"date", "deadline", "customer_id", "invoice_lines"}, scope = "customer_invoices",
 		about = "invoice_lines={{label, quantity, raw_currency_unit_price='100.00', unit, vat_rate='FR_200'} or {product_id, quantity}}. draft=true keeps a draft; otherwise the invoice is finalized and numbered."},
-	createCustomerInvoiceFromQuote = {method = "POST", path = "/customer_invoices/create_from_quote", required = {"quote_id", "draft"}, scope = "customer_invoices"},
-	importCustomerInvoices = {method = "POST", path = "/customer_invoices/import", required = {"file_attachment_id", "date", "deadline", "customer_id", "currency_amount_before_tax", "currency_amount", "currency_tax", "invoice_lines"}, scope = "customer_invoices",
+	createCustomerInvoiceFromQuote = {method = "POST", path = "/customer_invoices/create_from_quote", access = "data:write", required = {"quote_id", "draft"}, scope = "customer_invoices"},
+	importCustomerInvoices = {method = "POST", path = "/customer_invoices/import", access = "data:write", required = {"file_attachment_id", "date", "deadline", "customer_id", "currency_amount_before_tax", "currency_amount", "currency_tax", "invoice_lines"}, scope = "customer_invoices",
 		about = "Records an invoice issued elsewhere from an uploaded PDF; amounts must add up."},
-	createCustomerInvoiceEInvoiceImport = {method = "POST", path = "/customer_invoices/e_invoices/imports", body = "multipart", parts = join({"send_to_pa"}, E_INVOICE), scope = "customer_invoices",
+	createCustomerInvoiceEInvoiceImport = {method = "POST", path = "/customer_invoices/e_invoices/imports", access = "data:write", body = "multipart", parts = join({"send_to_pa"}, E_INVOICE), scope = "customer_invoices",
 		about = "Imports a Factur-X PDF, UBL or CII file."},
-	updateCustomerInvoice = {method = "PUT", path = "/customer_invoices/{id}", scope = "customer_invoices"},
-	updateImportedCustomerInvoice = {method = "PUT", path = "/customer_invoices/{id}/update_imported", scope = "customer_invoices"},
-	deleteCustomerInvoices = {method = "DELETE", path = "/customer_invoices/{id}", body = false, scope = "customer_invoices", about = "Deletes a draft invoice."},
-	finalizeCustomerInvoice = {method = "PUT", path = "/customer_invoices/{id}/finalize", body = false, scope = "customer_invoices", about = "Numbers a draft; it can then no longer be deleted."},
-	markAsPaidCustomerInvoice = {method = "PUT", path = "/customer_invoices/{id}/mark_as_paid", body = false, scope = "customer_invoices"},
-	sendByEmailCustomerInvoice = {method = "POST", path = "/customer_invoices/{id}/send_by_email", scope = "customer_invoices",
+	updateCustomerInvoice = {method = "PUT", path = "/customer_invoices/{id}", access = "data:write", scope = "customer_invoices"},
+	updateImportedCustomerInvoice = {method = "PUT", path = "/customer_invoices/{id}/update_imported", access = "data:write", scope = "customer_invoices"},
+	deleteCustomerInvoices = {method = "DELETE", path = "/customer_invoices/{id}", access = "data:write", body = false, scope = "customer_invoices", about = "Deletes a draft invoice."},
+	finalizeCustomerInvoice = {method = "PUT", path = "/customer_invoices/{id}/finalize", access = "data:write", body = false, scope = "customer_invoices", about = "Numbers a draft; it can then no longer be deleted."},
+	markAsPaidCustomerInvoice = {method = "PUT", path = "/customer_invoices/{id}/mark_as_paid", access = "data:write", body = false, scope = "customer_invoices"},
+	sendByEmailCustomerInvoice = {method = "POST", path = "/customer_invoices/{id}/send_by_email", access = "data:write", scope = "customer_invoices",
 		about = "Body {recipients?, email_template_id?}. Emails the customer; HTTP 409 while the PDF is still being generated."},
-	sendToPaCustomerInvoice = {method = "POST", path = "/customer_invoices/{id}/send_to_pa", body = false, scope = "customer_invoices", about = "Sends the e-invoice to the customer through the e-invoicing platform."},
-	linkCreditNote = {method = "POST", path = "/customer_invoices/{id}/link_credit_note", required = {"credit_note_id"}, scope = "customer_invoices"},
+	sendToPaCustomerInvoice = {method = "POST", path = "/customer_invoices/{id}/send_to_pa", access = "data:write", body = false, scope = "customer_invoices", about = "Sends the e-invoice to the customer through the e-invoicing platform."},
+	linkCreditNote = {method = "POST", path = "/customer_invoices/{id}/link_credit_note", access = "data:write", required = {"credit_note_id"}, scope = "customer_invoices"},
 	getCustomerInvoiceInvoiceLines = {method = "GET", path = "/customer_invoices/{customer_invoice_id}/invoice_lines", query = SORTED, scope = "customer_invoices", about = "Sort: id, rank."},
 	getCustomerInvoiceInvoiceLineSections = {method = "GET", path = "/customer_invoices/{customer_invoice_id}/invoice_line_sections", query = SORTED, scope = "customer_invoices"},
 	getCustomerInvoicePayments = {method = "GET", path = "/customer_invoices/{customer_invoice_id}/payments", query = SORTED, scope = "customer_invoices"},
 	getCustomerInvoiceCustomHeaderFields = {method = "GET", path = "/customer_invoices/{customer_invoice_id}/custom_header_fields", query = SORTED, scope = "customer_invoices"},
 	getCustomerInvoiceMatchedTransactions = {method = "GET", path = "/customer_invoices/{customer_invoice_id}/matched_transactions", query = SORTED, scope = "customer_invoices"},
-	postCustomerInvoiceMatchedTransactions = {method = "POST", path = "/customer_invoices/{customer_invoice_id}/matched_transactions", required = {"transaction_id"}, scope = "customer_invoices"},
-	deleteCustomerInvoiceMatchedTransactions = {method = "DELETE", path = "/customer_invoices/{customer_invoice_id}/matched_transactions/{id}", body = false, scope = "customer_invoices", about = "id is the transaction's."},
+	postCustomerInvoiceMatchedTransactions = {method = "POST", path = "/customer_invoices/{customer_invoice_id}/matched_transactions", access = "data:write", required = {"transaction_id"}, scope = "customer_invoices"},
+	deleteCustomerInvoiceMatchedTransactions = {method = "DELETE", path = "/customer_invoices/{customer_invoice_id}/matched_transactions/{id}", access = "data:write", body = false, scope = "customer_invoices", about = "id is the transaction's."},
 	getCustomerInvoiceAppendices = {method = "GET", path = "/customer_invoices/{customer_invoice_id}/appendices", query = PAGE, scope = "customer_invoices"},
-	postCustomerInvoiceAppendices = {method = "POST", path = "/customer_invoices/{customer_invoice_id}/appendices", body = "multipart", scope = "customer_invoices"},
+	postCustomerInvoiceAppendices = {method = "POST", path = "/customer_invoices/{customer_invoice_id}/appendices", access = "data:write", body = "multipart", scope = "customer_invoices"},
 	getCustomerInvoiceCategories = {method = "GET", path = "/customer_invoices/{customer_invoice_id}/categories", query = PAGE, scope = "customer_invoices"},
-	putCustomerInvoiceCategories = {method = "PUT", path = "/customer_invoices/{customer_invoice_id}/categories", body = "categories", scope = "customer_invoices"},
+	putCustomerInvoiceCategories = {method = "PUT", path = "/customer_invoices/{customer_invoice_id}/categories", access = "data:write", body = "categories", scope = "customer_invoices"},
 
 	listQuotes = {method = "GET", path = "/quotes", query = LIST, scope = "quotes", about = "Filter: id, customer_id, status (pending, accepted, denied, expired, invoiced)."},
 	getQuote = {method = "GET", path = "/quotes/{id}", scope = "quotes"},
-	postQuotes = {method = "POST", path = "/quotes", required = {"date", "deadline", "customer_id", "invoice_lines"}, scope = "quotes"},
-	updateQuote = {method = "PUT", path = "/quotes/{id}", scope = "quotes"},
-	updateStatusQuote = {method = "PUT", path = "/quotes/{id}/update_status", required = {"status"}, scope = "quotes"},
-	sendByEmailQuote = {method = "POST", path = "/quotes/{id}/send_by_email", scope = "quotes", about = "Body {recipients?, email_template_id?}. Emails the customer."},
+	postQuotes = {method = "POST", path = "/quotes", access = "data:write", required = {"date", "deadline", "customer_id", "invoice_lines"}, scope = "quotes"},
+	updateQuote = {method = "PUT", path = "/quotes/{id}", access = "data:write", scope = "quotes"},
+	updateStatusQuote = {method = "PUT", path = "/quotes/{id}/update_status", access = "data:write", required = {"status"}, scope = "quotes"},
+	sendByEmailQuote = {method = "POST", path = "/quotes/{id}/send_by_email", access = "data:write", scope = "quotes", about = "Body {recipients?, email_template_id?}. Emails the customer."},
 	getQuoteInvoiceLines = {method = "GET", path = "/quotes/{quote_id}/invoice_lines", query = SORTED, scope = "quotes"},
 	getQuoteInvoiceLineSections = {method = "GET", path = "/quotes/{quote_id}/invoice_line_sections", query = SORTED, scope = "quotes"},
 	getQuoteAppendices = {method = "GET", path = "/quotes/{quote_id}/appendices", query = PAGE, scope = "quotes"},
-	postQuoteAppendices = {method = "POST", path = "/quotes/{quote_id}/appendices", body = "multipart", scope = "quotes"},
+	postQuoteAppendices = {method = "POST", path = "/quotes/{quote_id}/appendices", access = "data:write", body = "multipart", scope = "quotes"},
 
 	listCommercialDocuments = {method = "GET", path = "/commercial_documents", query = LIST, scope = "commercial_documents",
 		about = "Pro formas, shipping and purchasing orders. Filter: id, customer_id, document_type."},
 	getCommercialDocument = {method = "GET", path = "/commercial_documents/{id}", scope = "commercial_documents"},
-	postCommercialDocuments = {method = "POST", path = "/commercial_documents", required = {"document_type", "date", "deadline", "customer_id", "invoice_lines"}, scope = "commercial_documents"},
-	updateCommercialDocument = {method = "PUT", path = "/commercial_documents/{id}", scope = "commercial_documents"},
-	sendByEmailCommercialDocument = {method = "POST", path = "/commercial_documents/{id}/send_by_email", scope = "commercial_documents", about = "Emails the customer."},
+	postCommercialDocuments = {method = "POST", path = "/commercial_documents", access = "data:write", required = {"document_type", "date", "deadline", "customer_id", "invoice_lines"}, scope = "commercial_documents"},
+	updateCommercialDocument = {method = "PUT", path = "/commercial_documents/{id}", access = "data:write", scope = "commercial_documents"},
+	sendByEmailCommercialDocument = {method = "POST", path = "/commercial_documents/{id}/send_by_email", access = "data:write", scope = "commercial_documents", about = "Emails the customer."},
 	getCommercialDocumentInvoiceLines = {method = "GET", path = "/commercial_documents/{commercial_document_id}/invoice_lines", query = SORTED, scope = "commercial_documents"},
 	getCommercialDocumentInvoiceLineSections = {method = "GET", path = "/commercial_documents/{commercial_document_id}/invoice_line_sections", query = SORTED, scope = "commercial_documents"},
 	getCommercialDocumentAppendices = {method = "GET", path = "/commercial_documents/{commercial_document_id}/appendices", query = PAGE, scope = "commercial_documents"},
-	postCommercialDocumentAppendices = {method = "POST", path = "/commercial_documents/{commercial_document_id}/appendices", body = "multipart", scope = "commercial_documents"},
+	postCommercialDocumentAppendices = {method = "POST", path = "/commercial_documents/{commercial_document_id}/appendices", access = "data:write", body = "multipart", scope = "commercial_documents"},
 
 	getBillingSubscriptions = {method = "GET", path = "/billing_subscriptions", query = LIST, scope = "billing_subscriptions", about = "Recurring invoices. Filter: id, start, customer_id, status."},
 	getBillingSubscription = {method = "GET", path = "/billing_subscriptions/{id}", scope = "billing_subscriptions"},
-	postBillingSubscriptions = {method = "POST", path = "/billing_subscriptions", required = {"start", "mode", "payment_conditions", "payment_method", "recurring_rule", "customer_id", "customer_invoice_data"}, scope = "billing_subscriptions"},
-	putBillingSubscriptions = {method = "PUT", path = "/billing_subscriptions/{id}", scope = "billing_subscriptions"},
+	postBillingSubscriptions = {method = "POST", path = "/billing_subscriptions", access = "data:write", required = {"start", "mode", "payment_conditions", "payment_method", "recurring_rule", "customer_id", "customer_invoice_data"}, scope = "billing_subscriptions"},
+	putBillingSubscriptions = {method = "PUT", path = "/billing_subscriptions/{id}", access = "data:write", scope = "billing_subscriptions"},
 	getBillingSubscriptionInvoiceLines = {method = "GET", path = "/billing_subscriptions/{billing_subscription_id}/invoice_lines", query = SORTED, scope = "billing_subscriptions"},
 	getBillingSubscriptionInvoiceLineSections = {method = "GET", path = "/billing_subscriptions/{billing_subscription_id}/invoice_line_sections", query = SORTED, scope = "billing_subscriptions"},
 
 	getCustomers = {method = "GET", path = "/customers", query = LIST, scope = "customers",
 		about = "Companies and individuals. Filter: id, customer_type, ledger_account_id, name (start_with, eq), external_reference, reg_no, emails (in)."},
 	getCustomer = {method = "GET", path = "/customers/{id}", scope = "customers"},
-	postCustomer = {method = "POST", path = "/customers", scope = "customers", about = "Body {customer_type='company', name, billing_address={address, postal_code, city, country_alpha2}, ...} or {customer_type='individual', first_name, last_name, billing_address, ...}."},
-	putCustomer = {method = "PUT", path = "/customers/{id}", scope = "customers"},
+	postCustomer = {method = "POST", path = "/customers", access = "data:write", scope = "customers", about = "Body {customer_type='company', name, billing_address={address, postal_code, city, country_alpha2}, ...} or {customer_type='individual', first_name, last_name, billing_address, ...}."},
+	putCustomer = {method = "PUT", path = "/customers/{id}", access = "data:write", scope = "customers"},
 	getCompanyCustomer = {method = "GET", path = "/company_customers/{id}", scope = "customers"},
-	postCompanyCustomer = {method = "POST", path = "/company_customers", required = {"name", "billing_address"}, scope = "customers"},
-	putCompanyCustomer = {method = "PUT", path = "/company_customers/{id}", scope = "customers"},
+	postCompanyCustomer = {method = "POST", path = "/company_customers", access = "data:write", required = {"name", "billing_address"}, scope = "customers"},
+	putCompanyCustomer = {method = "PUT", path = "/company_customers/{id}", access = "data:write", scope = "customers"},
 	getIndividualCustomer = {method = "GET", path = "/individual_customers/{id}", scope = "customers"},
-	postIndividualCustomer = {method = "POST", path = "/individual_customers", required = {"first_name", "last_name", "billing_address"}, scope = "customers"},
-	putIndividualCustomer = {method = "PUT", path = "/individual_customers/{id}", scope = "customers"},
+	postIndividualCustomer = {method = "POST", path = "/individual_customers", access = "data:write", required = {"first_name", "last_name", "billing_address"}, scope = "customers"},
+	putIndividualCustomer = {method = "PUT", path = "/individual_customers/{id}", access = "data:write", scope = "customers"},
 	getCustomerContacts = {method = "GET", path = "/customers/{customer_id}/contacts", query = SORTED, scope = "customers"},
 	getCustomerContact = {method = "GET", path = "/customers/{customer_id}/contacts/{id}", scope = "customers"},
-	postCustomerContact = {method = "POST", path = "/customers/{customer_id}/contacts", required = {"first_name", "last_name", "email"}, scope = "customers"},
-	putCustomerContact = {method = "PUT", path = "/customers/{customer_id}/contacts/{id}", scope = "customers"},
-	deleteCustomerContact = {method = "DELETE", path = "/customers/{customer_id}/contacts/{id}", body = false, scope = "customers"},
+	postCustomerContact = {method = "POST", path = "/customers/{customer_id}/contacts", access = "data:write", required = {"first_name", "last_name", "email"}, scope = "customers"},
+	putCustomerContact = {method = "PUT", path = "/customers/{customer_id}/contacts/{id}", access = "data:write", scope = "customers"},
+	deleteCustomerContact = {method = "DELETE", path = "/customers/{customer_id}/contacts/{id}", access = "data:write", body = false, scope = "customers"},
 	getCustomerElectronicBillingAddresses = {method = "GET", path = "/customers/{customer_id}/electronic_billing_addresses", scope = "customers"},
 	getCustomerCategories = {method = "GET", path = "/customers/{customer_id}/categories", query = PAGE, scope = "customers"},
-	putCustomerCategories = {method = "PUT", path = "/customers/{customer_id}/categories", body = "categories", scope = "customers"},
+	putCustomerCategories = {method = "PUT", path = "/customers/{customer_id}/categories", access = "data:write", body = "categories", scope = "customers"},
 
 	getSuppliers = {method = "GET", path = "/suppliers", query = LIST, scope = "suppliers", about = "Filter: id, ledger_account_id, name (start_with), external_reference, emails (in)."},
 	getSupplier = {method = "GET", path = "/suppliers/{id}", scope = "suppliers"},
-	postSupplier = {method = "POST", path = "/suppliers", required = {"name"}, scope = "suppliers"},
-	putSupplier = {method = "PUT", path = "/suppliers/{id}", scope = "suppliers"},
+	postSupplier = {method = "POST", path = "/suppliers", access = "data:write", required = {"name"}, scope = "suppliers"},
+	putSupplier = {method = "PUT", path = "/suppliers/{id}", access = "data:write", scope = "suppliers"},
 	getSupplierCategories = {method = "GET", path = "/suppliers/{supplier_id}/categories", query = PAGE, scope = "suppliers"},
-	putSupplierCategories = {method = "PUT", path = "/suppliers/{supplier_id}/categories", body = "categories", scope = "suppliers"},
+	putSupplierCategories = {method = "PUT", path = "/suppliers/{supplier_id}/categories", access = "data:write", body = "categories", scope = "suppliers"},
 
 	getSupplierInvoices = {method = "GET", path = "/supplier_invoices", query = LIST, scope = "supplier_invoices",
 		about = "Filter: id, supplier_id, invoice_number, date, category_id (in), external_reference, payment_status, flow_id, electronic_billing_address. Sort: id, date."},
 	getSupplierInvoice = {method = "GET", path = "/supplier_invoices/{id}", scope = "supplier_invoices"},
-	importSupplierInvoice = {method = "POST", path = "/supplier_invoices/import", required = {"file_attachment_id", "supplier_id", "date", "deadline", "currency_amount_before_tax", "currency_amount", "currency_tax", "invoice_lines"}, scope = "supplier_invoices",
+	importSupplierInvoice = {method = "POST", path = "/supplier_invoices/import", access = "data:write", required = {"file_attachment_id", "supplier_id", "date", "deadline", "currency_amount_before_tax", "currency_amount", "currency_tax", "invoice_lines"}, scope = "supplier_invoices",
 		about = "Creates a supplier invoice from an uploaded PDF; amounts must add up. HTTP 409 if the file was already imported."},
-	createSupplierInvoiceEInvoiceImport = {method = "POST", path = "/supplier_invoices/e_invoices/imports", body = "multipart", parts = E_INVOICE, scope = "supplier_invoices",
+	createSupplierInvoiceEInvoiceImport = {method = "POST", path = "/supplier_invoices/e_invoices/imports", access = "data:write", body = "multipart", parts = E_INVOICE, scope = "supplier_invoices",
 		about = "Imports a Factur-X PDF, UBL or CII file."},
-	putSupplierInvoice = {method = "PUT", path = "/supplier_invoices/{id}", scope = "supplier_invoices"},
-	validateAccountingSupplierInvoice = {method = "PUT", path = "/supplier_invoices/{id}/validate_accounting", body = false, scope = "supplier_invoices"},
-	updateSupplierInvoicePaymentStatus = {method = "PUT", path = "/supplier_invoices/{supplier_invoice_id}/payment_status", required = {"payment_status"}, scope = "supplier_invoices"},
-	putSupplierInvoiceEInvoiceStatus = {method = "PUT", path = "/supplier_invoices/{supplier_invoice_id}/e_invoice_status", scope = "supplier_invoices", about = "Body {status='disputed' or 'refused', reason} or {status='approved'} for a received e-invoice."},
+	putSupplierInvoice = {method = "PUT", path = "/supplier_invoices/{id}", access = "data:write", scope = "supplier_invoices"},
+	validateAccountingSupplierInvoice = {method = "PUT", path = "/supplier_invoices/{id}/validate_accounting", access = "data:write", body = false, scope = "supplier_invoices"},
+	updateSupplierInvoicePaymentStatus = {method = "PUT", path = "/supplier_invoices/{supplier_invoice_id}/payment_status", access = "data:write", required = {"payment_status"}, scope = "supplier_invoices"},
+	putSupplierInvoiceEInvoiceStatus = {method = "PUT", path = "/supplier_invoices/{supplier_invoice_id}/e_invoice_status", access = "data:write", scope = "supplier_invoices", about = "Body {status='disputed' or 'refused', reason} or {status='approved'} for a received e-invoice."},
 	getSupplierInvoiceLines = {method = "GET", path = "/supplier_invoices/{supplier_invoice_id}/invoice_lines", query = SORTED, scope = "supplier_invoices"},
 	getSupplierInvoicePayments = {method = "GET", path = "/supplier_invoices/{supplier_invoice_id}/payments", query = SORTED, scope = "supplier_invoices"},
 	getSupplierInvoiceMatchedTransactions = {method = "GET", path = "/supplier_invoices/{supplier_invoice_id}/matched_transactions", query = SORTED, scope = "supplier_invoices"},
-	postSupplierInvoiceMatchedTransactions = {method = "POST", path = "/supplier_invoices/{supplier_invoice_id}/matched_transactions", required = {"transaction_id"}, scope = "supplier_invoices"},
-	deleteSupplierInvoiceMatchedTransactions = {method = "DELETE", path = "/supplier_invoices/{supplier_invoice_id}/matched_transactions/{id}", body = false, scope = "supplier_invoices", about = "id is the transaction's."},
-	postSupplierInvoiceLinkedPurchaseRequests = {method = "POST", path = "/supplier_invoices/{supplier_invoice_id}/linked_purchase_requests", required = {"purchase_request_id"}, scope = "supplier_invoices"},
+	postSupplierInvoiceMatchedTransactions = {method = "POST", path = "/supplier_invoices/{supplier_invoice_id}/matched_transactions", access = "data:write", required = {"transaction_id"}, scope = "supplier_invoices"},
+	deleteSupplierInvoiceMatchedTransactions = {method = "DELETE", path = "/supplier_invoices/{supplier_invoice_id}/matched_transactions/{id}", access = "data:write", body = false, scope = "supplier_invoices", about = "id is the transaction's."},
+	postSupplierInvoiceLinkedPurchaseRequests = {method = "POST", path = "/supplier_invoices/{supplier_invoice_id}/linked_purchase_requests", access = "data:write", required = {"purchase_request_id"}, scope = "supplier_invoices"},
 	getSupplierInvoiceCategories = {method = "GET", path = "/supplier_invoices/{supplier_invoice_id}/categories", query = PAGE, scope = "supplier_invoices"},
-	putSupplierInvoiceCategories = {method = "PUT", path = "/supplier_invoices/{supplier_invoice_id}/categories", body = "categories", scope = "supplier_invoices"},
+	putSupplierInvoiceCategories = {method = "PUT", path = "/supplier_invoices/{supplier_invoice_id}/categories", access = "data:write", body = "categories", scope = "supplier_invoices"},
 
 	getPurchaseRequests = {method = "GET", path = "/purchase_requests", query = LIST, scope = "purchase_requests", about = "Filter: id, reviewed_by_id, user_id, supplier_id."},
 	getPurchaseRequest = {method = "GET", path = "/purchase_requests/{id}", scope = "purchase_requests"},
-	createPurchaseRequestImport = {method = "POST", path = "/purchase_requests/imports", required = {"file_attachment_id", "reason", "supplier_id", "purchase_order_number", "currency_amount_before_tax", "currency_amount", "currency_tax", "delivery_address", "purchase_request_lines"}, scope = "purchase_requests",
+	createPurchaseRequestImport = {method = "POST", path = "/purchase_requests/imports", access = "data:write", required = {"file_attachment_id", "reason", "supplier_id", "purchase_order_number", "currency_amount_before_tax", "currency_amount", "currency_tax", "delivery_address", "purchase_request_lines"}, scope = "purchase_requests",
 		about = "Creates a purchase order from an uploaded file."},
 
 	getProducts = {method = "GET", path = "/products", query = LIST, scope = "products", about = "Filter: id, label, reference, external_reference."},
 	getProduct = {method = "GET", path = "/products/{id}", scope = "products"},
-	postProducts = {method = "POST", path = "/products", required = {"label", "price_before_tax", "vat_rate"}, scope = "products", doc = "postproducts-1"},
-	putProduct = {method = "PUT", path = "/products/{id}", scope = "products"},
+	postProducts = {method = "POST", path = "/products", access = "data:write", required = {"label", "price_before_tax", "vat_rate"}, scope = "products", doc = "postproducts-1"},
+	putProduct = {method = "PUT", path = "/products/{id}", access = "data:write", scope = "products"},
 
 	getBankAccounts = {method = "GET", path = "/bank_accounts", query = SORTED, scope = "bank_accounts"},
 	getBankAccount = {method = "GET", path = "/bank_accounts/{id}", scope = "bank_accounts"},
-	postBankAccount = {method = "POST", path = "/bank_accounts", required = {"name"}, scope = "bank_accounts"},
+	postBankAccount = {method = "POST", path = "/bank_accounts", access = "data:write", required = {"name"}, scope = "bank_accounts"},
 	getBankEstablishments = {method = "GET", path = "/bank_establishments", query = LIST, scope = "bank_establishments", about = "Filter: id."},
 	getTransactions = {method = "GET", path = "/transactions", query = LIST, scope = "transactions", about = "Bank transactions. Filter: id, bank_account_id, journal_id, date."},
 	getTransaction = {method = "GET", path = "/transactions/{id}", scope = "transactions"},
-	createTransaction = {method = "POST", path = "/transactions", required = {"bank_account_id", "label", "date", "amount"}, scope = "transactions"},
-	updateTransaction = {method = "PUT", path = "/transactions/{id}", scope = "transactions"},
+	createTransaction = {method = "POST", path = "/transactions", access = "data:write", required = {"bank_account_id", "label", "date", "amount"}, scope = "transactions"},
+	updateTransaction = {method = "PUT", path = "/transactions/{id}", access = "data:write", scope = "transactions"},
 	getTransactionMatchedInvoices = {method = "GET", path = "/transactions/{transaction_id}/matched_invoices", query = PAGE, scope = "transactions"},
 	getTransactionCategories = {method = "GET", path = "/transactions/{transaction_id}/categories", query = PAGE, scope = "transactions"},
-	putTransactionCategories = {method = "PUT", path = "/transactions/{transaction_id}/categories", body = "categories", scope = "transactions"},
+	putTransactionCategories = {method = "PUT", path = "/transactions/{transaction_id}/categories", access = "data:write", body = "categories", scope = "transactions"},
 
 	getCategoryGroups = {method = "GET", path = "/category_groups", query = PAGE, scope = "categories", about = "Analytical axes."},
 	getCategoryGroup = {method = "GET", path = "/category_groups/{id}", scope = "categories"},
-	postCategoryGroups = {method = "POST", path = "/category_groups", required = {"label"}, scope = "categories"},
-	putCategoryGroup = {method = "PUT", path = "/category_groups/{id}", required = {"label"}, scope = "categories"},
+	postCategoryGroups = {method = "POST", path = "/category_groups", access = "data:write", required = {"label"}, scope = "categories"},
+	putCategoryGroup = {method = "PUT", path = "/category_groups/{id}", access = "data:write", required = {"label"}, scope = "categories"},
 	getCategoryGroupCategories = {method = "GET", path = "/category_groups/{category_group_id}/categories", query = PAGE, scope = "categories"},
 	getCategories = {method = "GET", path = "/categories", query = LIST, scope = "categories", about = "Analytical categories. Filter: id, label, category_group_id, analytical_code."},
 	getCategory = {method = "GET", path = "/categories/{id}", scope = "categories"},
-	postCategories = {method = "POST", path = "/categories", required = {"label", "category_group_id"}, scope = "categories"},
-	updateCategory = {method = "PUT", path = "/categories/{id}", scope = "categories"},
+	postCategories = {method = "POST", path = "/categories", access = "data:write", required = {"label", "category_group_id"}, scope = "categories"},
+	updateCategory = {method = "PUT", path = "/categories/{id}", access = "data:write", scope = "categories"},
 
 	getJournals = {method = "GET", path = "/journals", query = LIST, scope = "journals", about = "Filter: type."},
 	getJournal = {method = "GET", path = "/journals/{id}", scope = "journals"},
-	postJournals = {method = "POST", path = "/journals", required = {"code", "label"}, scope = "journals"},
+	postJournals = {method = "POST", path = "/journals", access = "data:write", required = {"code", "label"}, scope = "journals"},
 	getLedgerAccounts = {method = "GET", path = "/ledger_accounts", query = LIST, scope = "ledger_accounts", about = "Chart of accounts; limit up to 1000. Filter: id, number (start_with, eq, in), enabled."},
 	getLedgerAccount = {method = "GET", path = "/ledger_accounts/{id}", scope = "ledger_accounts"},
-	postLedgerAccounts = {method = "POST", path = "/ledger_accounts", required = {"number", "label"}, scope = "ledger_accounts"},
-	updateLedgerAccount = {method = "PUT", path = "/ledger_accounts/{id}", scope = "ledger_accounts"},
+	postLedgerAccounts = {method = "POST", path = "/ledger_accounts", access = "data:write", required = {"number", "label"}, scope = "ledger_accounts"},
+	updateLedgerAccount = {method = "PUT", path = "/ledger_accounts/{id}", access = "data:write", scope = "ledger_accounts"},
 	getLedgerEntries = {method = "GET", path = "/ledger_entries", query = LIST, scope = "ledger_entries", about = "Journal entries, drafts included. Filter: id, date, journal_id. Sort: id, date."},
 	getLedgerEntry = {method = "GET", path = "/ledger_entries/{id}", scope = "ledger_entries"},
-	postLedgerEntries = {method = "POST", path = "/ledger_entries", required = {"date", "label", "journal_id", "ledger_entry_lines"}, scope = "ledger_entries",
+	postLedgerEntries = {method = "POST", path = "/ledger_entries", access = "data:write", required = {"date", "label", "journal_id", "ledger_entry_lines"}, scope = "ledger_entries",
 		about = "ledger_entry_lines={{ledger_account_id, debit='100.00', credit='0.00', label?}, ...} must balance; file_attachment_id? attaches an upload."},
-	putLedgerEntries = {method = "PUT", path = "/ledger_entries/{id}", scope = "ledger_entries"},
+	putLedgerEntries = {method = "PUT", path = "/ledger_entries/{id}", access = "data:write", scope = "ledger_entries"},
 	getLedgerEntriesLedgerEntryLines = {method = "GET", path = "/ledger_entries/{ledger_entry_id}/ledger_entry_lines", query = LIST, scope = "ledger_entries", about = "Filter: ledger_account_id."},
 	getLedgerEntriesDmsFiles = {method = "GET", path = "/ledger_entries/{ledger_entry_id}/dms_files", query = PAGE, scope = "ledger_entries", about = "Documents attached to the entry."},
 	getLedgerEntryLines = {method = "GET", path = "/ledger_entry_lines", query = LIST, scope = "ledger_entries", about = "Filter: id, journal_id, ledger_account_id, ledger_entry_id, date. Sort: id, date."},
 	getLedgerEntryLine = {method = "GET", path = "/ledger_entry_lines/{id}", scope = "ledger_entries"},
 	getLedgerEntryLinesLetteredLedgerEntryLines = {method = "GET", path = "/ledger_entry_lines/{ledger_entry_line_id}/lettered_ledger_entry_lines", query = SORTED, scope = "ledger_entries"},
-	postLedgerEntryLinesLetter = {method = "POST", path = "/ledger_entry_lines/lettering", required = {"unbalanced_lettering_strategy", "ledger_entry_lines"}, scope = "ledger_entries",
+	postLedgerEntryLinesLetter = {method = "POST", path = "/ledger_entry_lines/lettering", access = "data:write", required = {"unbalanced_lettering_strategy", "ledger_entry_lines"}, scope = "ledger_entries",
 		about = "Reconciles (letters) lines: ledger_entry_lines={{id}, ...}, unbalanced_lettering_strategy 'none' or 'partial'."},
-	deleteLedgerEntryLinesUnletter = {method = "DELETE", path = "/ledger_entry_lines/lettering", required = {"unbalanced_lettering_strategy", "ledger_entry_lines"}, scope = "ledger_entries"},
+	deleteLedgerEntryLinesUnletter = {method = "DELETE", path = "/ledger_entry_lines/lettering", access = "data:write", required = {"unbalanced_lettering_strategy", "ledger_entry_lines"}, scope = "ledger_entries"},
 	getLedgerEntryLinesCategories = {method = "GET", path = "/ledger_entry_lines/{ledger_entry_line_id}/categories", query = SORTED, scope = "ledger_entries"},
-	putLedgerEntryLinesCategories = {method = "PUT", path = "/ledger_entry_lines/{ledger_entry_line_id}/categories", body = "categories", scope = "ledger_entries"},
+	putLedgerEntryLinesCategories = {method = "PUT", path = "/ledger_entry_lines/{ledger_entry_line_id}/categories", access = "data:write", body = "categories", scope = "ledger_entries"},
 
-	exportFec = {method = "POST", path = "/exports/fecs", write = false, required = {"period_start", "period_end"}, scope = "exports:fec",
+	exportFec = {method = "POST", path = "/exports/fecs", required = {"period_start", "period_end"}, scope = "exports:fec",
 		about = "Starts a FEC (French audit file) export; poll getFecExport({id}) until status is ready and file_url is set."},
 	getFecExport = {method = "GET", path = "/exports/fecs/{id}", scope = "exports:fec"},
-	exportGeneralLedger = {method = "POST", path = "/exports/general_ledgers", write = false, required = {"period_start", "period_end"}, scope = "exports:gl", about = "Starts an xlsx general ledger export."},
+	exportGeneralLedger = {method = "POST", path = "/exports/general_ledgers", required = {"period_start", "period_end"}, scope = "exports:gl", about = "Starts an xlsx general ledger export."},
 	getGeneralLedgerExport = {method = "GET", path = "/exports/general_ledgers/{id}", scope = "exports:gl"},
-	exportAnalyticalGeneralLedger = {method = "POST", path = "/exports/analytical_general_ledgers", write = false, required = {"period_start", "period_end"}, scope = "exports:agl",
+	exportAnalyticalGeneralLedger = {method = "POST", path = "/exports/analytical_general_ledgers", required = {"period_start", "period_end"}, scope = "exports:agl",
 		about = "Starts an xlsx analytical general ledger export."},
 	getAnalyticalGeneralLedgerExport = {method = "GET", path = "/exports/analytical_general_ledgers/{id}", scope = "exports:agl"},
 
@@ -225,28 +225,28 @@ local endpoints: {[string]: Endpoint} = {
 
 	getSepaMandates = {method = "GET", path = "/sepa_mandates", query = LIST, scope = "customer_mandates", about = "Filter: id, customer_id."},
 	getSepaMandate = {method = "GET", path = "/sepa_mandates/{id}", scope = "customer_mandates"},
-	postSepaMandates = {method = "POST", path = "/sepa_mandates", required = {"bic", "iban", "signed_at", "identifier", "customer_id"}, scope = "customer_mandates"},
-	putSepaMandate = {method = "PUT", path = "/sepa_mandates/{id}", scope = "customer_mandates"},
-	deleteSepaMandate = {method = "DELETE", path = "/sepa_mandates/{id}", body = false, scope = "customer_mandates"},
+	postSepaMandates = {method = "POST", path = "/sepa_mandates", access = "data:write", required = {"bic", "iban", "signed_at", "identifier", "customer_id"}, scope = "customer_mandates"},
+	putSepaMandate = {method = "PUT", path = "/sepa_mandates/{id}", access = "data:write", scope = "customer_mandates"},
+	deleteSepaMandate = {method = "DELETE", path = "/sepa_mandates/{id}", access = "data:write", body = false, scope = "customer_mandates"},
 	getGocardlessMandates = {method = "GET", path = "/gocardless_mandates", query = LIST, scope = "customer_mandates", about = "Filter: id, customer_id, external_reference."},
 	getGocardlessMandate = {method = "GET", path = "/gocardless_mandates/{id}", scope = "customer_mandates"},
-	postGocardlessMandateMailRequests = {method = "POST", path = "/gocardless_mandates/mail_requests", required = {"customer_id", "email"}, scope = "customer_mandates", about = "Emails the customer a mandate request."},
-	postGocardlessMandateAssociations = {method = "POST", path = "/gocardless_mandates/{gocardless_mandate_id}/associations", required = {"customer_id"}, scope = "customer_mandates"},
-	postGocardlessMandateCancellations = {method = "POST", path = "/gocardless_mandates/{gocardless_mandate_id}/cancellations", body = false, scope = "customer_mandates"},
+	postGocardlessMandateMailRequests = {method = "POST", path = "/gocardless_mandates/mail_requests", access = "data:write", required = {"customer_id", "email"}, scope = "customer_mandates", about = "Emails the customer a mandate request."},
+	postGocardlessMandateAssociations = {method = "POST", path = "/gocardless_mandates/{gocardless_mandate_id}/associations", access = "data:write", required = {"customer_id"}, scope = "customer_mandates"},
+	postGocardlessMandateCancellations = {method = "POST", path = "/gocardless_mandates/{gocardless_mandate_id}/cancellations", access = "data:write", body = false, scope = "customer_mandates"},
 	getProAccountMandates = {method = "GET", path = "/pro_account/mandates", query = LIST, scope = "customer_mandates", about = "Filter: status, customer_id."},
-	postProAccountMandateMailRequests = {method = "POST", path = "/pro_account/mandate_requests", required = {"customer_id"}, scope = "customer_mandates", about = "Emails the customer a mandate request."},
+	postProAccountMandateMailRequests = {method = "POST", path = "/pro_account/mandate_requests", access = "data:write", required = {"customer_id"}, scope = "customer_mandates", about = "Emails the customer a mandate request."},
 	getProAccountMandateMigrations = {method = "GET", path = "/pro_account/mandate_migrations", query = LIST, scope = "customer_mandates", about = "Filter: customer_id, status."},
-	postProAccountMandateMigrations = {method = "POST", path = "/pro_account/mandate_migrations", required = {"mandate_type", "mandate_id"}, scope = "customer_mandates"},
+	postProAccountMandateMigrations = {method = "POST", path = "/pro_account/mandate_migrations", access = "data:write", required = {"mandate_type", "mandate_id"}, scope = "customer_mandates"},
 
-	postFileAttachments = {method = "POST", path = "/file_attachments", body = "multipart", scope = "file_attachments",
+	postFileAttachments = {method = "POST", path = "/file_attachments", access = "data:write", body = "multipart", scope = "file_attachments",
 		about = "Returns {id, url, filename}; pass id as file_attachment_id to the import functions or postLedgerEntries."},
 
 	getWebhookSubscriptions = {method = "GET", path = "/webhook_subscriptions", query = PAGE, scope = WEBHOOKS, about = "The token's webhooks, without their secrets."},
 	getWebhookSubscription = {method = "GET", path = "/webhook_subscriptions/{id}", scope = WEBHOOKS},
-	postWebhookSubscriptions = {method = "POST", path = "/webhook_subscriptions", required = {"callback_url", "events"}, scope = WEBHOOKS,
+	postWebhookSubscriptions = {method = "POST", path = "/webhook_subscriptions", access = "data:write", required = {"callback_url", "events"}, scope = WEBHOOKS,
 		about = "Pennylane then posts the events to callback_url, an HTTPS receiver you control. The result's secret signs deliveries and is shown only once."},
-	putWebhookSubscription = {method = "PUT", path = "/webhook_subscriptions/{id}", scope = WEBHOOKS, about = "Body {callback_url?, events?, enabled?}; enabled=true restarts a disabled webhook."},
-	deleteWebhookSubscription = {method = "DELETE", path = "/webhook_subscriptions/{id}", body = false, scope = WEBHOOKS},
+	putWebhookSubscription = {method = "PUT", path = "/webhook_subscriptions/{id}", access = "data:write", scope = WEBHOOKS, about = "Body {callback_url?, events?, enabled?}; enabled=true restarts a disabled webhook."},
+	deleteWebhookSubscription = {method = "DELETE", path = "/webhook_subscriptions/{id}", access = "data:write", body = false, scope = WEBHOOKS},
 }
 
 local NULL = json.decode("null")
@@ -256,11 +256,6 @@ local CONTENT_TYPES = table.freeze({
 	pdf = "application/pdf", png = "image/png", jpg = "image/jpeg", jpeg = "image/jpeg", tif = "image/tiff",
 	tiff = "image/tiff", bmp = "image/bmp", gif = "image/gif", xml = "application/xml",
 })
-
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
 
 local function hasBody(endpoint: Endpoint): boolean
 	return endpoint.method ~= "GET" and endpoint.body ~= false
@@ -315,7 +310,7 @@ end
 
 local function fail(name: string, endpoint: Endpoint, response: HttpResponse, message: string): never
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
-		retryable = response.statusCode == 429 or (response.statusCode >= 500 and not writes(endpoint)), message = message})
+		retryable = response.statusCode == 429 or (response.statusCode >= 500 and not endpoint.access), message = message})
 end
 
 -- Pennylane errors are {status, error}, or {message, code?, field?, payload?} for invalid
@@ -336,7 +331,7 @@ local function failStatus(name: string, endpoint: Endpoint, response: HttpRespon
 	if response.statusCode == 403 and endpoint.scope then
 		local scopes: {string} = {}
 		for scope in string.gmatch(endpoint.scope :: string, "[^|]+") do
-			table.insert(scopes, if string.find(scope, ":", 1, true) then scope elseif writes(endpoint) then scope .. ":all" else scope .. ":readonly or " .. scope .. ":all")
+			table.insert(scopes, if string.find(scope, ":", 1, true) then scope elseif endpoint.access then scope .. ":all" else scope .. ":readonly or " .. scope .. ":all")
 		end
 		message ..= ". The token needs the " .. table.concat(scopes, " or ") .. " scope"
 	end
@@ -468,7 +463,7 @@ end
 
 local exports: {[string]: any} = {}
 for name, endpoint in endpoints do
-	if not writes(endpoint) or config.access == "read-write" then
+	if not endpoint.access or houston.allows(endpoint.access) then
 		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 	end
 end
@@ -484,7 +479,7 @@ exports.help = function(): string
 		"Examples: pennylane.getCustomerInvoices({filter={{field='date', operator='gteq', value='2026-01-01'}, {field='customer_id', operator='in', value={12, 34}}}, sort='-date', limit=50}); pennylane.getCustomerInvoiceInvoiceLines({customer_invoice_id=42}); pennylane.getTrialBalance({period_start='2026-01-01', period_end='2026-03-31'}); local job = pennylane.exportFec({period_start='2025-01-01', period_end='2025-12-31'}), then pennylane.getFecExport({id=job.id}) until file_url is set.",
 		"Errors report the HTTP status with Pennylane's message, code and field. A 403 names the token scope the call needs; journal and ledger functions also answer 403 for an invalid token, which getMe tells apart. Pennylane allows 25 requests per 5 seconds per token; a 429 includes Retry-After.",
 	}
-	if config.access == "read-write" then
+	if houston.allows("data:write") then
 		table.insert(lines, "Files: postFileAttachments({file='invoice.pdf'}) uploads a session file (PDF, PNG, JPEG, TIFF, BMP or GIF up to 100 MB; filename? and content_type? override its name and type, which otherwise come from the path) and returns its id for file_attachment_id. Appendices and e-invoice imports take file the same way; invoice_options and override_invoice_lines are tables sent as JSON. put...Categories functions take categories={{id=7, weight='1'}} and replace the record's analytical categories.")
 		table.insert(lines, "Writes change the company's accounting: sendByEmail... and mandate requests email customers, sendToPaCustomerInvoice transmits an e-invoice, finalized invoices can no longer be deleted, and webhooks send company data to their callback_url. Pennylane has no idempotency keys, and only Houston retries rate-limited requests, at most twice with a short Retry-After. A 5xx on a write is not retryable: after a timeout, 5xx or invalid write response, read or list the records before repeating a create.")
 	else

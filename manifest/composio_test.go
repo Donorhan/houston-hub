@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-const brokerManifest = `{"schema_version":1,"name":"Broker","files":["connector.luau"],"publisher":{"id":{"type":"string","label":"ID"},"secret":{"type":"secret","label":"Secret"}},"auth":{"broker":{"type":"composio","label":"Connect","auth_config_id":"{{publisher.id}}","api_key":"{{publisher.secret}}","app":"example","account":{"url":"https://api.example.com/profile","label":"/email"}}},"proxy":[{"match":{"protocol":"http","host":["api.example.com"],"method":["GET"],"path":["/profile"]},"action":{}}]}`
+const brokerManifest = `{"schema_version":2,"name":"Broker","files":["connector.luau"],"publisher":{"id":{"type":"string","label":"ID"},"secret":{"type":"secret","label":"Secret"}},"auth":{"broker":{"type":"composio","label":"Connect","auth_config_id":"{{publisher.id}}","api_key":"{{publisher.secret}}","app":"example","account":{"url":"https://api.example.com/profile","label":"/email"}}},"proxy":[{"match":{"protocol":"http","host":["api.example.com"],"method":["GET"],"path":["/profile"]},"action":{}}]}`
 
 func TestComposioResolutionAndDiscovery(t *testing.T) {
 	m, err := Parse([]byte(brokerManifest))
@@ -16,7 +16,7 @@ func TestComposioResolutionAndDiscovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	publisher := map[string]any{"id": "ac_fixture", "secret": "private"}
-	r, err := m.Resolve(publisher, nil, nil, "broker")
+	r, err := m.Resolve(Inputs{Publisher: publisher, Method: "broker"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestComposioResolutionAndDiscovery(t *testing.T) {
 		a := m.Auth["broker"]
 		a.Availability = &AuthAvailability{Status: status, Message: "Waiting for approval"}
 		m.Auth["broker"] = a
-		r, err = m.Resolve(publisher, nil, nil, "broker")
+		r, err = m.Resolve(Inputs{Publisher: publisher, Method: "broker"})
 		if err != nil || !r.Methods[0].Available || r.Methods[0].Availability.Status != status {
 			t.Fatalf("existing grant affected by presentation status %s: %v", status, err)
 		}
@@ -47,11 +47,11 @@ func TestComposioResolutionAndDiscovery(t *testing.T) {
 			if blank != nil {
 				incomplete[key] = blank
 			}
-			draft, err := m.ResolveDraft(incomplete, nil, nil, "broker")
+			draft, err := m.ResolveDraft(Inputs{Publisher: incomplete, Method: "broker"})
 			if err != nil || draft.Methods[0].Eligible || draft.Methods[0].Available {
 				t.Fatalf("incomplete %s offered: %v", key, err)
 			}
-			if _, err := m.Resolve(incomplete, nil, nil, "broker"); err == nil {
+			if _, err := m.Resolve(Inputs{Publisher: incomplete, Method: "broker"}); err == nil {
 				t.Fatalf("incomplete %s resolved", key)
 			}
 		}

@@ -1,10 +1,10 @@
 return {
 	contract = function(m)
 		local api = "https://graph.microsoft.com/v1.0/me"
-		-- Read and draft (custom) asks for Mail.ReadWrite only, but Microsoft may keep Mail.Send from an
+		-- Draft asks for Mail.ReadWrite only, but Microsoft may keep Mail.Send from an
 		-- earlier grant to the same app: these routes are what refuse its sends.
-		for access, scopes in {["read-only"] = {"Mail.Read"}, custom = {"Mail.ReadWrite"}, ["read-write"] = {"Mail.ReadWrite", "Mail.Send"}} do
-			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {access = access}, nil, "oauth")
+		for access, scopes in {read = {"Mail.Read"}, draft = {"Mail.ReadWrite"}, write = {"Mail.ReadWrite", "Mail.Send"}} do
+			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {}, nil, "oauth", {data = access})
 			assert(r and not err, tostring(err))
 			assert(m.equal(r.Scopes, m.concat({"offline_access", "User.Read"}, scopes)), "requested OAuth scopes for " .. access)
 			r.Context.Auth.oauth.access_token = "fixture-token"
@@ -21,9 +21,9 @@ return {
 				"POST " .. api .. "/messages/m1/createReplyAll", "POST " .. api .. "/messages/m1/createForward",
 				"PATCH " .. api .. "/messages/m1", "DELETE " .. api .. "/messages/m1",
 			}
-			m.routes(r, "Bearer fixture-token", access ~= "read-only", drafts)
-			if access ~= "read-only" then m.rejectOverrides(r, drafts) end
-			m.routes(r, "Bearer fixture-token", access == "read-write", {
+			m.routes(r, "Bearer fixture-token", access ~= "read", drafts)
+			if access ~= "read" then m.rejectOverrides(r, drafts) end
+			m.routes(r, "Bearer fixture-token", access == "write", {
 				"POST " .. api .. "/sendMail", "POST " .. api .. "/messages/m1/send", "POST " .. api .. "/messages/m1/reply",
 				"POST " .. api .. "/messages/m1/replyAll", "POST " .. api .. "/messages/m1/forward", "POST " .. api .. "/messages/m1/move",
 				"POST " .. api .. "/mailFolders", "POST " .. api .. "/mailFolders/F1/childFolders",

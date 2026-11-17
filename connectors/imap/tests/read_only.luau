@@ -1,7 +1,7 @@
--- Read-only connections expose only reads; each forwards one native command.
+-- Read connections expose only reads; each forwards one native command.
 return {
 	scenario = {publisher = {}, auth_method = "", auth_config = {}, config = {host = "imap.example.com", username = "ada@example.com", password = "fixture-password"}},
-	config = {access = "read-only"},
+	access = {data = "read"},
 	configure = function()
 		requests, replies = {}, {}
 		fs = fixture.files()
@@ -13,7 +13,7 @@ return {
 	end,
 	run = function(c)
 		for _, name in {"setFlags", "moveMessages", "trashMessages", "createFolder", "createDraft", "updateDraft", "deleteDraft"} do
-			assert(c[name] == nil, "read-only leaked " .. name)
+			assert(c[name] == nil, "Read access leaked " .. name)
 		end
 
 		assert(not pcall(c.listMailFolders, "unexpected"))

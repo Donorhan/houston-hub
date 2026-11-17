@@ -31,7 +31,7 @@ func testCertificate(t *testing.T) string {
 // tlsManifest is a Postgres connection whose TLS settings come from tls and the
 // extra config fields.
 func tlsManifest(tls, fields string) []byte {
-	return []byte(`{"schema_version":1,"name":"Postgres","files":["connector.luau"],
+	return []byte(`{"schema_version":2,"name":"Postgres","files":["connector.luau"],
 		"config":{"host":{"type":"string","label":"Host","required":true},"password":{"type":"secret","label":"Password","required":true}` + fields + `},
 		"proxy":[{"match":{"protocol":"postgres"},"action":{"connection":{"host":"{{config.host}}","database":"app","user":"reader","password":"{{config.password}}","tls":` + tls + `}}}]}`)
 }
@@ -55,7 +55,7 @@ func TestDatabaseTLSSettingsResolve(t *testing.T) {
 		{map[string]any{"ca": ca}, "verify-full", ca},
 	} {
 		c.config["host"], c.config["password"] = "203.0.113.7", "secret"
-		r, err := m.Resolve(nil, c.config, nil, "")
+		r, err := m.Resolve(Inputs{Config: c.config})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -66,7 +66,7 @@ func TestDatabaseTLSSettingsResolve(t *testing.T) {
 	}
 	for field, want := range map[string]string{"tls_mode": "config.tls_mode: value outside options", "ca": "config.ca: must be PEM certificates"} {
 		config := map[string]any{"host": "db.example.com", "password": "secret", field: "disable"}
-		if _, err := m.Resolve(nil, config, nil, ""); err == nil || !strings.Contains(err.Error(), want) {
+		if _, err := m.Resolve(Inputs{Config: config}); err == nil || !strings.Contains(err.Error(), want) {
 			t.Fatalf("%s: want %q, got %v", field, want, err)
 		}
 	}
@@ -77,7 +77,7 @@ func TestDatabaseTLSSettingsValidate(t *testing.T) {
 	if _, err := Parse(tlsManifest(`{"mode":"verify-ca","ca":`+string(ca)+`}`, "")); err != nil {
 		t.Fatalf("literal CA rejected: %v", err)
 	}
-	publisher := `{"schema_version":1,"name":"Postgres","files":["connector.luau"],"publisher":{"password":{"type":"secret","label":"Password","required":true}},"config":{"tls_mode":{"type":"string","label":"TLS mode","default":"verify-full","options":[{"value":"verify-full","label":"Full"},{"value":"require","label":"Require"}]}},
+	publisher := `{"schema_version":2,"name":"Postgres","files":["connector.luau"],"publisher":{"password":{"type":"secret","label":"Password","required":true}},"config":{"tls_mode":{"type":"string","label":"TLS mode","default":"verify-full","options":[{"value":"verify-full","label":"Full"},{"value":"require","label":"Require"}]}},
 		"proxy":[{"match":{"protocol":"postgres"},"action":{"connection":{"host":"db.vendor.example.com","database":"app","user":"reader","password":"{{publisher.password}}","tls":{"mode":"{{config.tls_mode}}"}}}}]}`
 	if _, err := Parse([]byte(publisher)); err == nil || !strings.Contains(err.Error(), "publisher-controlled recipient") {
 		t.Fatalf("a connection chose how to check the server receiving a publisher password: %v", err)

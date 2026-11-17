@@ -1,7 +1,7 @@
 local requests = {}
 local payload = "{}"
 return {
- scenario={config={access="read-write"},auth_method="token",auth_config={token="fixture-token"}},
+ scenario={access={data="write"},config={},auth_method="token",auth_config={token="fixture-token"}},
  configure=function()
   requests={}; payload="{}"
   fs=fixture.files()

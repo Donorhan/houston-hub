@@ -4,8 +4,23 @@ type Options = {[string]: any}
 
 local API = "https://api.hubapi.com"
 local VERSION = "2026-09"
+local ACTIVITY_TYPES = {"notes", "tasks", "calls", "meetings", "emails"}
+
+-- The object types this connection's access allows at level, in the order given. Activities share
+-- the engagements row; every other type has its own.
+local function allowedTypes(types: {string}, level: string): {string}
+	local allowed: {string} = {}
+	for _, kind in types do
+		local row = if table.find(ACTIVITY_TYPES, kind) then "engagements" else kind
+		if houston.allows(row .. ":" .. level) then table.insert(allowed, kind) end
+	end
+	return allowed
+end
 local OBJECT_TYPES = {"contacts", "companies", "deals", "tickets", "notes", "tasks", "calls", "meetings", "emails"}
+local READABLE = allowedTypes(OBJECT_TYPES, "read")
+local WRITABLE = allowedTypes(OBJECT_TYPES, "write")
 local PIPELINE_TYPES = {"deals", "tickets"}
+local PIPELINES = allowedTypes(PIPELINE_TYPES, "read")
 local CATEGORIES = {"HUBSPOT_DEFINED", "USER_DEFINED", "INTEGRATOR_DEFINED"}
 local OPERATORS = {"EQ", "NEQ", "LT", "LTE", "GT", "GTE", "BETWEEN", "IN", "NOT_IN", "HAS_PROPERTY", "NOT_HAS_PROPERTY", "CONTAINS_TOKEN", "NOT_CONTAINS_TOKEN"}
 local DIRECTIONS = {"ASCENDING", "DESCENDING"}
@@ -60,14 +75,14 @@ local function recordId(value: any, field: string, idProperty: boolean?): string
 	return url.segment(idValue(value, field, idProperty), field)
 end
 
--- An object type taken from args[field]: one of the nine, or of allowed.
+-- An object type taken from args[field]: one this connection may read, or one of allowed.
 local function objectType(args: Options, field: string, allowed: {string}?): string
-	return oneOf(take(args, field), field, allowed or OBJECT_TYPES)
+	return oneOf(take(args, field), field, allowed or READABLE)
 end
 
 -- A record taken from args as path segments: its object type and its record ID.
-local function record(args: Options, typeField: string, idField: string): (string, string)
-	return objectType(args, typeField), recordId(take(args, idField), idField)
+local function record(args: Options, typeField: string, idField: string, allowed: {string}?): (string, string)
+	return objectType(args, typeField, allowed), recordId(take(args, idField), idField)
 end
 
 -- A dense array of 1 to max items, so that it encodes as a JSON array.
@@ -107,7 +122,7 @@ local function query(args: Options, fields: {string}, maxLimit: number?): string
 			table.insert(parts, "limit=" .. tostring(integer(value, field, 1, maxLimit :: number)))
 		elseif field == "properties" or field == "propertiesWithHistory" or field == "associations" then
 			local items: {string} = {}
-			for _, name in names(value, field, if field == "associations" then OBJECT_TYPES else nil) do
+			for _, name in names(value, field, if field == "associations" then READABLE else nil) do
 				table.insert(items, url.encode(name))
 			end
 			table.insert(parts, field .. "=" .. table.concat(items, ","))
@@ -254,7 +269,9 @@ deal and ticket pipelines, owners and property definitions. Every operation take
 options object with HubSpot's field names and returns HubSpot's JSON unchanged. Connector calls
 return completed values: use them directly, without await.
 
-objectType is one of contacts, companies, deals, tickets, notes, tasks, calls, meetings or emails.
+]] .. (if #READABLE > 0
+	then "objectType is one of " .. table.concat(READABLE, ", ") .. (if #WRITABLE > 0 then "; writes take " .. table.concat(WRITABLE, ", ") else "") .. ".\n"
+	else "This connection reads no records: only owners are available.\n") .. [[
 A record is {id, properties, createdAt, updatedAt, archived, associations?}. HubSpot returns only
 a few default properties unless properties names more, so list every property needed; values are
 strings (numbers and dates too) or null. listProperties gives an object type's property names,
@@ -283,7 +300,7 @@ limit), 423, 477 and server errors are retryable. A 477 means HubSpot is moving 
 between data centres, which can last hours: Retry-After says how long. A missing permission is a
 403 (MISSING_SCOPES) naming the scopes needed ('needs one of: ...'): the account admin must add
 the scope to the service key or app, or reconnect. A 401 means the token is invalid or revoked.]]
-		.. (if config.access == "read-write" then [[
+		.. (if #WRITABLE > 0 then [[
 
 
 Writes: createObject creates records, activities included (see the activities topic);
@@ -326,7 +343,7 @@ note to contact 202, company 190, deal 214, ticket 228;
 task to contact 204, company 192, deal 216, ticket 230.
 listAssociations reads one record's associations of one type; batchReadAssociations reads them
 for up to 1,000 records; listObjects and getObject also return associated IDs with
-associations = {"companies"}.]] .. (if config.access == "read-write" then [[
+associations = {"companies"}.]] .. (if #WRITABLE > 0 then [[
 
 createDefaultAssociation links two records without a label, createAssociation sets labelled types
 on a pair, and deleteAssociation unlinks a pair. createObject can link a new record at creation
@@ -346,7 +363,7 @@ permission.
 To read one record's activities, call listAssociations (for example from a contact to notes),
 then batchReadObjects on the returned toObjectId values (as strings) with the properties above;
 or searchObjects on the activity type with a filter on associations.contact.
-hubspot_owner_id holds an owner id from listOwners.]] .. (if config.access == "read-write" then [[
+hubspot_owner_id holds an owner id from listOwners.]] .. (if houston.allows("engagements:write") then [[
 
 Create an activity with createObject and associations to the records it concerns, for example a
 note on contact 101: createObject({objectType = "notes", properties = {hs_timestamp =
@@ -387,306 +404,6 @@ local READ = {readOnlyHint = true, openWorldHint = true}
 local WRITE = {readOnlyHint = false, destructiveHint = false, openWorldHint = true}
 local IDEMPOTENT = {readOnlyHint = false, destructiveHint = false, idempotentHint = true, openWorldHint = true}
 local DESTRUCTIVE = {readOnlyHint = false, destructiveHint = true, idempotentHint = true, openWorldHint = true}
-
-help.functions.listObjects = {
-	description = [[One page of records of objectType, oldest first: {results = {record}, paging = {next = {after}}?}.
-limit is 1 to 100 (HubSpot's default is 10). properties names the properties to return, beyond a
-few defaults; associations adds each record's associated IDs of those types. archived = true
-lists only archived records. propertiesWithHistory lowers the number of records HubSpot returns
-per request.]],
-	inputSchema = {
-		type = "object",
-		properties = {objectType = OBJECT_TYPE, limit = {type = "integer", minimum = 1, maximum = 100}, after = AFTER,
-			properties = PROPERTY_NAMES, propertiesWithHistory = HISTORY_NAMES, associations = ASSOCIATED, archived = ARCHIVED},
-		required = {"objectType"},
-		additionalProperties = false,
-		examples = {
-			{objectType = "contacts", limit = 50, properties = {"email", "firstname", "lastname"}},
-			{objectType = "deals", after = "9876", associations = {"contacts", "companies"}},
-		} :: {any},
-	},
-	annotations = READ,
-}
-function exports.listObjects(input: any): Options
-	local args = options(input)
-	local kind = objectType(args, "objectType")
-	local q = query(args, {"limit", "after", "properties", "propertiesWithHistory", "associations", "archived"}, 100)
-	done("listObjects", args)
-	return results(call("listObjects", "GET", crm("objects", kind) .. q, nil, true))
-end
-
-help.functions.getObject = {
-	description = [[One record: {id, properties, createdAt, updatedAt, archived, associations?, propertiesWithHistory?}.
-objectId is the record ID, or with idProperty the value of that unique property, such as a
-contact's email with idProperty = "email". properties names the properties to return beyond a few
-defaults; associations adds associated record IDs of those types. The ID goes in the URL path, so a
-value containing / or %, or made only of dots, is refused: read such a record with
-batchReadObjects, which sends IDs in its body.]],
-	inputSchema = {
-		type = "object",
-		properties = {objectType = OBJECT_TYPE, objectId = LOOKUP_ID, idProperty = ID_PROPERTY, properties = PROPERTY_NAMES,
-			propertiesWithHistory = HISTORY_NAMES, associations = ASSOCIATED, archived = ARCHIVED},
-		required = {"objectType", "objectId"},
-		["if"] = WITHOUT_ID_PROPERTY,
-		["then"] = {properties = {objectId = DIGITS}},
-		additionalProperties = false,
-		examples = {
-			{objectType = "companies", objectId = "512", properties = {"name", "domain"}},
-			{objectType = "contacts", objectId = "ana@example.com", idProperty = "email"},
-		} :: {any},
-	},
-	annotations = READ,
-}
-function exports.getObject(input: any): Options
-	local args = options(input)
-	local kind = objectType(args, "objectType")
-	local id = recordId(take(args, "objectId"), "objectId", args.idProperty ~= nil)
-	local q = query(args, {"idProperty", "properties", "propertiesWithHistory", "associations", "archived"})
-	done("getObject", args)
-	return call("getObject", "GET", crm("objects", kind, id) .. q, nil, true)
-end
-
-help.functions.searchObjects = {
-	description = [[Searches records of objectType: {total, results = {record}, paging = {next = {after}}?}. Every
-field except objectType goes to HubSpot unchanged once its shape is checked; the search topic
-explains filterGroups, filters and sorts. limit is 1 to 200 (default 10). Search is eventually
-consistent (new or changed records take a moment to appear), excludes archived records, stops at
-10,000 results and allows 5 requests per second per account.]],
-	inputSchema = {
-		type = "object",
-		properties = {
-			objectType = OBJECT_TYPE,
-			query = {type = "string", minLength = 1, description = "Text searched in the default text properties."},
-			filterGroups = {type = "array", minItems = 1, maxItems = 5, items = {
-				type = "object",
-				properties = {filters = {type = "array", minItems = 1, maxItems = 6, items = {
-					type = "object",
-					properties = {propertyName = {type = "string", minLength = 1}, operator = {type = "string", enum = OPERATORS},
-						value = {type = "string"}, highValue = {type = "string"},
-						values = {type = "array", minItems = 1, maxItems = MAX_NAMES, items = {type = "string"}}},
-					required = {"propertyName", "operator"},
-					additionalProperties = false,
-				}}},
-				required = {"filters"},
-				additionalProperties = false,
-			}},
-			sorts = {type = "array", minItems = 1, maxItems = 1, items = {
-				type = "object",
-				properties = {propertyName = {type = "string", minLength = 1}, direction = {type = "string", enum = DIRECTIONS}},
-				required = {"propertyName", "direction"},
-				additionalProperties = false,
-			}},
-			properties = PROPERTY_NAMES,
-			limit = {type = "integer", minimum = 1, maximum = 200},
-			after = AFTER,
-		},
-		required = {"objectType"},
-		additionalProperties = false,
-		examples = {
-			{objectType = "contacts", filterGroups = {{filters = {{propertyName = "email", operator = "CONTAINS_TOKEN", value = "*@example.com"}}}}, limit = 20},
-			{objectType = "deals", filterGroups = {{filters = {{propertyName = "dealstage", operator = "EQ", value = "contractsent"},
-				{propertyName = "amount", operator = "GTE", value = "10000"}}}}, sorts = {{propertyName = "closedate", direction = "ASCENDING"}},
-				properties = {"dealname", "amount", "closedate"}},
-			{objectType = "notes", filterGroups = {{filters = {{propertyName = "associations.contact", operator = "EQ", value = "101"}}}},
-				properties = {"hs_note_body", "hs_timestamp"}},
-		} :: {any},
-	},
-	annotations = READ,
-}
-function exports.searchObjects(input: any): Options
-	local args = options(input)
-	local kind = objectType(args, "objectType")
-	local body: Options = {}
-	if args.query ~= nil then body.query = text(take(args, "query"), "query") end
-	if args.filterGroups ~= nil then
-		local groups = array(take(args, "filterGroups"), "filterGroups", 5)
-		local total = 0
-		for index, group in groups do
-			local field = "filterGroups[" .. tostring(index) .. "]"
-			closed(group, field, {"filters"})
-			for position, filter in array(group.filters, field .. ".filters", 6) do
-				searchFilter(filter, field .. ".filters[" .. tostring(position) .. "]")
-				total += 1
-			end
-		end
-		assert(total <= 18, "filterGroups may hold at most 18 filters in all")
-		body.filterGroups = groups
-	end
-	if args.sorts ~= nil then
-		body.sorts = array(take(args, "sorts"), "sorts", 1)
-		for index, sort in body.sorts do
-			local field = "sorts[" .. tostring(index) .. "]"
-			closed(sort, field, {"propertyName", "direction"})
-			text(sort.propertyName, field .. ".propertyName")
-			oneOf(sort.direction, field .. ".direction", DIRECTIONS)
-		end
-	end
-	if args.properties ~= nil then body.properties = names(take(args, "properties"), "properties") end
-	if args.limit ~= nil then body.limit = integer(take(args, "limit"), "limit", 1, 200) end
-	if args.after ~= nil then body.after = text(take(args, "after"), "after") end
-	done("searchObjects", args)
-	return results(call("searchObjects", "POST", crm("objects", kind, "search"), body, true))
-end
-
-help.functions.batchReadObjects = {
-	description = [[Reads up to 100 records of objectType at once: {status, results = {record}, numErrors?, errors?}.
-inputs are {{id}}: record IDs, or with idProperty values of that unique property. IDs that do not
-exist are reported in errors (HTTP 207) while the others are returned. properties names the
-properties to return beyond a few defaults; propertiesWithHistory lowers the number of records
-HubSpot returns per request.]],
-	inputSchema = {
-		type = "object",
-		properties = {
-			objectType = OBJECT_TYPE,
-			inputs = {type = "array", minItems = 1, maxItems = 100, items = {
-				type = "object", properties = {id = LOOKUP_ID}, required = {"id"}, additionalProperties = false,
-			}},
-			idProperty = ID_PROPERTY, properties = PROPERTY_NAMES, propertiesWithHistory = HISTORY_NAMES, archived = ARCHIVED,
-		},
-		required = {"objectType", "inputs"},
-		["if"] = WITHOUT_ID_PROPERTY,
-		["then"] = {properties = {inputs = {items = {properties = {id = DIGITS}}}}},
-		additionalProperties = false,
-		examples = {{objectType = "contacts", inputs = {{id = "101"}, {id = "102"}}, properties = {"email"}}},
-	},
-	annotations = READ,
-}
-function exports.batchReadObjects(input: any): Options
-	local args = options(input)
-	local kind = objectType(args, "objectType")
-	local idProperty = take(args, "idProperty")
-	local body: Options = {inputs = {}}
-	for index, item in array(take(args, "inputs"), "inputs", 100) do
-		local field = "inputs[" .. tostring(index) .. "]"
-		closed(item, field, {"id"})
-		idValue(item.id, field .. ".id", idProperty ~= nil)
-		table.insert(body.inputs, {id = item.id})
-	end
-	if idProperty ~= nil then body.idProperty = text(idProperty, "idProperty") end
-	if args.properties ~= nil then body.properties = names(take(args, "properties"), "properties") end
-	if args.propertiesWithHistory ~= nil then body.propertiesWithHistory = names(take(args, "propertiesWithHistory"), "propertiesWithHistory") end
-	local q = query(args, {"archived"})
-	done("batchReadObjects", args)
-	return results(call("batchReadObjects", "POST", crm("objects", kind, "batch", "read") .. q, body, true))
-end
-
-help.functions.listAssociations = {
-	description = [[One page of the records of toObjectType associated with one record:
-{results = {{toObjectId, associationTypes = {{category, typeId, label}}}}, paging?}. toObjectId may come
-back as a number or a string; pass it to other operations as a string. limit is 1 to 500 (the default).]],
-	inputSchema = {
-		type = "object",
-		properties = {objectType = OBJECT_TYPE, objectId = RECORD_ID, toObjectType = OBJECT_TYPE,
-			limit = {type = "integer", minimum = 1, maximum = 500}, after = AFTER},
-		required = {"objectType", "objectId", "toObjectType"},
-		additionalProperties = false,
-		examples = {{objectType = "deals", objectId = "9876", toObjectType = "contacts"}},
-	},
-	annotations = READ,
-}
-function exports.listAssociations(input: any): Options
-	local args = options(input)
-	local kind, id = record(args, "objectType", "objectId")
-	local to = objectType(args, "toObjectType")
-	local q = query(args, {"limit", "after"}, 500)
-	done("listAssociations", args)
-	return results(call("listAssociations", "GET", crm("objects", kind, id, "associations", to) .. q, nil, true))
-end
-
-help.functions.batchReadAssociations = {
-	description = [[Reads the toObjectType associations of up to 1,000 records of fromObjectType:
-{status, results = {{from = {id}, to = {{toObjectId, associationTypes}}, paging?}}, errors?}.
-inputs are {{id, after?}}; after continues one record's associations from its paging.next.after.]],
-	inputSchema = {
-		type = "object",
-		properties = {
-			fromObjectType = OBJECT_TYPE, toObjectType = OBJECT_TYPE,
-			inputs = {type = "array", minItems = 1, maxItems = 1000, items = {
-				type = "object", properties = {id = RECORD_ID, after = AFTER}, required = {"id"}, additionalProperties = false,
-			}},
-		},
-		required = {"fromObjectType", "toObjectType", "inputs"},
-		additionalProperties = false,
-		examples = {{fromObjectType = "deals", toObjectType = "companies", inputs = {{id = "9876"}, {id = "9877"}}}},
-	},
-	annotations = READ,
-}
-function exports.batchReadAssociations(input: any): Options
-	local args = options(input)
-	local from = objectType(args, "fromObjectType")
-	local to = objectType(args, "toObjectType")
-	local inputs: {Options} = {}
-	for index, item in array(take(args, "inputs"), "inputs", 1000) do
-		local field = "inputs[" .. tostring(index) .. "]"
-		closed(item, field, {"id", "after"})
-		idValue(item.id, field .. ".id")
-		table.insert(inputs, {id = item.id, after = if item.after ~= nil then text(item.after, field .. ".after") else nil})
-	end
-	done("batchReadAssociations", args)
-	return results(call("batchReadAssociations", "POST", crm("associations", from, to, "batch", "read"), {inputs = inputs}, true))
-end
-
-help.functions.listAssociationLabels = {
-	description = [[The association types from fromObjectType to toObjectType in this account, HubSpot's and
-custom labels: {results = {{category, typeId, label}}}. label is null for the default type.]],
-	inputSchema = {
-		type = "object",
-		properties = {fromObjectType = OBJECT_TYPE, toObjectType = OBJECT_TYPE},
-		required = {"fromObjectType", "toObjectType"},
-		additionalProperties = false,
-		examples = {{fromObjectType = "contacts", toObjectType = "companies"}},
-	},
-	annotations = READ,
-}
-function exports.listAssociationLabels(input: any): Options
-	local args = options(input)
-	local from = objectType(args, "fromObjectType")
-	local to = objectType(args, "toObjectType")
-	done("listAssociationLabels", args)
-	return results(call("listAssociationLabels", "GET", crm("associations", from, to, "labels"), nil, true))
-end
-
-help.functions.listPipelines = {
-	description = [[Every deal or ticket pipeline with its stages: {results = {{id, label, displayOrder, archived,
-stages = {{id, label, displayOrder, metadata}}}}}. Stage IDs are what a deal's dealstage and a
-ticket's hs_pipeline_stage hold; pipeline IDs are what pipeline and hs_pipeline hold. For deals,
-stage metadata.probability is the win probability; for tickets, metadata.ticketState is OPEN or
-CLOSED.]],
-	inputSchema = {
-		type = "object",
-		properties = {objectType = {type = "string", enum = PIPELINE_TYPES}},
-		required = {"objectType"},
-		additionalProperties = false,
-		examples = {{objectType = "deals"}},
-	},
-	annotations = READ,
-}
-function exports.listPipelines(input: any): Options
-	local args = options(input)
-	local kind = objectType(args, "objectType", PIPELINE_TYPES)
-	done("listPipelines", args)
-	return results(call("listPipelines", "GET", crm("pipelines", kind), nil, true))
-end
-
-help.functions.getPipeline = {
-	description = [[One deal or ticket pipeline: {id, label, displayOrder, archived, stages = {{id, label,
-displayOrder, metadata}}}. The default pipeline's ID is often "default" for deals and "0" for tickets.]],
-	inputSchema = {
-		type = "object",
-		properties = {objectType = {type = "string", enum = PIPELINE_TYPES}, pipelineId = {type = "string", minLength = 1}},
-		required = {"objectType", "pipelineId"},
-		additionalProperties = false,
-		examples = {{objectType = "tickets", pipelineId = "0"}},
-	},
-	annotations = READ,
-}
-function exports.getPipeline(input: any): Options
-	local args = options(input)
-	local kind = objectType(args, "objectType", PIPELINE_TYPES)
-	local id = url.segment(text(take(args, "pipelineId"), "pipelineId"), "pipelineId")
-	done("getPipeline", args)
-	return call("getPipeline", "GET", crm("pipelines", kind, id), nil, true)
-end
 
 help.functions.listOwners = {
 	description = [[One page of the account's owners, the users (type "PERSON") and queues (type "QUEUE") that
@@ -729,51 +446,355 @@ function exports.getOwner(input: any): Options
 	return call("getOwner", "GET", crm("owners", id) .. q, nil, true)
 end
 
-help.functions.listProperties = {
-	description = [[The non-sensitive property definitions of objectType (HubSpot leaves out properties holding
+if #READABLE > 0 then
+	help.functions.listObjects = {
+		description = [[One page of records of objectType, oldest first: {results = {record}, paging = {next = {after}}?}.
+limit is 1 to 100 (HubSpot's default is 10). properties names the properties to return, beyond a
+few defaults; associations adds each record's associated IDs of those types. archived = true
+lists only archived records. propertiesWithHistory lowers the number of records HubSpot returns
+per request.]],
+		inputSchema = {
+			type = "object",
+			properties = {objectType = OBJECT_TYPE, limit = {type = "integer", minimum = 1, maximum = 100}, after = AFTER,
+				properties = PROPERTY_NAMES, propertiesWithHistory = HISTORY_NAMES, associations = ASSOCIATED, archived = ARCHIVED},
+			required = {"objectType"},
+			additionalProperties = false,
+			examples = {
+				{objectType = "contacts", limit = 50, properties = {"email", "firstname", "lastname"}},
+				{objectType = "deals", after = "9876", associations = {"contacts", "companies"}},
+			} :: {any},
+		},
+		annotations = READ,
+	}
+	function exports.listObjects(input: any): Options
+		local args = options(input)
+		local kind = objectType(args, "objectType")
+		local q = query(args, {"limit", "after", "properties", "propertiesWithHistory", "associations", "archived"}, 100)
+		done("listObjects", args)
+		return results(call("listObjects", "GET", crm("objects", kind) .. q, nil, true))
+	end
+
+	help.functions.getObject = {
+		description = [[One record: {id, properties, createdAt, updatedAt, archived, associations?, propertiesWithHistory?}.
+objectId is the record ID, or with idProperty the value of that unique property, such as a
+contact's email with idProperty = "email". properties names the properties to return beyond a few
+defaults; associations adds associated record IDs of those types. The ID goes in the URL path, so a
+value containing / or %, or made only of dots, is refused: read such a record with
+batchReadObjects, which sends IDs in its body.]],
+		inputSchema = {
+			type = "object",
+			properties = {objectType = OBJECT_TYPE, objectId = LOOKUP_ID, idProperty = ID_PROPERTY, properties = PROPERTY_NAMES,
+				propertiesWithHistory = HISTORY_NAMES, associations = ASSOCIATED, archived = ARCHIVED},
+			required = {"objectType", "objectId"},
+			["if"] = WITHOUT_ID_PROPERTY,
+			["then"] = {properties = {objectId = DIGITS}},
+			additionalProperties = false,
+			examples = {
+				{objectType = "companies", objectId = "512", properties = {"name", "domain"}},
+				{objectType = "contacts", objectId = "ana@example.com", idProperty = "email"},
+			} :: {any},
+		},
+		annotations = READ,
+	}
+	function exports.getObject(input: any): Options
+		local args = options(input)
+		local kind = objectType(args, "objectType")
+		local id = recordId(take(args, "objectId"), "objectId", args.idProperty ~= nil)
+		local q = query(args, {"idProperty", "properties", "propertiesWithHistory", "associations", "archived"})
+		done("getObject", args)
+		return call("getObject", "GET", crm("objects", kind, id) .. q, nil, true)
+	end
+
+	help.functions.searchObjects = {
+		description = [[Searches records of objectType: {total, results = {record}, paging = {next = {after}}?}. Every
+field except objectType goes to HubSpot unchanged once its shape is checked; the search topic
+explains filterGroups, filters and sorts. limit is 1 to 200 (default 10). Search is eventually
+consistent (new or changed records take a moment to appear), excludes archived records, stops at
+10,000 results and allows 5 requests per second per account.]],
+		inputSchema = {
+			type = "object",
+			properties = {
+				objectType = OBJECT_TYPE,
+				query = {type = "string", minLength = 1, description = "Text searched in the default text properties."},
+				filterGroups = {type = "array", minItems = 1, maxItems = 5, items = {
+					type = "object",
+					properties = {filters = {type = "array", minItems = 1, maxItems = 6, items = {
+						type = "object",
+						properties = {propertyName = {type = "string", minLength = 1}, operator = {type = "string", enum = OPERATORS},
+							value = {type = "string"}, highValue = {type = "string"},
+							values = {type = "array", minItems = 1, maxItems = MAX_NAMES, items = {type = "string"}}},
+						required = {"propertyName", "operator"},
+						additionalProperties = false,
+					}}},
+					required = {"filters"},
+					additionalProperties = false,
+				}},
+				sorts = {type = "array", minItems = 1, maxItems = 1, items = {
+					type = "object",
+					properties = {propertyName = {type = "string", minLength = 1}, direction = {type = "string", enum = DIRECTIONS}},
+					required = {"propertyName", "direction"},
+					additionalProperties = false,
+				}},
+				properties = PROPERTY_NAMES,
+				limit = {type = "integer", minimum = 1, maximum = 200},
+				after = AFTER,
+			},
+			required = {"objectType"},
+			additionalProperties = false,
+			examples = {
+				{objectType = "contacts", filterGroups = {{filters = {{propertyName = "email", operator = "CONTAINS_TOKEN", value = "*@example.com"}}}}, limit = 20},
+				{objectType = "deals", filterGroups = {{filters = {{propertyName = "dealstage", operator = "EQ", value = "contractsent"},
+					{propertyName = "amount", operator = "GTE", value = "10000"}}}}, sorts = {{propertyName = "closedate", direction = "ASCENDING"}},
+					properties = {"dealname", "amount", "closedate"}},
+				{objectType = "notes", filterGroups = {{filters = {{propertyName = "associations.contact", operator = "EQ", value = "101"}}}},
+					properties = {"hs_note_body", "hs_timestamp"}},
+			} :: {any},
+		},
+		annotations = READ,
+	}
+	function exports.searchObjects(input: any): Options
+		local args = options(input)
+		local kind = objectType(args, "objectType")
+		local body: Options = {}
+		if args.query ~= nil then body.query = text(take(args, "query"), "query") end
+		if args.filterGroups ~= nil then
+			local groups = array(take(args, "filterGroups"), "filterGroups", 5)
+			local total = 0
+			for index, group in groups do
+				local field = "filterGroups[" .. tostring(index) .. "]"
+				closed(group, field, {"filters"})
+				for position, filter in array(group.filters, field .. ".filters", 6) do
+					searchFilter(filter, field .. ".filters[" .. tostring(position) .. "]")
+					total += 1
+				end
+			end
+			assert(total <= 18, "filterGroups may hold at most 18 filters in all")
+			body.filterGroups = groups
+		end
+		if args.sorts ~= nil then
+			body.sorts = array(take(args, "sorts"), "sorts", 1)
+			for index, sort in body.sorts do
+				local field = "sorts[" .. tostring(index) .. "]"
+				closed(sort, field, {"propertyName", "direction"})
+				text(sort.propertyName, field .. ".propertyName")
+				oneOf(sort.direction, field .. ".direction", DIRECTIONS)
+			end
+		end
+		if args.properties ~= nil then body.properties = names(take(args, "properties"), "properties") end
+		if args.limit ~= nil then body.limit = integer(take(args, "limit"), "limit", 1, 200) end
+		if args.after ~= nil then body.after = text(take(args, "after"), "after") end
+		done("searchObjects", args)
+		return results(call("searchObjects", "POST", crm("objects", kind, "search"), body, true))
+	end
+
+	help.functions.batchReadObjects = {
+		description = [[Reads up to 100 records of objectType at once: {status, results = {record}, numErrors?, errors?}.
+inputs are {{id}}: record IDs, or with idProperty values of that unique property. IDs that do not
+exist are reported in errors (HTTP 207) while the others are returned. properties names the
+properties to return beyond a few defaults; propertiesWithHistory lowers the number of records
+HubSpot returns per request.]],
+		inputSchema = {
+			type = "object",
+			properties = {
+				objectType = OBJECT_TYPE,
+				inputs = {type = "array", minItems = 1, maxItems = 100, items = {
+					type = "object", properties = {id = LOOKUP_ID}, required = {"id"}, additionalProperties = false,
+				}},
+				idProperty = ID_PROPERTY, properties = PROPERTY_NAMES, propertiesWithHistory = HISTORY_NAMES, archived = ARCHIVED,
+			},
+			required = {"objectType", "inputs"},
+			["if"] = WITHOUT_ID_PROPERTY,
+			["then"] = {properties = {inputs = {items = {properties = {id = DIGITS}}}}},
+			additionalProperties = false,
+			examples = {{objectType = "contacts", inputs = {{id = "101"}, {id = "102"}}, properties = {"email"}}},
+		},
+		annotations = READ,
+	}
+	function exports.batchReadObjects(input: any): Options
+		local args = options(input)
+		local kind = objectType(args, "objectType")
+		local idProperty = take(args, "idProperty")
+		local body: Options = {inputs = {}}
+		for index, item in array(take(args, "inputs"), "inputs", 100) do
+			local field = "inputs[" .. tostring(index) .. "]"
+			closed(item, field, {"id"})
+			idValue(item.id, field .. ".id", idProperty ~= nil)
+			table.insert(body.inputs, {id = item.id})
+		end
+		if idProperty ~= nil then body.idProperty = text(idProperty, "idProperty") end
+		if args.properties ~= nil then body.properties = names(take(args, "properties"), "properties") end
+		if args.propertiesWithHistory ~= nil then body.propertiesWithHistory = names(take(args, "propertiesWithHistory"), "propertiesWithHistory") end
+		local q = query(args, {"archived"})
+		done("batchReadObjects", args)
+		return results(call("batchReadObjects", "POST", crm("objects", kind, "batch", "read") .. q, body, true))
+	end
+
+	help.functions.listAssociations = {
+		description = [[One page of the records of toObjectType associated with one record:
+{results = {{toObjectId, associationTypes = {{category, typeId, label}}}}, paging?}. toObjectId may come
+back as a number or a string; pass it to other operations as a string. limit is 1 to 500 (the default).]],
+		inputSchema = {
+			type = "object",
+			properties = {objectType = OBJECT_TYPE, objectId = RECORD_ID, toObjectType = OBJECT_TYPE,
+				limit = {type = "integer", minimum = 1, maximum = 500}, after = AFTER},
+			required = {"objectType", "objectId", "toObjectType"},
+			additionalProperties = false,
+			examples = {{objectType = "deals", objectId = "9876", toObjectType = "contacts"}},
+		},
+		annotations = READ,
+	}
+	function exports.listAssociations(input: any): Options
+		local args = options(input)
+		local kind, id = record(args, "objectType", "objectId")
+		local to = objectType(args, "toObjectType")
+		local q = query(args, {"limit", "after"}, 500)
+		done("listAssociations", args)
+		return results(call("listAssociations", "GET", crm("objects", kind, id, "associations", to) .. q, nil, true))
+	end
+
+	help.functions.batchReadAssociations = {
+		description = [[Reads the toObjectType associations of up to 1,000 records of fromObjectType:
+{status, results = {{from = {id}, to = {{toObjectId, associationTypes}}, paging?}}, errors?}.
+inputs are {{id, after?}}; after continues one record's associations from its paging.next.after.]],
+		inputSchema = {
+			type = "object",
+			properties = {
+				fromObjectType = OBJECT_TYPE, toObjectType = OBJECT_TYPE,
+				inputs = {type = "array", minItems = 1, maxItems = 1000, items = {
+					type = "object", properties = {id = RECORD_ID, after = AFTER}, required = {"id"}, additionalProperties = false,
+				}},
+			},
+			required = {"fromObjectType", "toObjectType", "inputs"},
+			additionalProperties = false,
+			examples = {{fromObjectType = "deals", toObjectType = "companies", inputs = {{id = "9876"}, {id = "9877"}}}},
+		},
+		annotations = READ,
+	}
+	function exports.batchReadAssociations(input: any): Options
+		local args = options(input)
+		local from = objectType(args, "fromObjectType")
+		local to = objectType(args, "toObjectType")
+		local inputs: {Options} = {}
+		for index, item in array(take(args, "inputs"), "inputs", 1000) do
+			local field = "inputs[" .. tostring(index) .. "]"
+			closed(item, field, {"id", "after"})
+			idValue(item.id, field .. ".id")
+			table.insert(inputs, {id = item.id, after = if item.after ~= nil then text(item.after, field .. ".after") else nil})
+		end
+		done("batchReadAssociations", args)
+		return results(call("batchReadAssociations", "POST", crm("associations", from, to, "batch", "read"), {inputs = inputs}, true))
+	end
+
+	help.functions.listAssociationLabels = {
+		description = [[The association types from fromObjectType to toObjectType in this account, HubSpot's and
+custom labels: {results = {{category, typeId, label}}}. label is null for the default type.]],
+		inputSchema = {
+			type = "object",
+			properties = {fromObjectType = OBJECT_TYPE, toObjectType = OBJECT_TYPE},
+			required = {"fromObjectType", "toObjectType"},
+			additionalProperties = false,
+			examples = {{fromObjectType = "contacts", toObjectType = "companies"}},
+		},
+		annotations = READ,
+	}
+	function exports.listAssociationLabels(input: any): Options
+		local args = options(input)
+		local from = objectType(args, "fromObjectType")
+		local to = objectType(args, "toObjectType")
+		done("listAssociationLabels", args)
+		return results(call("listAssociationLabels", "GET", crm("associations", from, to, "labels"), nil, true))
+	end
+
+	help.functions.listProperties = {
+		description = [[The non-sensitive property definitions of objectType (HubSpot leaves out properties holding
 sensitive data): {results = {{name, label, type, fieldType,
 groupName, description, options = {{label, value}}, calculated, hasUniqueValue, hidden, ...}}}.
 name is the internal name that properties lists and writes use; for enumerations, options give
 the values a property accepts (such as lifecyclestage or hs_task_status).]],
-	inputSchema = {
-		type = "object",
-		properties = {objectType = OBJECT_TYPE, archived = ARCHIVED},
-		required = {"objectType"},
-		additionalProperties = false,
-		examples = {{objectType = "deals"}},
-	},
-	annotations = READ,
-}
-function exports.listProperties(input: any): Options
-	local args = options(input)
-	local kind = objectType(args, "objectType")
-	local q = query(args, {"archived"})
-	done("listProperties", args)
-	return results(call("listProperties", "GET", crm("properties", kind) .. q, nil, true))
+		inputSchema = {
+			type = "object",
+			properties = {objectType = OBJECT_TYPE, archived = ARCHIVED},
+			required = {"objectType"},
+			additionalProperties = false,
+			examples = {{objectType = "deals"}},
+		},
+		annotations = READ,
+	}
+	function exports.listProperties(input: any): Options
+		local args = options(input)
+		local kind = objectType(args, "objectType")
+		local q = query(args, {"archived"})
+		done("listProperties", args)
+		return results(call("listProperties", "GET", crm("properties", kind) .. q, nil, true))
+	end
+
+	help.functions.getProperty = {
+		description = [[One property definition: {name, label, type, fieldType, groupName, description, options, ...}.]],
+		inputSchema = {
+			type = "object",
+			properties = {objectType = OBJECT_TYPE, propertyName = {type = "string", pattern = "^[A-Za-z0-9_]+$"}, archived = ARCHIVED},
+			required = {"objectType", "propertyName"},
+			additionalProperties = false,
+			examples = {{objectType = "tasks", propertyName = "hs_task_status"}},
+		},
+		annotations = READ,
+	}
+	function exports.getProperty(input: any): Options
+		local args = options(input)
+		local kind = objectType(args, "objectType")
+		local name = take(args, "propertyName")
+		assert(type(name) == "string" and string.match(name, "^[%w_]+$") ~= nil, "propertyName must be a property's internal name")
+		local q = query(args, {"archived"})
+		done("getProperty", args)
+		return call("getProperty", "GET", crm("properties", kind, name) .. q, nil, true)
+	end
+
+	if #PIPELINES > 0 then
+		help.functions.listPipelines = {
+			description = [[Every deal or ticket pipeline with its stages: {results = {{id, label, displayOrder, archived,
+stages = {{id, label, displayOrder, metadata}}}}}. Stage IDs are what a deal's dealstage and a
+ticket's hs_pipeline_stage hold; pipeline IDs are what pipeline and hs_pipeline hold. For deals,
+stage metadata.probability is the win probability; for tickets, metadata.ticketState is OPEN or
+CLOSED.]],
+			inputSchema = {
+				type = "object",
+				properties = {objectType = {type = "string", enum = PIPELINE_TYPES}},
+				required = {"objectType"},
+				additionalProperties = false,
+				examples = {{objectType = "deals"}},
+			},
+			annotations = READ,
+		}
+		function exports.listPipelines(input: any): Options
+			local args = options(input)
+			local kind = objectType(args, "objectType", PIPELINES)
+			done("listPipelines", args)
+			return results(call("listPipelines", "GET", crm("pipelines", kind), nil, true))
+		end
+
+		help.functions.getPipeline = {
+			description = [[One deal or ticket pipeline: {id, label, displayOrder, archived, stages = {{id, label,
+displayOrder, metadata}}}. The default pipeline's ID is often "default" for deals and "0" for tickets.]],
+			inputSchema = {
+				type = "object",
+				properties = {objectType = {type = "string", enum = PIPELINE_TYPES}, pipelineId = {type = "string", minLength = 1}},
+				required = {"objectType", "pipelineId"},
+				additionalProperties = false,
+				examples = {{objectType = "tickets", pipelineId = "0"}},
+			},
+			annotations = READ,
+		}
+		function exports.getPipeline(input: any): Options
+			local args = options(input)
+			local kind = objectType(args, "objectType", PIPELINES)
+			local id = url.segment(text(take(args, "pipelineId"), "pipelineId"), "pipelineId")
+			done("getPipeline", args)
+			return call("getPipeline", "GET", crm("pipelines", kind, id), nil, true)
+		end
+	end
 end
 
-help.functions.getProperty = {
-	description = [[One property definition: {name, label, type, fieldType, groupName, description, options, ...}.]],
-	inputSchema = {
-		type = "object",
-		properties = {objectType = OBJECT_TYPE, propertyName = {type = "string", pattern = "^[A-Za-z0-9_]+$"}, archived = ARCHIVED},
-		required = {"objectType", "propertyName"},
-		additionalProperties = false,
-		examples = {{objectType = "tasks", propertyName = "hs_task_status"}},
-	},
-	annotations = READ,
-}
-function exports.getProperty(input: any): Options
-	local args = options(input)
-	local kind = objectType(args, "objectType")
-	local name = take(args, "propertyName")
-	assert(type(name) == "string" and string.match(name, "^[%w_]+$") ~= nil, "propertyName must be a property's internal name")
-	local q = query(args, {"archived"})
-	done("getProperty", args)
-	return call("getProperty", "GET", crm("properties", kind, name) .. q, nil, true)
-end
-
-if config.access == "read-write" then
+if #WRITABLE > 0 then
 	help.functions.createObject = {
 		description = [[Creates a record of objectType and returns it (HTTP 201). properties sets property values by
 internal name; associations links the new record, each {to = {id}, types = {{associationCategory,
@@ -815,7 +836,7 @@ domain; contacts at least one of email, firstname or lastname.]],
 	}
 	function exports.createObject(input: any): Options
 		local args = options(input)
-		local kind = objectType(args, "objectType")
+		local kind = objectType(args, "objectType", WRITABLE)
 		local body: Options = {properties = properties(take(args, "properties"))}
 		if args.associations ~= nil then
 			body.associations = {}
@@ -855,7 +876,7 @@ belongs to another pipeline; move a ticket with hs_pipeline_stage (and hs_pipeli
 	}
 	function exports.updateObject(input: any): Options
 		local args = options(input)
-		local kind = objectType(args, "objectType")
+		local kind = objectType(args, "objectType", WRITABLE)
 		local id = recordId(take(args, "objectId"), "objectId", args.idProperty ~= nil)
 		local body = {properties = properties(take(args, "properties"))}
 		local q = query(args, {"idProperty"})
@@ -877,7 +898,7 @@ belongs to another pipeline; move a ticket with hs_pipeline_stage (and hs_pipeli
 	}
 	function exports.createDefaultAssociation(input: any): Options
 		local args = options(input)
-		local from, fromId = record(args, "fromObjectType", "fromObjectId")
+		local from, fromId = record(args, "fromObjectType", "fromObjectId", WRITABLE)
 		local to, toId = record(args, "toObjectType", "toObjectId")
 		done("createDefaultAssociation", args)
 		return call("createDefaultAssociation", "PUT", crm("objects", from, fromId, "associations", "default", to, toId), "", true)
@@ -900,7 +921,7 @@ listAssociationLabels.]],
 	}
 	function exports.createAssociation(input: any): Options
 		local args = options(input)
-		local kind, id = record(args, "objectType", "objectId")
+		local kind, id = record(args, "objectType", "objectId", WRITABLE)
 		local to, toId = record(args, "toObjectType", "toObjectId")
 		local types = associationTypes(take(args, "types"), "types")
 		done("createAssociation", args)
@@ -921,7 +942,7 @@ Neither record is deleted; createDefaultAssociation or createAssociation links t
 	}
 	function exports.deleteAssociation(input: any): Options
 		local args = options(input)
-		local kind, id = record(args, "objectType", "objectId")
+		local kind, id = record(args, "objectType", "objectId", WRITABLE)
 		local to, toId = record(args, "toObjectType", "toObjectId")
 		done("deleteAssociation", args)
 		return call("deleteAssociation", "DELETE", crm("objects", kind, id, "associations", to, toId), nil, true)

@@ -1,6 +1,6 @@
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	config = {access = "custom"},
+	access = {data = "draft"},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
@@ -18,7 +18,7 @@ return {
 		local names = {}
 		for name in c do table.insert(names, name) end
 		table.sort(names)
-		assert(table.concat(names, ",") == "addAttachment,createDraft,createForward,createReply,createReplyAll,deleteMessage,getAttachment,getMailFolder,getMessage,getProfile,listAttachments,listMailFolders,listMessages,updateMessage", "read and draft got " .. table.concat(names, ","))
+		assert(table.concat(names, ",") == "addAttachment,createDraft,createForward,createReply,createReplyAll,deleteMessage,getAttachment,getMailFolder,getMessage,getProfile,listAttachments,listMailFolders,listMessages,updateMessage", "draft got " .. table.concat(names, ","))
 
 		local file = fs.open("notes.txt", "w")
 		file:write("hello")

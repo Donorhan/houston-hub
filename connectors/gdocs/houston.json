@@ -1,27 +1,27 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Google Docs",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "type": "string",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "default": "read-only",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
-      ]
+      ],
+      "default": "read"
     }
-  },
+  ],
   "auth": {
     "oauth": {
       "type": "oauth2",
@@ -46,13 +46,13 @@
           ]
         },
         {
-          "if": "{{ is config.access \"read-only\" }}",
+          "if": "{{ is access.data \"read\" }}",
           "values": [
             "https://www.googleapis.com/auth/documents.readonly"
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ is access.data \"write\" }}",
           "values": [
             "https://www.googleapis.com/auth/documents"
           ]
@@ -107,7 +107,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [

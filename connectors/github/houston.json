@@ -1,27 +1,160 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "GitHub",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
-      "label": "Access",
-      "options": [
+  "access": [
+    {
+      "name": "code",
+      "label": "Code and releases",
+      "description": "Files, branches, commits, merges and releases, including archives and release downloads.",
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "none",
+          "label": "None"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "type": "string"
+      "default": "read"
+    },
+    {
+      "name": "conversations",
+      "label": "Issues and pull requests",
+      "description": "Issues, pull requests, comments, reviews, labels and milestones. Pull request files, commits and merges also need Code.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Write"
+        }
+      ],
+      "default": "read"
+    },
+    {
+      "name": "actions",
+      "label": "Actions, checks and statuses",
+      "description": "Workflows, runs, jobs, logs, artifacts, check runs and commit statuses.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Write"
+        }
+      ],
+      "default": "read"
+    },
+    {
+      "name": "gists",
+      "label": "Gists",
+      "description": "Gists and their files.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Write"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "name": "stars",
+      "label": "Stars",
+      "description": "Starred repositories.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Write"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "name": "organizations",
+      "label": "Organizations and teams",
+      "description": "Your organizations, their members and teams.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "read",
+          "label": "Read"
+        }
+      ],
+      "default": "read"
+    },
+    {
+      "name": "emails",
+      "label": "Email addresses",
+      "description": "Your email addresses, including private ones.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "read",
+          "label": "Read"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "name": "repositories",
+      "label": "Create and fork repositories",
+      "description": "New repositories in your account or organizations, and forks.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "write",
+          "label": "Write"
+        }
+      ],
+      "default": "none"
     }
-  },
+  ],
   "auth": {
     "oauth": {
       "account": {
@@ -60,6 +193,18 @@
         }
       },
       "label": "Personal access token",
+      "setup_url": "https://github.com/settings/personal-access-tokens/new?name=Houston&description=Houston%20connection",
+      "setup_params": {
+        "contents": "code",
+        "issues": "conversations",
+        "pull_requests": "conversations",
+        "actions": "actions",
+        "statuses": "actions",
+        "starring": "stars",
+        "members": "organizations",
+        "emails": "emails",
+        "administration": "repositories"
+      },
       "type": "manual"
     }
   },
@@ -92,88 +237,22 @@
           "GET"
         ],
         "path": [
-          "/gists",
-          "/gists/{gist_id}",
-          "/issues",
-          "/notifications",
-          "/orgs/{org}",
-          "/orgs/{org}/members",
           "/orgs/{org}/repos",
-          "/orgs/{org}/teams",
-          "/orgs/{org}/teams/{team_slug}/members",
           "/rate_limit",
           "/repos/{owner}/{repo}",
-          "/repos/{owner}/{repo}/actions/artifacts",
-          "/repos/{owner}/{repo}/actions/artifacts/{artifact_id}/{archive_format}",
-          "/repos/{owner}/{repo}/actions/jobs/{job_id}",
-          "/repos/{owner}/{repo}/actions/jobs/{job_id}/logs",
-          "/repos/{owner}/{repo}/actions/runs",
-          "/repos/{owner}/{repo}/actions/runs/{run_id}",
-          "/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts",
-          "/repos/{owner}/{repo}/actions/runs/{run_id}/jobs",
-          "/repos/{owner}/{repo}/actions/runs/{run_id}/logs",
-          "/repos/{owner}/{repo}/actions/workflows",
-          "/repos/{owner}/{repo}/actions/workflows/{workflow_id}",
-          "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
-          "/repos/{owner}/{repo}/assignees",
-          "/repos/{owner}/{repo}/branches",
-          "/repos/{owner}/{repo}/check-runs/{check_run_id}",
-          "/repos/{owner}/{repo}/check-runs/{check_run_id}/annotations",
-          "/repos/{owner}/{repo}/collaborators",
-          "/repos/{owner}/{repo}/commits",
-          "/repos/{owner}/{repo}/commits/{commit_sha}/comments",
-          "/repos/{owner}/{repo}/commits/{commit_sha}/pulls",
           "/repos/{owner}/{repo}/contributors",
-          "/repos/{owner}/{repo}/events",
           "/repos/{owner}/{repo}/forks",
-          "/repos/{owner}/{repo}/git/blobs/{file_sha}",
-          "/repos/{owner}/{repo}/git/commits/{commit_sha}",
-          "/repos/{owner}/{repo}/issues",
-          "/repos/{owner}/{repo}/issues/comments/{comment_id}",
-          "/repos/{owner}/{repo}/issues/{issue_number}",
-          "/repos/{owner}/{repo}/issues/{issue_number}/comments",
-          "/repos/{owner}/{repo}/issues/{issue_number}/sub_issues",
-          "/repos/{owner}/{repo}/issues/{issue_number}/timeline",
-          "/repos/{owner}/{repo}/labels",
           "/repos/{owner}/{repo}/languages",
-          "/repos/{owner}/{repo}/milestones",
-          "/repos/{owner}/{repo}/milestones/{milestone_number}",
-          "/repos/{owner}/{repo}/pulls",
-          "/repos/{owner}/{repo}/pulls/comments/{comment_id}",
-          "/repos/{owner}/{repo}/pulls/{pull_number}",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/comments",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/commits",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/files",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}",
-          "/repos/{owner}/{repo}/readme",
-          "/repos/{owner}/{repo}/releases",
-          "/repos/{owner}/{repo}/releases/assets/{asset_id}",
-          "/repos/{owner}/{repo}/releases/latest",
-          "/repos/{owner}/{repo}/releases/{release_id}",
-          "/repos/{owner}/{repo}/releases/{release_id}/assets",
           "/repos/{owner}/{repo}/stargazers",
-          "/repos/{owner}/{repo}/tags",
           "/repos/{owner}/{repo}/topics",
-          "/search/code",
-          "/search/commits",
-          "/search/issues",
           "/search/repositories",
           "/search/users",
           "/user",
-          "/user/emails",
           "/user/installations",
           "/user/installations/{installation_id}/repositories",
-          "/user/orgs",
           "/user/repos",
-          "/user/starred",
           "/users/{username}",
-          "/users/{username}/events",
-          "/users/{username}/gists",
-          "/users/{username}/received_events",
-          "/users/{username}/repos",
-          "/users/{username}/starred"
+          "/users/{username}/repos"
         ],
         "protocol": "http"
       }
@@ -186,6 +265,42 @@
           }
         }
       },
+      "if": "{{ allows access.code \"read\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/branches",
+          "/repos/{owner}/{repo}/commits",
+          "/repos/{owner}/{repo}/commits/{commit_sha}/comments",
+          "/repos/{owner}/{repo}/git/blobs/{file_sha}",
+          "/repos/{owner}/{repo}/git/commits/{commit_sha}",
+          "/repos/{owner}/{repo}/readme",
+          "/repos/{owner}/{repo}/releases",
+          "/repos/{owner}/{repo}/releases/assets/{asset_id}",
+          "/repos/{owner}/{repo}/releases/latest",
+          "/repos/{owner}/{repo}/releases/{release_id}",
+          "/repos/{owner}/{repo}/releases/{release_id}/assets",
+          "/repos/{owner}/{repo}/tags",
+          "/search/code",
+          "/search/commits"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.code \"read\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -210,6 +325,7 @@
           }
         }
       },
+      "if": "{{ allows access.code \"read\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -234,6 +350,7 @@
           }
         }
       },
+      "if": "{{ allows access.code \"read\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -258,6 +375,7 @@
           }
         }
       },
+      "if": "{{ allows access.code \"read\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -270,10 +388,6 @@
         ],
         "path": [
           "/repos/{owner}/{repo}/commits/{ref}",
-          "/repos/{owner}/{repo}/commits/{ref}/check-runs",
-          "/repos/{owner}/{repo}/commits/{ref}/check-suites",
-          "/repos/{owner}/{repo}/commits/{ref}/status",
-          "/repos/{owner}/{repo}/commits/{ref}/statuses",
           "/repos/{owner}/{repo}/git/matching-refs/{ref}",
           "/repos/{owner}/{repo}/git/ref/{ref}",
           "/repos/{owner}/{repo}/tarball/{ref}",
@@ -290,6 +404,7 @@
           }
         }
       },
+      "if": "{{ allows access.code \"read\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -314,6 +429,7 @@
           }
         }
       },
+      "if": "{{ allows access.code \"read\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -338,7 +454,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.code \"write\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -347,17 +463,8 @@
           "DELETE"
         ],
         "path": [
-          "/gists/{gist_id}",
-          "/notifications/threads/{thread_id}",
-          "/repos/{owner}/{repo}/issues/comments/{comment_id}",
-          "/repos/{owner}/{repo}/issues/{issue_number}/assignees",
-          "/repos/{owner}/{repo}/milestones/{milestone_number}",
-          "/repos/{owner}/{repo}/pulls/comments/{comment_id}",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}",
           "/repos/{owner}/{repo}/releases/assets/{asset_id}",
-          "/repos/{owner}/{repo}/releases/{release_id}",
-          "/user/starred/{owner}/{repo}"
+          "/repos/{owner}/{repo}/releases/{release_id}"
         ],
         "protocol": "http"
       }
@@ -370,7 +477,204 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.code \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/releases/{release_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.code \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/commits/{commit_sha}/comments",
+          "/repos/{owner}/{repo}/git/blobs",
+          "/repos/{owner}/{repo}/git/commits",
+          "/repos/{owner}/{repo}/git/refs",
+          "/repos/{owner}/{repo}/git/trees",
+          "/repos/{owner}/{repo}/merge-upstream",
+          "/repos/{owner}/{repo}/merges",
+          "/repos/{owner}/{repo}/releases",
+          "/repos/{owner}/{repo}/releases/generate-notes"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.code \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "opaque_path_parameters": [
+          "branch"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/branches/{branch}/rename"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.code \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "DELETE",
+          "PUT"
+        ],
+        "opaque_path_parameters": [
+          "path"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/contents/{path}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.code \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "DELETE",
+          "PATCH"
+        ],
+        "opaque_path_parameters": [
+          "ref"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/git/refs/{ref}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.conversations \"read\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/issues",
+          "/repos/{owner}/{repo}/assignees",
+          "/repos/{owner}/{repo}/collaborators",
+          "/repos/{owner}/{repo}/issues",
+          "/repos/{owner}/{repo}/issues/comments/{comment_id}",
+          "/repos/{owner}/{repo}/issues/{issue_number}",
+          "/repos/{owner}/{repo}/issues/{issue_number}/comments",
+          "/repos/{owner}/{repo}/issues/{issue_number}/sub_issues",
+          "/repos/{owner}/{repo}/issues/{issue_number}/timeline",
+          "/repos/{owner}/{repo}/labels",
+          "/repos/{owner}/{repo}/milestones",
+          "/repos/{owner}/{repo}/milestones/{milestone_number}",
+          "/repos/{owner}/{repo}/pulls",
+          "/repos/{owner}/{repo}/pulls/comments/{comment_id}",
+          "/repos/{owner}/{repo}/pulls/{pull_number}",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/comments",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}",
+          "/search/issues"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.conversations \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/issues/comments/{comment_id}",
+          "/repos/{owner}/{repo}/issues/{issue_number}/assignees",
+          "/repos/{owner}/{repo}/milestones/{milestone_number}",
+          "/repos/{owner}/{repo}/pulls/comments/{comment_id}",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.conversations \"write\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -396,57 +700,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
-      "match": {
-        "host": [
-          "api.github.com"
-        ],
-        "method": [
-          "DELETE"
-        ],
-        "opaque_path_parameters": [
-          "path"
-        ],
-        "path": [
-          "/repos/{owner}/{repo}/contents/{path}"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
-          }
-        }
-      },
-      "if": "{{ is config.access \"read-write\" }}",
-      "match": {
-        "host": [
-          "api.github.com"
-        ],
-        "method": [
-          "DELETE"
-        ],
-        "opaque_path_parameters": [
-          "ref"
-        ],
-        "path": [
-          "/repos/{owner}/{repo}/git/refs/{ref}"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
-          }
-        }
-      },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.conversations \"write\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -455,14 +709,11 @@
           "PATCH"
         ],
         "path": [
-          "/gists/{gist_id}",
-          "/notifications/threads/{thread_id}",
           "/repos/{owner}/{repo}/issues/comments/{comment_id}",
           "/repos/{owner}/{repo}/issues/{issue_number}",
           "/repos/{owner}/{repo}/milestones/{milestone_number}",
           "/repos/{owner}/{repo}/pulls/comments/{comment_id}",
-          "/repos/{owner}/{repo}/pulls/{pull_number}",
-          "/repos/{owner}/{repo}/releases/{release_id}"
+          "/repos/{owner}/{repo}/pulls/{pull_number}"
         ],
         "protocol": "http"
       }
@@ -475,7 +726,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.conversations \"write\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -500,32 +751,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
-      "match": {
-        "host": [
-          "api.github.com"
-        ],
-        "method": [
-          "PATCH"
-        ],
-        "opaque_path_parameters": [
-          "ref"
-        ],
-        "path": [
-          "/repos/{owner}/{repo}/git/refs/{ref}"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
-          }
-        }
-      },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.conversations \"write\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -534,18 +760,6 @@
           "POST"
         ],
         "path": [
-          "/gists",
-          "/orgs/{org}/repos",
-          "/repos/{owner}/{repo}/actions/runs/{run_id}/cancel",
-          "/repos/{owner}/{repo}/actions/runs/{run_id}/rerun",
-          "/repos/{owner}/{repo}/actions/runs/{run_id}/rerun-failed-jobs",
-          "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches",
-          "/repos/{owner}/{repo}/commits/{commit_sha}/comments",
-          "/repos/{owner}/{repo}/forks",
-          "/repos/{owner}/{repo}/git/blobs",
-          "/repos/{owner}/{repo}/git/commits",
-          "/repos/{owner}/{repo}/git/refs",
-          "/repos/{owner}/{repo}/git/trees",
           "/repos/{owner}/{repo}/issues",
           "/repos/{owner}/{repo}/issues/comments/{comment_id}/reactions",
           "/repos/{owner}/{repo}/issues/{issue_number}/assignees",
@@ -553,8 +767,6 @@
           "/repos/{owner}/{repo}/issues/{issue_number}/labels",
           "/repos/{owner}/{repo}/issues/{issue_number}/reactions",
           "/repos/{owner}/{repo}/labels",
-          "/repos/{owner}/{repo}/merge-upstream",
-          "/repos/{owner}/{repo}/merges",
           "/repos/{owner}/{repo}/milestones",
           "/repos/{owner}/{repo}/pulls",
           "/repos/{owner}/{repo}/pulls/comments/{comment_id}/reactions",
@@ -562,11 +774,7 @@
           "/repos/{owner}/{repo}/pulls/{pull_number}/comments/{comment_id}/replies",
           "/repos/{owner}/{repo}/pulls/{pull_number}/requested_reviewers",
           "/repos/{owner}/{repo}/pulls/{pull_number}/reviews",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/events",
-          "/repos/{owner}/{repo}/releases",
-          "/repos/{owner}/{repo}/releases/generate-notes",
-          "/repos/{owner}/{repo}/statuses/{sha}",
-          "/user/repos"
+          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/events"
         ],
         "protocol": "http"
       }
@@ -579,32 +787,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
-      "match": {
-        "host": [
-          "api.github.com"
-        ],
-        "method": [
-          "POST"
-        ],
-        "opaque_path_parameters": [
-          "branch"
-        ],
-        "path": [
-          "/repos/{owner}/{repo}/branches/{branch}/rename"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
-          }
-        }
-      },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.conversations \"write\" }}",
       "match": {
         "host": [
           "api.github.com"
@@ -613,11 +796,261 @@
           "PUT"
         ],
         "path": [
-          "/notifications",
           "/repos/{owner}/{repo}/issues/{issue_number}/labels",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/dismissals"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (allows access.code \"read\") (allows access.conversations \"read\") }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/commits/{commit_sha}/pulls",
+          "/repos/{owner}/{repo}/events",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/commits",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/files",
+          "/users/{username}/events",
+          "/users/{username}/received_events"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ and (allows access.code \"write\") (allows access.conversations \"write\") }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
           "/repos/{owner}/{repo}/pulls/{pull_number}/merge",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/reviews/{review_id}/dismissals",
-          "/repos/{owner}/{repo}/pulls/{pull_number}/update-branch",
+          "/repos/{owner}/{repo}/pulls/{pull_number}/update-branch"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.actions \"read\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/actions/artifacts",
+          "/repos/{owner}/{repo}/actions/artifacts/{artifact_id}/{archive_format}",
+          "/repos/{owner}/{repo}/actions/jobs/{job_id}",
+          "/repos/{owner}/{repo}/actions/jobs/{job_id}/logs",
+          "/repos/{owner}/{repo}/actions/runs",
+          "/repos/{owner}/{repo}/actions/runs/{run_id}",
+          "/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts",
+          "/repos/{owner}/{repo}/actions/runs/{run_id}/jobs",
+          "/repos/{owner}/{repo}/actions/runs/{run_id}/logs",
+          "/repos/{owner}/{repo}/actions/workflows",
+          "/repos/{owner}/{repo}/actions/workflows/{workflow_id}",
+          "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs",
+          "/repos/{owner}/{repo}/check-runs/{check_run_id}",
+          "/repos/{owner}/{repo}/check-runs/{check_run_id}/annotations"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.actions \"read\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "opaque_path_parameters": [
+          "ref"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/commits/{ref}/check-runs",
+          "/repos/{owner}/{repo}/commits/{ref}/check-suites",
+          "/repos/{owner}/{repo}/commits/{ref}/status",
+          "/repos/{owner}/{repo}/commits/{ref}/statuses"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.actions \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/repos/{owner}/{repo}/actions/runs/{run_id}/cancel",
+          "/repos/{owner}/{repo}/actions/runs/{run_id}/rerun",
+          "/repos/{owner}/{repo}/actions/runs/{run_id}/rerun-failed-jobs",
+          "/repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches",
+          "/repos/{owner}/{repo}/statuses/{sha}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.gists \"read\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/gists",
+          "/gists/{gist_id}",
+          "/users/{username}/gists"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.gists \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/gists"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.gists \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "DELETE",
+          "PATCH"
+        ],
+        "path": [
+          "/gists/{gist_id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.stars \"read\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/user/starred",
+          "/users/{username}/starred"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.stars \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "DELETE",
+          "PUT"
+        ],
+        "path": [
           "/user/starred/{owner}/{repo}"
         ],
         "protocol": "http"
@@ -631,19 +1064,66 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.organizations \"read\" }}",
       "match": {
         "host": [
           "api.github.com"
         ],
         "method": [
-          "PUT"
-        ],
-        "opaque_path_parameters": [
-          "path"
+          "GET"
         ],
         "path": [
-          "/repos/{owner}/{repo}/contents/{path}"
+          "/orgs/{org}",
+          "/orgs/{org}/members",
+          "/orgs/{org}/teams",
+          "/orgs/{org}/teams/{team_slug}/members",
+          "/user/orgs"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.emails \"read\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/user/emails"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token || auth.token.token}}"
+          }
+        }
+      },
+      "if": "{{ allows access.repositories \"write\" }}",
+      "match": {
+        "host": [
+          "api.github.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/orgs/{org}/repos",
+          "/repos/{owner}/{repo}/forks",
+          "/user/repos"
         ],
         "protocol": "http"
       }
@@ -656,14 +1136,63 @@
           ]
         }
       },
+      "if": "{{ allows access.code \"read\" }}",
       "match": {
         "host": [
           "codeload.github.com",
           "release-assets.githubusercontent.com",
           "objects.githubusercontent.com",
           "objects-origin.githubusercontent.com",
-          "github-releases.githubusercontent.com",
-          "gist.githubusercontent.com",
+          "github-releases.githubusercontent.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "opaque_path_parameters": [
+          "*"
+        ],
+        "path": [
+          "/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ]
+        }
+      },
+      "if": "{{ allows access.gists \"read\" }}",
+      "match": {
+        "host": [
+          "gist.githubusercontent.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "opaque_path_parameters": [
+          "*"
+        ],
+        "path": [
+          "/*"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ]
+        }
+      },
+      "if": "{{ allows access.actions \"read\" }}",
+      "match": {
+        "host": [
           "*.actions.githubusercontent.com",
           "*.blob.core.windows.net"
         ],

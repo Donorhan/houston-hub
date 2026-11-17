@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {site_host = "blog.example.com", access = "read-write"}, auth_method = "application_password",
+	scenario = {publisher = {}, access = {data = "write"}, config = {site_host = "blog.example.com"}, auth_method = "application_password",
 		auth_config = {username = "editor", password = "abcd efgh ijkl mnop qrst uvwx"}},
 	configure = function()
 		requests = {}
@@ -28,7 +28,7 @@ return {
 			.. "getCategory,getComment,getMedia,getPage,getPageRevision,getPost,getPostRevision,getPostStatus,getPostType,getSettings,getTag,getTaxonomy,getUser,"
 			.. "listCategories,listComments,listMedia,listPageRevisions,listPages,listPostRevisions,listPostStatuses,listPostTypes,listPosts,listTags,listTaxonomies,listUsers,"
 			.. "search,updateCategory,updateComment,updateMedia,updatePage,updatePost,updateTag,uploadMedia",
-			"wrong read-write surface: " .. table.concat(names, ","))
+			"wrong write surface: " .. table.concat(names, ","))
 
 		payload = '{"id":42,"status":"draft","title":{"raw":"Launch notes"},"tags":[]}'
 		local post = wp.createPost({title = "Launch notes", content = "<!-- wp:paragraph --><p>Hi</p><!-- /wp:paragraph -->",

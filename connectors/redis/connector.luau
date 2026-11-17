@@ -29,7 +29,7 @@ function exports.query(name: string, ...: Arg): any
 	return await(db.command({args = {name, ...}, readOnly = true}))
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	help.functions.execute = {
 		description = [[Runs any command your Redis user may run, except AUTH and HELLO, which the
 	  connection settings own. A failed or interrupted call may already have

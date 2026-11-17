@@ -14,7 +14,7 @@ analytical SQL.
 
 ## Make changes when you allow it
 
-With **Read and write** access, agents can also insert data and create or alter
-tables. With **Read-only** access, every query runs with ClickHouse's read-only
+With **Write** access, agents can also insert data and create or alter
+tables. With **Read** access, every query runs with ClickHouse's read-only
 setting, so data, schema and settings cannot change. Your user's grants and settings profile always
 apply.

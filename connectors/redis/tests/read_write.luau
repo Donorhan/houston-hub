@@ -1,7 +1,7 @@
--- Read-write connections add execute, which sends a command allowed to write.
+-- Write access adds execute, which sends a command allowed to write.
 return {
 	scenario = {publisher = {}, auth_method = "", auth_config = {}, config = {host = "cache.example.com", password = "fixture-password", database = 2}},
-	config = {access = "read-write"},
+	access = {data = "write"},
 	configure = function()
 		requests = {}
 		db = {command = function(request)

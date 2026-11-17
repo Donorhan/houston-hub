@@ -1,27 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "WooCommerce",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "order": 1,
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "store_host": {
       "description": "The domain your store is served from, without https:// or a path.",
       "label": "Store domain",
@@ -60,7 +61,7 @@
           "username": "{{auth.keys.consumer_key}}"
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.store_host}}"

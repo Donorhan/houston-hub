@@ -1,7 +1,7 @@
 -- Every documented example runs as a real call against a permissive Gladia mock.
 return {
 	scenario = {publisher = {}, config = {}, auth_method = "api_key", auth_config = {token = "gladia-fixture-key"}},
-	config = {access = "read-write"},
+	access = {data = "write"},
 	configure = function()
 		calls = 0
 		fs = fixture.files()

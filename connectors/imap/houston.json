@@ -1,32 +1,33 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "IMAP",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
-      "description": "Read and draft lets agents create, update and delete drafts for you to review and send, without changing any other mail. This connector never sends email.",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "description": "Draft lets agents create, update and delete drafts for you to review and send, without changing any other mail. This connector never sends email.",
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and draft",
-          "value": "custom"
+          "value": "draft",
+          "label": "Draft"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "order": 1,
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "host": {
       "label": "IMAP server",
       "order": 2,

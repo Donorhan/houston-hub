@@ -1,8 +1,8 @@
 # Connect your Microsoft account
 
-1. Choose the access level:
-   - **Read-only** to let agents read your calendars without changing anything.
-   - **Read and write** to also let agents create, change and cancel events and
+1. Choose the level for **Access**:
+   - **Read** to let agents read your calendars without changing anything.
+   - **Write** to also let agents create, change and cancel events and
      answer invitations. Outlook emails the people involved about these changes.
 2. Select **Continue with Microsoft**, sign in with your Outlook.com, work or
    school account, and select **Accept** on the permissions Microsoft lists.
@@ -27,6 +27,6 @@ connect other Microsoft services.
   This disconnects all your Microsoft connections in Houston. To stop using
   only Outlook Calendar, remove its connection in Houston.
 - Agents can read events in calendars other people share with you, and with
-  Read and write access change them where you have edit permission. A
+  **Write** access change them where you have edit permission. A
   colleague's shared main calendar may not be readable.
 - Free/busy lookups for colleagues work only with work or school accounts.

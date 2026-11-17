@@ -3,8 +3,8 @@ return {
 		-- TestPennylaneAccessRoutes
 		do
 			local api = "https://app.pennylane.com/api/external/v2"
-			for _, access in { "read-only", "read-write" } do
-				local r, err = m.resolve(nil, { access = access }, { token = "pennylane-fixture" }, "token")
+			for _, access in { "read", "write" } do
+				local r, err = m.resolve(nil, {}, { token = "pennylane-fixture" }, "token", { data = access })
 				assert(not err, tostring(err))
 				m.routes(r, "Bearer pennylane-fixture", true, {
 					"GET " .. api .. "/me",
@@ -19,7 +19,7 @@ return {
 					"POST " .. api .. "/exports/fecs",
 					"GET " .. api .. "/exports/fecs/9",
 				})
-				m.routes(r, "Bearer pennylane-fixture", (access == "read-write"), {
+				m.routes(r, "Bearer pennylane-fixture", (access == "write"), {
 					"POST " .. api .. "/customer_invoices",
 					"PUT " .. api .. "/customer_invoices/42/finalize",
 					"POST " .. api .. "/customer_invoices/42/send_by_email",
@@ -56,7 +56,7 @@ return {
 		end
 		-- TestPennylaneReadOnlyPostRejectsMethodOverrides
 		do
-			local r, err = m.resolve(nil, { access = "read-only" }, { token = "pennylane-fixture" }, "token")
+			local r, err = m.resolve(nil, {}, { token = "pennylane-fixture" }, "token", { data = "read" })
 			assert(not err, tostring(err))
 			local recipe, err =
 				m.recipe(r, "POST", "https://app.pennylane.com/api/external/v2/exports/fecs", nil)

@@ -9,7 +9,7 @@ invitees and answers, find open times for an event type, check your busy times a
 read your event types, availability, contacts, routing forms and meeting recaps.
 Organization admins can also look across their team's meetings, members and groups.
 
-With read and write access, agents can also create single-use booking links, book
+With write access, agents can also create single-use booking links, book
 meetings for invitees, cancel meetings, mark no-shows, create and edit one-on-one
 event types and their availability, manage contacts, update meeting recaps, set up
 webhooks and invite people to your organization. Calendly emails invitees when

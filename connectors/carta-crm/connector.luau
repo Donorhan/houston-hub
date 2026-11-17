@@ -1,6 +1,6 @@
 -- Carta CRM public API v1. Arguments and results keep Carta CRM's native field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?, doc: string, about: string}
+type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, access: string?, body: (boolean | string)?, doc: string, about: string}
 
 local PROVIDER = "Carta CRM"
 local API = "https://crm-public-api.app.carta.com"
@@ -25,20 +25,20 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Totals of contacts, deals, fundraisings, investors and notes."},
 
 	listCompanies = {method = "GET", path = "/v1/companies", query = paged("listId", "search"), doc = "company-controller-get-companies", about = "{companies}."},
-	searchCompanies = {method = "POST", path = "/v1/companies/search", write = false, doc = "company-controller-search-companies",
+	searchCompanies = {method = "POST", path = "/v1/companies/search", doc = "company-controller-search-companies",
 		about = "Body {filters?, search?, limit?, offset?}; see Filters."},
-	aggregateCompanies = {method = "POST", path = "/v1/companies/aggregate", write = false, required = {"group_by"}, doc = "company-controller-aggregate-companies",
+	aggregateCompanies = {method = "POST", path = "/v1/companies/aggregate", required = {"group_by"}, doc = "company-controller-aggregate-companies",
 		about = "Body {group_by, group_by_granularity?, filters?, metric?}: counts per group."},
 	getCompany = {method = "GET", path = "/v1/companies/{id}", doc = "company-controller-get-company-by-id", about = ""},
-	createCompany = {method = "POST", path = "/v1/companies", required = {"name"}, doc = "company-controller-create-company",
+	createCompany = {method = "POST", path = "/v1/companies", access = "data:write", required = {"name"}, doc = "company-controller-create-company",
 		about = "Body {name, image?, lists?, fields?}. A website in fields starts enrichment."},
-	updateCompany = {method = "PATCH", path = "/v1/companies/{id}", doc = "company-controller-update-company",
+	updateCompany = {method = "PATCH", path = "/v1/companies/{id}", access = "data:write", doc = "company-controller-update-company",
 		about = "Body: fields to change {name?, lists?, fields?, cartaIssuerId?, cartaCorporationId?}."},
-	deleteCompany = {method = "DELETE", path = "/v1/companies/{id}", doc = "company-controller-delete-company", about = "Permanent."},
+	deleteCompany = {method = "DELETE", path = "/v1/companies/{id}", access = "data:write", doc = "company-controller-delete-company", about = "Permanent."},
 	listCompanyFields = {method = "GET", path = "/v1/companies/fields", doc = "company-controller-get-all-company-fields", about = "Standard and custom fields, with their fieldId."},
 	listCompanyLists = {method = "GET", path = "/v1/companies/lists", doc = "company-metadata-controller-get-company-lists", about = ""},
-	addCompanyToList = {method = "POST", path = "/v1/companies/{id}/lists/{listId}", body = false, doc = "company-controller-add-company-to-list", about = ""},
-	removeCompanyFromList = {method = "DELETE", path = "/v1/companies/{id}/lists/{listId}", doc = "company-controller-remove-company-from-list", about = ""},
+	addCompanyToList = {method = "POST", path = "/v1/companies/{id}/lists/{listId}", access = "data:write", body = false, doc = "company-controller-add-company-to-list", about = ""},
+	removeCompanyFromList = {method = "DELETE", path = "/v1/companies/{id}/lists/{listId}", access = "data:write", doc = "company-controller-remove-company-from-list", about = ""},
 	getCompanyAngles = {method = "GET", path = "/v1/companies/angles", query = {"domain"}, required = {"domain"}, doc = "company-controller-get-company-angles",
 		about = "Who in your network can introduce you to people at a company domain."},
 	listCompanyInteractions = {method = "GET", path = "/v1/companies/{id}/interactions", query = paged("type"), doc = "company-controller-get-company-interactions",
@@ -46,68 +46,68 @@ local endpoints: {[string]: Endpoint} = {
 	listCompanyRelations = {method = "GET", path = "/v1/companies/{id}/relations", query = PAGE, doc = "company-controller-get-company-relations",
 		about = "Relationships with the company's contacts, one row per participant."},
 	listCompanyNotes = {method = "GET", path = "/v1/companies/{id}/notes", doc = "company-linking-controller-get-linked-notes", about = "id may be a company domain."},
-	linkCompanyNote = {method = "POST", path = "/v1/companies/{id}/notes/{noteId}", body = false, doc = "company-linking-controller-link-note", about = ""},
+	linkCompanyNote = {method = "POST", path = "/v1/companies/{id}/notes/{noteId}", access = "data:write", body = false, doc = "company-linking-controller-link-note", about = ""},
 
 	listContacts = {method = "GET", path = "/v1/contacts", doc = "contacts-controller-get-contacts",
 		query = paged("search", "queryTerms", "listIds", "folderIds", "currentCompany", "titles", "tagsAny", "locationCity", "locationCountry", "addedAfter", "addedBefore", "relationshipStatus", "interactionFrequencyGoals"),
 		about = "{contacts}. Array filters match any value."},
 	getContact = {method = "GET", path = "/v1/contacts/{id}", doc = "contacts-controller-get-contact-by-id", about = ""},
-	createContact = {method = "POST", path = "/v1/contacts", required = {"name"}, doc = "contacts-controller-create-contact",
+	createContact = {method = "POST", path = "/v1/contacts", access = "data:write", required = {"name"}, doc = "contacts-controller-create-contact",
 		about = "Body {name, listId?, firstName?, lastName?, emailDetail?, phone?, title?, tags?, jobs?, location?, socialLinks?, fields?, ...}. Enriches the contact unless enrich=false."},
-	updateContact = {method = "PATCH", path = "/v1/contacts/{id}", doc = "contacts-controller-update-contact", about = "Body: fields to change; jobs, location and homeLocation are replaced whole."},
-	deleteContact = {method = "DELETE", path = "/v1/contacts/{id}", doc = "contacts-controller-delete-contact", about = "Permanent, from every list."},
+	updateContact = {method = "PATCH", path = "/v1/contacts/{id}", access = "data:write", doc = "contacts-controller-update-contact", about = "Body: fields to change; jobs, location and homeLocation are replaced whole."},
+	deleteContact = {method = "DELETE", path = "/v1/contacts/{id}", access = "data:write", doc = "contacts-controller-delete-contact", about = "Permanent, from every list."},
 	listContactFields = {method = "GET", path = "/v1/contacts/fields", doc = "contacts-controller-get-all-contact-fields", about = ""},
 	listContactLists = {method = "GET", path = "/v1/contacts/lists", doc = "contact-lists-controller-get-lists", about = "The folder and list tree."},
-	addContactToList = {method = "POST", path = "/v1/contacts/{id}/lists/{listId}", body = false, doc = "contacts-controller-add-contact-to-list", about = ""},
-	removeContactFromList = {method = "DELETE", path = "/v1/contacts/{id}/lists/{listId}", doc = "contacts-controller-remove-contact-from-list", about = "Keeps the contact in other lists."},
+	addContactToList = {method = "POST", path = "/v1/contacts/{id}/lists/{listId}", access = "data:write", body = false, doc = "contacts-controller-add-contact-to-list", about = ""},
+	removeContactFromList = {method = "DELETE", path = "/v1/contacts/{id}/lists/{listId}", access = "data:write", doc = "contacts-controller-remove-contact-from-list", about = "Keeps the contact in other lists."},
 	findContactDuplicates = {method = "GET", path = "/v1/contacts/duplicates", query = paged("types"), doc = "contacts-controller-find-contact-duplicates",
 		about = "Suspected duplicates; types: email, linkedin, name."},
 	listContactInteractions = {method = "GET", path = "/v1/contacts/{id}/interactions", query = paged("type"), doc = "contacts-controller-get-contact-interactions", about = ""},
 	listContactNotes = {method = "GET", path = "/v1/contacts/{id}/notes", doc = "contact-linking-controller-get-linked-notes", about = ""},
-	linkContactNote = {method = "POST", path = "/v1/contacts/{id}/notes/{noteId}", body = false, doc = "contact-linking-controller-link-note", about = ""},
+	linkContactNote = {method = "POST", path = "/v1/contacts/{id}/notes/{noteId}", access = "data:write", body = false, doc = "contact-linking-controller-link-note", about = ""},
 
 	listDeals = {method = "GET", path = "/v1/deals", query = paged("pipelines", "stages", "search"), doc = "deal-controller-get-deals",
 		about = "{deals}. Without pipelines, the default pipeline."},
-	searchDeals = {method = "POST", path = "/v1/deals/search", write = false, doc = "deal-controller-search-deals", about = "Body {filters?, search?, limit?, offset?}."},
-	aggregateDeals = {method = "POST", path = "/v1/deals/aggregate", write = false, required = {"group_by"}, doc = "deal-controller-aggregate-deals", about = "Body {group_by, pipeline_id?, group_by_granularity?, filters?, metric?}."},
-	aggregateDealStageHistory = {method = "POST", path = "/v1/deals/stage-history/aggregate", write = false, required = {"group_by"}, doc = "deal-controller-aggregate-deal-stage-history",
+	searchDeals = {method = "POST", path = "/v1/deals/search", doc = "deal-controller-search-deals", about = "Body {filters?, search?, limit?, offset?}."},
+	aggregateDeals = {method = "POST", path = "/v1/deals/aggregate", required = {"group_by"}, doc = "deal-controller-aggregate-deals", about = "Body {group_by, pipeline_id?, group_by_granularity?, filters?, metric?}."},
+	aggregateDealStageHistory = {method = "POST", path = "/v1/deals/stage-history/aggregate", required = {"group_by"}, doc = "deal-controller-aggregate-deal-stage-history",
 		about = "Body {group_by, group_by_granularity?, count_by?, filters?}: stage transitions per group."},
 	getDeal = {method = "GET", path = "/v1/deals/{id}", doc = "deal-controller-get-deal-by-id", about = ""},
-	createDeal = {method = "POST", path = "/v1/deals", doc = "deal-controller-create-deal",
+	createDeal = {method = "POST", path = "/v1/deals", access = "data:write", doc = "deal-controller-create-deal",
 		about = "Body {company={name, url?, ...}, pipelineId?, stageId?, dealLead?, tags?, comment?, fields?, people?}."},
-	updateDeal = {method = "PATCH", path = "/v1/deals/{id}", doc = "deal-controller-update-deal", about = "Body: fields to change, such as stageId."},
-	deleteDeal = {method = "DELETE", path = "/v1/deals/{id}", doc = "deal-controller-delete-deal", about = "Permanent."},
+	updateDeal = {method = "PATCH", path = "/v1/deals/{id}", access = "data:write", doc = "deal-controller-update-deal", about = "Body: fields to change, such as stageId."},
+	deleteDeal = {method = "DELETE", path = "/v1/deals/{id}", access = "data:write", doc = "deal-controller-delete-deal", about = "Permanent."},
 	listDealFields = {method = "GET", path = "/v1/deals/fields", doc = "deal-metadata-controller-get-all-deal-fields", about = ""},
 	listDealPipelines = {method = "GET", path = "/v1/deals/pipelines", doc = "deal-metadata-controller-get-pipelines-with-stages", about = "Pipelines with their stages."},
 	getDealStageHistory = {method = "GET", path = "/v1/deals/{id}/stage-history", doc = "deal-controller-get-deal-stage-history", about = ""},
 	listDealNotes = {method = "GET", path = "/v1/deals/{id}/notes", doc = "deal-linking-controller-get-linked-notes", about = ""},
-	linkDealNote = {method = "POST", path = "/v1/deals/{id}/notes/{noteId}", body = false, doc = "deal-linking-controller-link-note", about = ""},
+	linkDealNote = {method = "POST", path = "/v1/deals/{id}/notes/{noteId}", access = "data:write", body = false, doc = "deal-linking-controller-link-note", about = ""},
 
 	listFundraisings = {method = "GET", path = "/v1/fundraisings", query = paged("stages", "search"), doc = "fundraising-controller-get-fundraising", about = "LP prospects, {fundraising}."},
-	searchFundraisings = {method = "POST", path = "/v1/fundraisings/search", write = false, doc = "fundraising-controller-search-fundraisings", about = "Body {filters?, search?, limit?, offset?}."},
-	aggregateFundraisings = {method = "POST", path = "/v1/fundraisings/aggregate", write = false, required = {"group_by"}, doc = "fundraising-controller-aggregate-fundraisings", about = "Body {group_by, group_by_granularity?, filters?, metric?}."},
+	searchFundraisings = {method = "POST", path = "/v1/fundraisings/search", doc = "fundraising-controller-search-fundraisings", about = "Body {filters?, search?, limit?, offset?}."},
+	aggregateFundraisings = {method = "POST", path = "/v1/fundraisings/aggregate", required = {"group_by"}, doc = "fundraising-controller-aggregate-fundraisings", about = "Body {group_by, group_by_granularity?, filters?, metric?}."},
 	getFundraising = {method = "GET", path = "/v1/fundraisings/{id}", doc = "fundraising-controller-get-fundraising-by-id", about = ""},
-	createFundraising = {method = "POST", path = "/v1/fundraisings", required = {"name"}, doc = "fundraising-controller-create-fundraising",
+	createFundraising = {method = "POST", path = "/v1/fundraisings", access = "data:write", required = {"name"}, doc = "fundraising-controller-create-fundraising",
 		about = "Body {name, stageId?, investorId?, originContactId?, fields?}."},
-	updateFundraising = {method = "PATCH", path = "/v1/fundraisings/{id}", doc = "fundraising-controller-update-fundraising", about = ""},
-	deleteFundraising = {method = "DELETE", path = "/v1/fundraisings/{id}", doc = "fundraising-controller-delete-deal", about = "Permanent."},
+	updateFundraising = {method = "PATCH", path = "/v1/fundraisings/{id}", access = "data:write", doc = "fundraising-controller-update-fundraising", about = ""},
+	deleteFundraising = {method = "DELETE", path = "/v1/fundraisings/{id}", access = "data:write", doc = "fundraising-controller-delete-deal", about = "Permanent."},
 	listFundraisingFields = {method = "GET", path = "/v1/fundraisings/fields", doc = "fundraising-controller-get-all-fundraising-fields", about = ""},
 	listFundraisingStages = {method = "GET", path = "/v1/fundraisings/stages", doc = "fundraising-controller-get-stages", about = ""},
 	listFundraisingNotes = {method = "GET", path = "/v1/fundraisings/{id}/notes", doc = "fundraising-linking-controller-get-linked-notes", about = ""},
-	linkFundraisingNote = {method = "POST", path = "/v1/fundraisings/{id}/notes/{noteId}", body = false, doc = "fundraising-linking-controller-link-note", about = ""},
+	linkFundraisingNote = {method = "POST", path = "/v1/fundraisings/{id}/notes/{noteId}", access = "data:write", body = false, doc = "fundraising-linking-controller-link-note", about = ""},
 
 	listInvestors = {method = "GET", path = "/v1/investors", query = paged("search"), doc = "investors-controller-get-investors", about = "{investors}."},
-	searchInvestors = {method = "POST", path = "/v1/investors/search", write = false, doc = "investors-controller-search-investors", about = "Body {filters?, search?, limit?, offset?}."},
-	aggregateInvestors = {method = "POST", path = "/v1/investors/aggregate", write = false, required = {"group_by"}, doc = "investors-controller-aggregate-investors", about = "Body {group_by, group_by_granularity?, filters?, metric?}."},
+	searchInvestors = {method = "POST", path = "/v1/investors/search", doc = "investors-controller-search-investors", about = "Body {filters?, search?, limit?, offset?}."},
+	aggregateInvestors = {method = "POST", path = "/v1/investors/aggregate", required = {"group_by"}, doc = "investors-controller-aggregate-investors", about = "Body {group_by, group_by_granularity?, filters?, metric?}."},
 	getInvestor = {method = "GET", path = "/v1/investors/{id}", doc = "investors-controller-get-investor-by-id", about = ""},
-	createInvestor = {method = "POST", path = "/v1/investors", required = {"name"}, doc = "investors-controller-create-investor", about = "Body {name, fields?, originContactId?}."},
-	updateInvestor = {method = "PATCH", path = "/v1/investors/{id}", doc = "investors-controller-update-investor", about = ""},
-	deleteInvestor = {method = "DELETE", path = "/v1/investors/{id}", doc = "investors-controller-delete-investor", about = ""},
+	createInvestor = {method = "POST", path = "/v1/investors", access = "data:write", required = {"name"}, doc = "investors-controller-create-investor", about = "Body {name, fields?, originContactId?}."},
+	updateInvestor = {method = "PATCH", path = "/v1/investors/{id}", access = "data:write", doc = "investors-controller-update-investor", about = ""},
+	deleteInvestor = {method = "DELETE", path = "/v1/investors/{id}", access = "data:write", doc = "investors-controller-delete-investor", about = ""},
 	listInvestorFields = {method = "GET", path = "/v1/investors/fields", doc = "investors-controller-get-all-investor-fields", about = ""},
 	getInvestorCapitalActivity = {method = "GET", path = "/v1/investors/{id}/capital-activity", doc = "fund-admin-controller-get-capital-activity",
 		about = "Released capital calls and distributions of this LP across the firm's funds (Fund Admin)."},
 	listInvestorNotes = {method = "GET", path = "/v1/investors/{id}/notes", doc = "investor-linking-controller-get-linked-notes", about = ""},
-	linkInvestorNote = {method = "POST", path = "/v1/investors/{id}/notes/{noteId}", body = false, doc = "investor-linking-controller-link-note", about = ""},
+	linkInvestorNote = {method = "POST", path = "/v1/investors/{id}/notes/{noteId}", access = "data:write", body = false, doc = "investor-linking-controller-link-note", about = ""},
 
 	getFundClosingsStatus = {method = "GET", path = "/v1/funds/closings-status", query = {"fundCartaIds"}, required = {"fundCartaIds"}, doc = "fund-admin-controller-get-closings-status",
 		about = "fundCartaIds: up to 25 Carta fund IDs, an array or comma-separated string. Whether closings are set up per fund, with the ledger URL."},
@@ -115,13 +115,13 @@ local endpoints: {[string]: Endpoint} = {
 		about = "prospectPublicIds?: an array or comma-separated string. KYC, risk and commitment state of a fund's closing prospects."},
 
 	listFees = {method = "GET", path = "/v1/fees", query = paged("search"), doc = "fees-controller-get-fees", about = "Newest first, with totalAmount."},
-	searchFees = {method = "POST", path = "/v1/fees/search", write = false, doc = "fees-controller-search-fees", about = "Body {filters?, search?, limit?, offset?}."},
-	aggregateFees = {method = "POST", path = "/v1/fees/aggregate", write = false, required = {"group_by"}, doc = "fees-controller-aggregate-fees", about = "Body {group_by, group_by_granularity?, filters?, metric?}."},
+	searchFees = {method = "POST", path = "/v1/fees/search", doc = "fees-controller-search-fees", about = "Body {filters?, search?, limit?, offset?}."},
+	aggregateFees = {method = "POST", path = "/v1/fees/aggregate", required = {"group_by"}, doc = "fees-controller-aggregate-fees", about = "Body {group_by, group_by_granularity?, filters?, metric?}."},
 	getFee = {method = "GET", path = "/v1/fees/{id}", doc = "fees-controller-get-fee-by-id", about = ""},
-	createFee = {method = "POST", path = "/v1/fees", required = {"name"}, doc = "fees-controller-create-fee",
+	createFee = {method = "POST", path = "/v1/fees", access = "data:write", required = {"name"}, doc = "fees-controller-create-fee",
 		about = "Body {name, fields?}. Amount, date and deal are custom fields; read listFeeFields first."},
-	updateFee = {method = "PATCH", path = "/v1/fees/{id}", doc = "fees-controller-update-fee", about = ""},
-	deleteFee = {method = "DELETE", path = "/v1/fees/{id}", doc = "fees-controller-delete-fee", about = "Moves it to the trash."},
+	updateFee = {method = "PATCH", path = "/v1/fees/{id}", access = "data:write", doc = "fees-controller-update-fee", about = ""},
+	deleteFee = {method = "DELETE", path = "/v1/fees/{id}", access = "data:write", doc = "fees-controller-delete-fee", about = "Moves it to the trash."},
 	listFeeFields = {method = "GET", path = "/v1/fees/fields", doc = "fees-controller-get-all-fee-fields", about = ""},
 	listFeesByDeal = {method = "GET", path = "/v1/fees/by-deal/{dealId}", doc = "fees-controller-get-fees-by-deal", about = ""},
 	listFeesByContact = {method = "GET", path = "/v1/fees/by-contact/{contactId}", doc = "fees-controller-get-fees-by-contact", about = "contactId is the contact's common ID, not its record id."},
@@ -133,47 +133,47 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Notes on a company domain's company, deals, investors and fundraisings."},
 	listNoteFolders = {method = "GET", path = "/v1/notes/folders", doc = "notes-controller-get-folders", about = ""},
 	getNote = {method = "GET", path = "/v1/notes/{id}", doc = "notes-controller-get-note-by-id", about = ""},
-	createNote = {method = "POST", path = "/v1/notes", required = {"title"}, doc = "notes-controller-create-note", about = "Body {title, text?, folderId?, calendarEventIds?}."},
-	updateNote = {method = "PATCH", path = "/v1/notes/{id}", doc = "notes-controller-update-note", about = ""},
-	deleteNote = {method = "DELETE", path = "/v1/notes/{id}", doc = "notes-controller-delete-note", about = "Permanent."},
+	createNote = {method = "POST", path = "/v1/notes", access = "data:write", required = {"title"}, doc = "notes-controller-create-note", about = "Body {title, text?, folderId?, calendarEventIds?}."},
+	updateNote = {method = "PATCH", path = "/v1/notes/{id}", access = "data:write", doc = "notes-controller-update-note", about = ""},
+	deleteNote = {method = "DELETE", path = "/v1/notes/{id}", access = "data:write", doc = "notes-controller-delete-note", about = "Permanent."},
 
 	listTasks = {method = "GET", path = "/v1/tasks", query = paged("done", "entityType"), doc = "tasks-controller-search-tasks", about = "Tasks assigned to you."},
 	listTasksByEntity = {method = "GET", path = "/v1/tasks/by-entity", query = paged("entityId"), required = {"entityId"}, doc = "tasks-controller-get-tasks-by-entity", about = ""},
 	getTask = {method = "GET", path = "/v1/tasks/{id}", doc = "tasks-controller-get-task-by-id", about = ""},
-	createTask = {method = "POST", path = "/v1/tasks", required = {"entityId", "entityType", "title", "dueDate"}, doc = "tasks-controller-create-task",
+	createTask = {method = "POST", path = "/v1/tasks", access = "data:write", required = {"entityId", "entityType", "title", "dueDate"}, doc = "tasks-controller-create-task",
 		about = "Body {entityId, entityType (DEAL, NOTE, CONTACT, FUNDRAISING_OPPORTUNITY, COMPANY or INVESTOR), title, dueDate, assignees?, emailNotifications?, comment?}."},
-	updateTask = {method = "PATCH", path = "/v1/tasks/{id}", doc = "tasks-controller-update-task", about = "Body {title?, dueDate?, done?, assignees?, comment?}."},
-	deleteTask = {method = "DELETE", path = "/v1/tasks/{id}", doc = "tasks-controller-delete-task", about = ""},
+	updateTask = {method = "PATCH", path = "/v1/tasks/{id}", access = "data:write", doc = "tasks-controller-update-task", about = "Body {title?, dueDate?, done?, assignees?, comment?}."},
+	deleteTask = {method = "DELETE", path = "/v1/tasks/{id}", access = "data:write", doc = "tasks-controller-delete-task", about = ""},
 
 	listIcMeetings = {method = "GET", path = "/v1/ic-meetings", query = paged("search"), doc = "ic-meeting-controller-search-ic-meetings", about = "Investment committee meetings, newest first."},
 	getIcMeeting = {method = "GET", path = "/v1/ic-meetings/{id}", doc = "ic-meeting-controller-get-ic-meeting-by-id", about = ""},
 	listIcMeetingFields = {method = "GET", path = "/v1/ic-meetings/fields", doc = "ic-meeting-controller-get-ic-meeting-fields", about = ""},
 	listIcMeetingRequests = {method = "GET", path = "/v1/ic-meetings/{id}/requests", doc = "ic-meeting-controller-get-ic-meeting-requests", about = "The agenda."},
-	createIcMeeting = {method = "POST", path = "/v1/ic-meetings", doc = "ic-meeting-controller-create-ic-meeting", about = "Body {name?, fields?}."},
-	updateIcMeeting = {method = "PATCH", path = "/v1/ic-meetings/{id}", doc = "ic-meeting-controller-update-ic-meeting", about = ""},
-	deleteIcMeeting = {method = "DELETE", path = "/v1/ic-meetings/{id}", query = {"agenda"}, doc = "ic-meeting-controller-delete-ic-meeting",
+	createIcMeeting = {method = "POST", path = "/v1/ic-meetings", access = "data:write", doc = "ic-meeting-controller-create-ic-meeting", about = "Body {name?, fields?}."},
+	updateIcMeeting = {method = "PATCH", path = "/v1/ic-meetings/{id}", access = "data:write", doc = "ic-meeting-controller-update-ic-meeting", about = ""},
+	deleteIcMeeting = {method = "DELETE", path = "/v1/ic-meetings/{id}", access = "data:write", query = {"agenda"}, doc = "ic-meeting-controller-delete-ic-meeting",
 		about = "A meeting with requests on its agenda needs agenda (see reference)."},
 	listIcRequests = {method = "GET", path = "/v1/ic-requests", query = paged("icMeetingId", "search"), doc = "ic-request-controller-search-ic-requests", about = ""},
 	getIcRequest = {method = "GET", path = "/v1/ic-requests/{id}", doc = "ic-request-controller-get-ic-request-by-id", about = ""},
 	listIcRequestFields = {method = "GET", path = "/v1/ic-requests/fields", doc = "ic-request-controller-get-ic-request-fields", about = ""},
-	createIcRequest = {method = "POST", path = "/v1/ic-requests", doc = "ic-request-controller-create-ic-request", about = "Body {name?, icMeetingId?, fields?}."},
-	updateIcRequest = {method = "PATCH", path = "/v1/ic-requests/{id}", doc = "ic-request-controller-update-ic-request", about = ""},
-	deleteIcRequest = {method = "DELETE", path = "/v1/ic-requests/{id}", doc = "ic-request-controller-delete-ic-request", about = ""},
+	createIcRequest = {method = "POST", path = "/v1/ic-requests", access = "data:write", doc = "ic-request-controller-create-ic-request", about = "Body {name?, icMeetingId?, fields?}."},
+	updateIcRequest = {method = "PATCH", path = "/v1/ic-requests/{id}", access = "data:write", doc = "ic-request-controller-update-ic-request", about = ""},
+	deleteIcRequest = {method = "DELETE", path = "/v1/ic-requests/{id}", access = "data:write", doc = "ic-request-controller-delete-ic-request", about = ""},
 
 	listInteractions = {method = "GET", path = "/v1/interactions", query = paged("domain", "type"), required = {"domain"}, doc = "interactions-controller-get-interactions",
 		about = "Emails and meetings with people at a domain."},
 	listCalendarEvents = {method = "GET", path = "/v1/calendar-events", query = paged("startDate", "endDate", "mine"), doc = "calendar-event-linking-controller-get-calendar-events",
 		about = "External meetings, default now to +90 days (Interactions module)."},
 	listCalendarEventNotes = {method = "GET", path = "/v1/calendar-events/{id}/notes", doc = "calendar-event-linking-controller-get-linked-notes", about = ""},
-	linkCalendarEventNote = {method = "POST", path = "/v1/calendar-events/{id}/notes/{noteId}", body = false, doc = "calendar-event-linking-controller-link-note", about = ""},
+	linkCalendarEventNote = {method = "POST", path = "/v1/calendar-events/{id}/notes/{noteId}", access = "data:write", body = false, doc = "calendar-event-linking-controller-link-note", about = ""},
 
 	listThemes = {method = "GET", path = "/v1/themes", query = paged("search"), doc = "themes-controller-get-themes", about = ""},
-	createTheme = {method = "POST", path = "/v1/themes", required = {"name"}, doc = "themes-controller-create-theme", about = "Body {name, comments?}; returns an existing theme of that name."},
+	createTheme = {method = "POST", path = "/v1/themes", access = "data:write", required = {"name"}, doc = "themes-controller-create-theme", about = "Body {name, comments?}; returns an existing theme of that name."},
 	listThemeFolders = {method = "GET", path = "/v1/themes/{id}/folders", query = PAGE, doc = "themes-controller-get-theme-folders", about = ""},
 	listThemeItems = {method = "GET", path = "/v1/themes/{id}/theme-items", query = paged("folderId"), doc = "themes-controller-get-theme-items", about = ""},
-	addThemeItem = {method = "POST", path = "/v1/themes/{id}/theme-items", required = {"entityId", "entityType"}, doc = "themes-controller-create-theme-item",
+	addThemeItem = {method = "POST", path = "/v1/themes/{id}/theme-items", access = "data:write", required = {"entityId", "entityType"}, doc = "themes-controller-create-theme-item",
 		about = "Body {entityId, entityType}. Adds a theme mention to the entity."},
-	removeThemeItem = {method = "DELETE", path = "/v1/themes/{id}/theme-items/{itemId}", doc = "themes-controller-delete-theme-item", about = ""},
+	removeThemeItem = {method = "DELETE", path = "/v1/themes/{id}/theme-items/{itemId}", access = "data:write", doc = "themes-controller-delete-theme-item", about = ""},
 
 	listReports = {method = "GET", path = "/v1/reports", query = {"entityType"}, required = {"entityType"}, doc = "reports-controller-list-reports",
 		about = "Saved reports; entityType: contact, deal, fundraising, investor, company or fees."},
@@ -188,9 +188,9 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Carta's shared institutional LP catalogue, not your investors."},
 	getLpCatalogEntry = {method = "GET", path = "/v1/lp-discovery/{id}", doc = "lp-discovery-controller-get-one", about = ""},
 	getLpCatalogFacets = {method = "GET", path = "/v1/lp-discovery/facets", doc = "lp-discovery-controller-get-facets", about = "Valid types, regions and countries for searchLpCatalog."},
-	addLpToFundraising = {method = "POST", path = "/v1/lp-discovery/{id}/add-to-fundraising", body = false, doc = "lp-discovery-controller-add-to-fundraising",
+	addLpToFundraising = {method = "POST", path = "/v1/lp-discovery/{id}/add-to-fundraising", access = "data:write", body = false, doc = "lp-discovery-controller-add-to-fundraising",
 		about = "Copies a catalogue LP into your fundraising pipeline; created=false when it exists."},
-	addLpToInvestors = {method = "POST", path = "/v1/lp-discovery/{id}/add-to-investors", body = false, doc = "lp-discovery-controller-add-to-investors", about = ""},
+	addLpToInvestors = {method = "POST", path = "/v1/lp-discovery/{id}/add-to-investors", access = "data:write", body = false, doc = "lp-discovery-controller-add-to-investors", about = ""},
 
 	listEmailCampaigns = {method = "GET", path = "/v1/email-campaigns", query = paged("status"), doc = "email-campaign-controller-list-campaigns", about = ""},
 	getEmailCampaign = {method = "GET", path = "/v1/email-campaigns/{id}", doc = "email-campaign-controller-get-campaign", about = ""},
@@ -229,12 +229,6 @@ local function queryParts(value: any, field: string): {string}
 	return parts
 end
 
--- Only GET reads unless write says otherwise.
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
-
 -- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
@@ -250,7 +244,7 @@ end
 -- a top-level JSON array is accepted too, and the second result tells which one came back.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
+	if endpoint.method ~= "GET" and endpoint.access and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
 	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
 	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
@@ -285,7 +279,7 @@ end
 local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if not writes(endpoint) or config.access == "read-write" then
+		if not endpoint.access or houston.allows(endpoint.access) then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		end
 	end

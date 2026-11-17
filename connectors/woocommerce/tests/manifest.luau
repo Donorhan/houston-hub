@@ -12,11 +12,11 @@ return {
 				end
 			end
 			local basic = "Basic " .. m.base64("ck_fixture:cs_fixture")
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local r, err =
-					m.resolve(nil, { access = access, store_host = "Shop.Example.com" }, keys, "keys")
+					m.resolve(nil, { store_host = "Shop.Example.com" }, keys, "keys", { data = access })
 				assert(not err, tostring(err))
-				if (r.PublicConfig["store_host"] ~= "Shop.Example.com") or (m.count(r.PublicConfig) ~= 2) then
+				if (r.PublicConfig["store_host"] ~= "Shop.Example.com") or (m.count(r.PublicConfig) ~= 1) then
 					m.fail("unexpected Lua config: %s", r.PublicConfig)
 				end
 				local assertRoute = function(method, url, allowed)
@@ -70,7 +70,7 @@ return {
 						"/webhooks/1",
 					}
 				do
-					assertRoute("GET", api .. path, (access == "read-write"))
+					assertRoute("GET", api .. path, (access == "write"))
 				end
 				for _, route in
 					{
@@ -81,7 +81,7 @@ return {
 						{ "PUT", "/system_status/tools/clear_transients" },
 					}
 				do
-					assertRoute(route[1], api .. route[2], (access == "read-write"))
+					assertRoute(route[1], api .. route[2], (access == "write"))
 				end
 				for _, route in
 					{

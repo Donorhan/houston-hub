@@ -3,9 +3,10 @@ return {
 		local function google(access, scopes)
 			local r, err = m.resolve(
 				{ client_id = "publisher-client", client_secret = "publisher-secret" },
-				{ access = access },
+				{},
 				nil,
-				"oauth"
+				"oauth",
+				{ data = access }
 			)
 			assert(r and not err, tostring(err))
 			local want = { "https://www.googleapis.com/auth/userinfo.email" }
@@ -19,9 +20,9 @@ return {
 		do
 			local api = "https://www.googleapis.com/calendar/v3"
 			local team = api .. "/calendars/team%40group.calendar.google.com"
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local scopes = { "calendar.readonly" }
-				if access == "read-write" then
+				if access == "write" then
 					scopes = m.concat(scopes, { "calendar.events" })
 				end
 				local r = google(access, scopes)
@@ -45,8 +46,8 @@ return {
 					"PATCH " .. team .. "/events/e1",
 					"DELETE " .. team .. "/events/e1",
 				}
-				m.routes(r, "Bearer fixture-token", (access == "read-write"), writes)
-				if access == "read-write" then
+				m.routes(r, "Bearer fixture-token", (access == "write"), writes)
+				if access == "write" then
 					m.rejectOverrides(r, writes)
 				end
 				m.routes(r, "Bearer fixture-token", false, {

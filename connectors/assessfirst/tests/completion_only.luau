@@ -4,8 +4,8 @@ local PM = "1d9c92277e264fe49a4ce330e51e6ac7"
 local G = "786a70ccd1454e83bfae271ffa721c0d"
 local META = '"meta":{"total":1,"current_page":1,"per_page":50,"previous_page":null,"next_page":1,"last_page":1}}'
 return {
-	-- Completion status only has no writes.
-	scenario = {publisher = {}, config = {access = "custom"}, auth_method = "token", auth_config = {token = "fixture-private-assessfirst-token"}},
+	-- The Completion status level has no writes.
+	scenario = {publisher = {}, access = {data = "status"}, config = {}, auth_method = "token", auth_config = {token = "fixture-private-assessfirst-token"}},
 	configure = function()
 		calls = 0
 		payload = "{}"

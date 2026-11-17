@@ -3,8 +3,8 @@ return {
 		-- TestResendAccessRoutes
 		do
 			local api = "https://api.resend.com"
-			for _, access in { "read-only", "read-write" } do
-				local r, err = m.resolve(nil, { access = access }, { token = "re_fixture" }, "api_key")
+			for _, access in { "read", "write" } do
+				local r, err = m.resolve(nil, {}, { token = "re_fixture" }, "api_key", { data = access })
 				assert(not err, tostring(err))
 				m.routes(r, "Bearer re_fixture", true, {
 					"GET " .. api .. "/emails?limit=100",
@@ -24,7 +24,7 @@ return {
 					"GET " .. api .. "/inboxes/i1/threads/t1/emails/e1",
 					"GET " .. api .. "/inboxes/i1/agent",
 				})
-				m.routes(r, "Bearer re_fixture", (access == "read-write"), {
+				m.routes(r, "Bearer re_fixture", (access == "write"), {
 					"GET " .. api .. "/webhooks/w1",
 					"GET " .. api .. "/logs/l1",
 					"POST " .. api .. "/emails",

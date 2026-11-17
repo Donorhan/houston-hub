@@ -2,7 +2,8 @@
 
 1. Ask an organization admin to generate an API key in Carta CRM's **Settings**.
 2. Paste it into Houston's **API key**.
-3. Choose **Read-only**, or **Read and write** for record changes, then save.
+3. Choose **Read** or **Write** for **Access** (**Write** allows record changes),
+   then save.
 
 > The key uses its owner's permissions and enabled modules. Creating contacts or
 > records with websites can start data enrichment.

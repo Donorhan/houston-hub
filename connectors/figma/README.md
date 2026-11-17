@@ -9,7 +9,7 @@ and layers, version history, team projects, published components and styles,
 and comment threads. Agents can also export frames or layers as PNG, JPG, SVG or
 PDF images to work with them.
 
-With read and write access, agents can also post comments, reply to them, add
+With write access, agents can also post comments, reply to them, add
 reactions and delete their own comments. Figma notifies the people following
 those threads.
 

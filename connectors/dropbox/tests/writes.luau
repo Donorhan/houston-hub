@@ -1,6 +1,6 @@
 return {
 	scenario = {publisher = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", granted_scopes = {"account_info.read", "files.metadata.read", "files.content.read", "sharing.read", "file_requests.read", "files.content.write", "sharing.write", "file_requests.write"}},
-	config = {access = "read-write"},
+	access = {files = "write", sharing = "write", file_requests = "write"},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()

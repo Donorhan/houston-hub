@@ -1,6 +1,7 @@
 -- Independent route/body/response examples from Umami's official API contract.
 return {
- scenario={config={deployment="self-hosted",host="analytics.example.com",access="read-write"},auth_method="token",auth_config={key="fixture-umami-key"}},
+ scenario={access={analytics="write",websites="write",reports="write",replays="write",errors="write",boards="write",links="write",pixels="write",shares="write",teams="write",account="write",administration="write",collection="write",system="read"},
+  config={deployment="self-hosted",host="analytics.example.com"},auth_method="token",auth_config={key="fixture-umami-key"}},
  configure=function()
   requests={}
   responseValue={}

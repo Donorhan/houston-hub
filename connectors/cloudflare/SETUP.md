@@ -7,7 +7,7 @@
 3. Create and copy the token. In Houston, choose the matching access level,
    paste **API token** and save.
 
-| Permission | Read-only | Read and write |
+| Permission | Read | Write |
 | --- | --- | --- |
 | Account · Account Settings | Read | Read |
 | Account · Workers Scripts | Read | Edit |
@@ -19,7 +19,7 @@
 | Zone · Cache Purge | — | Purge |
 
 > Edit permissions allow more than Houston's supported changes. Houston still
-> blocks changes on read-only connections. An IP filter must allow Houston's
+> blocks changes on connections with **Read** access. An IP filter must allow Houston's
 > server addresses, not your device's.
 
 [Official token guide](https://developers.cloudflare.com/fundamentals/api/get-started/create-token/).

@@ -1,6 +1,6 @@
--- A read-write connection: uploads, job creation and deletion.
+-- A connection with Write access: uploads, job creation and deletion.
 return {
-	scenario = {publisher = {}, config = {access = "read-write"}, auth_method = "api_key", auth_config = {token = "gladia-fixture-key"}},
+	scenario = {publisher = {}, access = {data = "write"}, config = {}, auth_method = "api_key", auth_config = {token = "gladia-fixture-key"}},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
@@ -42,7 +42,7 @@ return {
 		for name in c do if name ~= "help" then table.insert(names, name) end end
 		table.sort(names)
 		assert(table.concat(names, ",") == "createTranscription,deleteTranscription,downloadAudio,getTranscription,listTranscriptions,uploadAudio",
-			"read-write got " .. table.concat(names, ","))
+			"write got " .. table.concat(names, ","))
 
 		-- uploadAudio streams the session file as the multipart audio part, with its media type.
 		write("calls/meeting.m4a", "fake-m4a-bytes")

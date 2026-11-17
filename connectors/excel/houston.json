@@ -1,29 +1,29 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Microsoft Excel",
   "warning": "**Work or school accounts only.** Microsoft's Excel API does not support workbooks in a personal OneDrive, so Outlook.com and other personal Microsoft accounts cannot connect.",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "type": "string",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "default": "read-only",
-      "description": "Read and write lets agents create workbooks, change cells and formulas, insert and delete cells or rows, add table rows and tables, and add, rename, hide or delete worksheets; changes are saved to the file in OneDrive. To create workbooks it can also write a file by name in your OneDrive, which could replace a file with that name.",
-      "options": [
+      "description": "Write lets agents create workbooks, change cells and formulas, insert and delete cells or rows, add table rows and tables, and add, rename, hide or delete worksheets; changes are saved to the file in OneDrive. To create workbooks it can also write a file by name in your OneDrive, which could replace a file with that name.",
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
-      ]
+      ],
+      "default": "read"
     }
-  },
+  ],
   "auth": {
     "oauth": {
       "type": "oauth2",
@@ -47,13 +47,13 @@
           ]
         },
         {
-          "if": "{{ is config.access \"read-only\" }}",
+          "if": "{{ is access.data \"read\" }}",
           "values": [
             "Files.Read"
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ is access.data \"write\" }}",
           "values": [
             "Files.ReadWrite"
           ]
@@ -134,7 +134,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -169,7 +169,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -194,7 +194,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -220,7 +220,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -247,7 +247,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [

@@ -1,26 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Linear",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "client_id": {
       "label": "OAuth client ID",
       "order": 1,
@@ -59,13 +61,13 @@
       "require_refresh": true,
       "scopes": [
         {
-          "if": "{{ is config.access \"read-only\" }}",
+          "if": "{{ is access.data \"read\" }}",
           "values": [
             "read"
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ is access.data \"write\" }}",
           "values": [
             "write"
           ]
@@ -131,7 +133,7 @@
       }
     },
     {
-      "if": "{{ and (is config.access \"read-write\") (isDefined auth.token) }}",
+      "if": "{{ and (allows access.data \"write\") (isDefined auth.token) }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -153,7 +155,7 @@
       }
     },
     {
-      "if": "{{ and (is config.access \"read-write\") (isDefined auth.oauth) }}",
+      "if": "{{ and (allows access.data \"write\") (isDefined auth.oauth) }}",
       "match": {
         "protocol": "http",
         "host": [

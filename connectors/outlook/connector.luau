@@ -168,8 +168,8 @@ local function request(name: string, method: string, path: string, input: any, s
 end
 -- End of the shared request layer.
 
--- Read and draft (custom) connections change only drafts, and the proxy refuses every send.
-local DRAFTS = config.access == "custom"
+-- Draft connections change only drafts, and the proxy refuses every send.
+local DRAFTS = access.data == "draft"
 local LIST = "id,subject,from,toRecipients,ccRecipients,receivedDateTime,sentDateTime,isRead,isDraft,hasAttachments,importance,flag,categories,conversationId,parentFolderId,bodyPreview,webLink"
 -- Graph refuses requests over 4 MB, and base64 makes attachments a third larger.
 local MAX_REQUEST = 4000000
@@ -186,7 +186,7 @@ bodyFormat or maxBodyBytes if used). listMailFolders alone walks the whole folde
 Houston itself retries only a short 429 wait. Errors report the HTTP status and Graph's code and
 message, e.g. 'Microsoft Graph HTTP 404 (ErrorItemNotFound)'; 429 is retryable, and so are
 503 and other transient server errors on reads. A failed or timed-out write may already have succeeded: check Sent Items or
-Drafts before repeating.]] .. (if DRAFTS then "\nRead and draft connection: Houston refuses every send, and changes apply only to drafts. Save drafts for the person to review and send from Outlook." else ""),
+Drafts before repeating.]] .. (if DRAFTS then "\nDraft connection: Houston refuses every send, and changes apply only to drafts. Save drafts for the person to review and send from Outlook." else ""),
 	functions = {} :: {[string]: any},
 }
 local exports: {[string]: any} = {help = help}
@@ -243,18 +243,18 @@ local function messagePath(id: any, field: string): string
 	return API .. "/messages/" .. url.segment(text(id, field), field)
 end
 
--- Read and draft connections change a message only while it is a draft, and never set extended
+-- Draft connections change a message only while it is a draft, and never set extended
 -- MAPI properties, which could make a draft look sent or received.
 local function draftOnly(operation: string, id: any)
 	if not DRAFTS then return end
 	local message = call(operation, "GET", messagePath(id, "id") .. "?$select=isDraft")
-	assert(message.isDraft == true, operation .. " changes only drafts on a Read and draft connection")
+	assert(message.isDraft == true, operation .. " changes only drafts on a Draft connection")
 end
 
 local function plain(fields: Options)
 	if not DRAFTS then return end
 	for key in fields do
-		assert(not string.find(string.lower(key), "extendedproperties", 1, true), "Read and draft connections cannot set extended properties")
+		assert(not string.find(string.lower(key), "extendedproperties", 1, true), "Draft connections cannot set extended properties")
 	end
 end
 
@@ -492,7 +492,7 @@ function exports.getAttachment(input: any): Options
 	return save("getAttachment", path, function(): HttpResponse return await(http.request({method = "GET", url = href})) end)
 end
 
-if config.access ~= "read-only" then
+if houston.allows("data:draft") then
 	help.functions.createDraft = {
 		description = "Saves a message to Drafts without sending and returns the draft" .. (if DRAFTS then "; the person reviews and sends it from Outlook." else "; send it with sendDraft."),
 		inputSchema = {
@@ -600,7 +600,7 @@ if config.access ~= "read-only" then
 	end
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	help.functions.sendMail = {
 		description = "Sends a message immediately and returns {success=true}. saveToSentItems defaults to true. A timeout may still have sent the mail: check Sent Items before retrying.",
 		inputSchema = {

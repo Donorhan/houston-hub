@@ -1,8 +1,8 @@
 # Connect your Google account
 
-1. Choose the access level:
-   - **Read-only** to let agents read spreadsheets without changing anything.
-   - **Read and write** to also let agents edit cells, add rows, create
+1. Choose the level for **Access**:
+   - **Read** to let agents read spreadsheets without changing anything.
+   - **Write** to also let agents edit cells, add rows, create
      spreadsheets and change tabs and formatting.
 2. Select **Continue with Google**, choose your account, and approve the
    permissions Google lists. If Google shows a checkbox per permission, tick

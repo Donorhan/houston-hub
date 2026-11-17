@@ -164,8 +164,8 @@ func BundlePath(s string) bool {
 }
 
 func (m *Manifest) Validate() error {
-	if m.SchemaVersion != 1 {
-		return fmt.Errorf("schema_version must be 1")
+	if m.SchemaVersion != 1 && m.SchemaVersion != SchemaVersion {
+		return fmt.Errorf("schema_version must be %d", SchemaVersion)
 	}
 	if m.Name == "" {
 		return fmt.Errorf("name is required")
@@ -190,7 +190,10 @@ func (m *Manifest) Validate() error {
 		seen[f] = true
 	}
 	used := map[string]bool{}
-	if access, ok := m.Config["access"]; ok {
+	if err := m.validateAccess(); err != nil {
+		return err
+	}
+	if access, ok := m.Config["access"]; ok && m.SchemaVersion == 1 {
 		if access.Type != "string" || access.If != "" {
 			return fmt.Errorf("config.access must be an unconditional string field")
 		}
@@ -238,6 +241,9 @@ func (m *Manifest) Validate() error {
 		case "manual":
 			if len(a.Config) == 0 {
 				return fmt.Errorf("manual auth %s needs config", k)
+			}
+			if e := m.validateSetupLink(a); e != nil {
+				return fmt.Errorf("auth.%s: %w", k, e)
 			}
 			for n, f := range a.Config {
 				if !nameRE.MatchString(n) {
@@ -294,6 +300,120 @@ func (m *Manifest) Validate() error {
 		}
 	}
 	return nil
+}
+
+// MaxAccessRows and MaxAccessLevels bound the access matrix a form can present.
+const (
+	MaxAccessRows   = 32
+	MaxAccessLevels = 4
+)
+
+// validateAccess checks the matrix: version 2 declares access only as rows,
+// each an ordered list of distinct levels that starts with none when it has one.
+func (m *Manifest) validateAccess() error {
+	if m.SchemaVersion == 1 {
+		if len(m.Access) > 0 {
+			return fmt.Errorf("access rows require schema_version %d", SchemaVersion)
+		}
+		return nil
+	}
+	if _, ok := m.Config["access"]; ok {
+		return fmt.Errorf("config.access is replaced by access rows")
+	}
+	if len(m.Access) > MaxAccessRows {
+		return fmt.Errorf("access allows at most %d rows", MaxAccessRows)
+	}
+	rows := map[string]bool{}
+	for _, row := range m.Access {
+		if !nameRE.MatchString(row.Name) || rows[row.Name] {
+			return fmt.Errorf("invalid or duplicate access row %q", row.Name)
+		}
+		rows[row.Name] = true
+		if row.Label == "" {
+			return fmt.Errorf("access.%s: label required", row.Name)
+		}
+		if len(row.Levels) < 2 || len(row.Levels) > MaxAccessLevels {
+			return fmt.Errorf("access.%s: rows need 2 to %d levels", row.Name, MaxAccessLevels)
+		}
+		levels := map[string]bool{}
+		for i, level := range row.Levels {
+			if !levelRE.MatchString(level.Value) || level.Label == "" || levels[level.Value] {
+				return fmt.Errorf("access.%s: invalid or duplicate level %q", row.Name, level.Value)
+			}
+			if level.Value == "none" && i != 0 {
+				return fmt.Errorf("access.%s: none must be the first level", row.Name)
+			}
+			levels[level.Value] = true
+		}
+		if !levels[row.Default] {
+			return fmt.Errorf("access.%s: default must be one of its levels", row.Name)
+		}
+	}
+	if m.native() && (len(m.Access) > 1 || len(m.Access) == 1 && m.Access[0].Rank("read") < 0) {
+		return fmt.Errorf("native protocols allow one access row, with a read level, which gates their writes")
+	}
+	return nil
+}
+
+var levelRE = regexp.MustCompile(`^[a-z][a-z0-9-]{0,31}$`)
+
+// native reports whether the connector reaches its service through a native
+// protocol, whose writes Houston gates without proxy rules.
+func (m *Manifest) native() bool {
+	return len(m.Proxy) > 0 && m.Proxy[0].Match.Protocol != "http"
+}
+
+// NativeWrites reports whether a native connector's access row allows writes:
+// its level is above read. Without a row, native writes are never allowed.
+func (m *Manifest) NativeWrites(access map[string]string) bool {
+	if len(m.Access) != 1 {
+		return false
+	}
+	row := m.Access[0]
+	return row.Rank(access[row.Name]) > row.Rank("read")
+}
+
+// validateSetupLink checks a manual method's token creation link: a literal
+// HTTPS URL whose setup_params name access rows.
+func (m *Manifest) validateSetupLink(a AuthMethod) error {
+	if a.SetupURL == "" {
+		if len(a.SetupParams) > 0 {
+			return fmt.Errorf("setup_params require setup_url")
+		}
+		return nil
+	}
+	if e := HTTPSURL(a.SetupURL, true); e != nil {
+		return fmt.Errorf("setup_url: %w", e)
+	}
+	for param, row := range a.SetupParams {
+		if !paramRE.MatchString(param) {
+			return fmt.Errorf("invalid setup parameter %q", param)
+		}
+		if _, ok := m.AccessRow(row); !ok {
+			return fmt.Errorf("setup parameter %s names undeclared access row %q", param, row)
+		}
+	}
+	return nil
+}
+
+// SetupLink returns the method's token creation link with each mapped row's
+// level appended, so the provider form starts from the chosen access.
+func (a AuthMethod) SetupLink(access map[string]string) string {
+	if a.SetupURL == "" {
+		return ""
+	}
+	u, err := url.Parse(a.SetupURL)
+	if err != nil {
+		return ""
+	}
+	query := u.Query()
+	for param, row := range a.SetupParams {
+		if level := access[row]; level != "" && level != "none" {
+			query.Set(param, level)
+		}
+	}
+	u.RawQuery = query.Encode()
+	return u.String()
 }
 
 // sink modes encode the documented recipient and sensitivity boundaries.
@@ -720,7 +840,7 @@ func checkPresence(data []byte) error {
 			dictionary := p == "manifest.config" || p == "manifest.publisher" || p == "manifest.auth" ||
 				p == "manifest.proxy[].match.header" || p == "manifest.proxy[].action.headers.set" ||
 				p == "manifest.proxy[].action.query" ||
-				len(parts) == 4 && parts[1] == "auth" && parts[3] == "config" ||
+				len(parts) == 4 && parts[1] == "auth" && (parts[3] == "config" || parts[3] == "setup_params") ||
 				len(parts) == 5 && parts[1] == "auth" && (parts[3] == "account" || parts[3] == "shared") && (parts[4] == "headers" || parts[4] == "body")
 			for k, v := range x {
 				if k == "if" && !dictionary {
@@ -805,7 +925,7 @@ func checkPresence(data []byte) error {
 			if typ == "manual" {
 				for k := range a {
 					switch k {
-					case "if", "type", "label", "description", "order", "config", "availability":
+					case "if", "type", "label", "description", "order", "config", "availability", "setup_url", "setup_params":
 					default:
 						return fmt.Errorf("manual method forbids %s", k)
 					}
@@ -814,7 +934,7 @@ func checkPresence(data []byte) error {
 					return e
 				}
 			} else if typ == "oauth2" {
-				for _, field := range []string{"api_key", "auth_config_id", "app"} {
+				for _, field := range []string{"api_key", "auth_config_id", "app", "setup_url", "setup_params"} {
 					if _, exists := a[field]; exists {
 						return fmt.Errorf("OAuth forbids %s", field)
 					}

@@ -1,4 +1,4 @@
-return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},config={access="read-only"}, configure=function()
+return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},access = {data = "read"}, configure=function()
 
         requests, responses = {}, {}
         http = {request = function(req)

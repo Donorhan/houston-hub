@@ -1,5 +1,5 @@
 return {
-	scenario = {config = {access = "read-only", api_host = "api.wise-sandbox.com"}, auth_method = "token", auth_config = {token = "fixture-sandbox-token"}},
+	scenario = {access = {data = "read"}, config = {api_host = "api.wise-sandbox.com"}, auth_method = "token", auth_config = {token = "fixture-sandbox-token"}},
 	configure = function()
 		requests = {}
 		fs = fixture.files()

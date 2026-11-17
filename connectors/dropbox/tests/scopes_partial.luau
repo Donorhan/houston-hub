@@ -1,6 +1,6 @@
 return {
 	scenario = {publisher = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", granted_scopes = {"files.metadata.read","sharing.read","files.content.write",}},
-	config = {access = "read-write"},
+	access = {files = "write", sharing = "write", file_requests = "write"},
 	run = function(c)
 		local expected = {}
 		expected.getAccount = true

@@ -1,6 +1,6 @@
 -- Calendly API v2. Arguments and results keep Calendly's native snake_case fields.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?, doc: string, about: string}
+type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, access: string?, body: (boolean | string)?, doc: string, about: string}
 
 local PROVIDER = "Calendly"
 local API = "https://api.calendly.com"
@@ -19,14 +19,14 @@ local endpoints: {[string]: Endpoint} = {
 		query = {"organization", "user", "email", "role", "count", "page_token"},
 		about = "Members of an organization, or a user's membership. Pass organization or user. role: owner, admin or user."},
 	getOrganizationMembership = {method = "GET", path = "/organization_memberships/{membership}", doc = "organizations/get-organization-membership", about = "A membership."},
-	removeOrganizationMembership = {method = "DELETE", path = "/organization_memberships/{membership}", doc = "organizations/delete-organization-membership",
+	removeOrganizationMembership = {method = "DELETE", path = "/organization_memberships/{membership}", access = "data:write", doc = "organizations/delete-organization-membership",
 		about = "Removes a user from the organization. Needs an admin; the owner cannot be removed."},
 	listOrganizationInvitations = {method = "GET", path = "/organizations/{organization}/invitations", doc = "organizations/list-organization-invitations",
 		query = {"email", "status", "sort", "count", "page_token"}, about = "Invitations. status: pending, accepted or declined."},
 	getOrganizationInvitation = {method = "GET", path = "/organizations/{organization}/invitations/{invitation}", doc = "organizations/get-organization-invitation", about = "An invitation."},
-	inviteUserToOrganization = {method = "POST", path = "/organizations/{organization}/invitations", doc = "organizations/create-organization-invitation",
+	inviteUserToOrganization = {method = "POST", path = "/organizations/{organization}/invitations", access = "data:write", doc = "organizations/create-organization-invitation",
 		about = "Body {email}. Emails an invitation to join the organization and uses a seat."},
-	revokeOrganizationInvitation = {method = "DELETE", path = "/organizations/{organization}/invitations/{invitation}", doc = "organizations/revoke-organization-invitation",
+	revokeOrganizationInvitation = {method = "DELETE", path = "/organizations/{organization}/invitations/{invitation}", access = "data:write", doc = "organizations/revoke-organization-invitation",
 		about = "Revokes a pending invitation."},
 	listTeams = {method = "GET", path = "/teams", doc = "organizations/list-teams", query = {"user", "count", "page_token"}, about = "Teams, optionally those of a user."},
 	getTeam = {method = "GET", path = "/teams/{team}", doc = "organizations/get-team", about = "A team."},
@@ -35,20 +35,20 @@ local endpoints: {[string]: Endpoint} = {
 		query = {"user", "organization", "active", "admin_managed", "user_availability_schedule", "sort", "count", "page_token"},
 		about = "Event types of a user or an organization; pass one. sort: name, position, created_at or updated_at with :asc or :desc."},
 	getEventType = {method = "GET", path = "/event_types/{event_type}", doc = "event-types/get-event-type", about = "An event type."},
-	createEventType = {method = "POST", path = "/event_types", doc = "event-types/create-event-type",
+	createEventType = {method = "POST", path = "/event_types", access = "data:write", doc = "event-types/create-event-type",
 		about = "Body {owner (user URI), name, duration?, duration_options?, active? (default false), color?, description?, locale?, locations?}. One-on-one event types only."},
-	updateEventType = {method = "PATCH", path = "/event_types/{event_type}", doc = "event-types/update-event-type",
+	updateEventType = {method = "PATCH", path = "/event_types/{event_type}", access = "data:write", doc = "event-types/update-event-type",
 		about = "Body: the createEventType fields to change, except owner. One-on-one event types only."},
 	listEventTypeAvailableTimes = {method = "GET", path = "/event_type_available_times", doc = "event-types/list-event-type-available-times",
 		query = {"event_type", "start_time", "end_time"}, required = {"event_type", "start_time", "end_time"},
 		about = "Bookable start times in a future range of at most 31 days, unpaginated."},
 	listEventTypeHosts = {method = "GET", path = "/event_type_memberships", doc = "event-types/list-event-type-memberships",
 		query = {"event_type", "count", "page_token"}, required = {"event_type"}, about = "Hosts of an event type."},
-	createOneOffEventType = {method = "POST", path = "/one_off_event_types", doc = "event-types/create-one-off-event-type",
+	createOneOffEventType = {method = "POST", path = "/one_off_event_types", access = "data:write", doc = "event-types/create-one-off-event-type",
 		about = "Body {name, host (user URI), duration, date_setting, co_hosts?, timezone?, location?}. date_setting is {type='date_range', start_date, end_date}, {type='days_in_future', days, only_weekdays} or {type='spots', spots={{start_time, end_time}}}."},
 	getEventTypeAvailability = {method = "GET", path = "/event_type_availability_schedules", doc = "availability/get-event-type-availability",
 		query = {"event_type"}, required = {"event_type"}, about = "An event type's weekly and date-specific availability rules."},
-	updateEventTypeAvailability = {method = "PATCH", path = "/event_type_availability_schedules", doc = "availability/update-event-type-availability",
+	updateEventTypeAvailability = {method = "PATCH", path = "/event_type_availability_schedules", access = "data:write", doc = "availability/update-event-type-availability",
 		query = {"event_type"}, required = {"event_type"},
 		about = "Body {availability_rule={timezone, rules={{type='wday', wday='monday', intervals={{from='09:00', to='17:00'}}}, {type='date', date='2026-12-24', intervals=json.decode('[]')}}}}. Replaces the event type's rules."},
 
@@ -65,21 +65,21 @@ local endpoints: {[string]: Endpoint} = {
 		query = {"user", "organization", "group", "invitee_email", "status", "min_start_time", "max_start_time", "sort", "count", "page_token"},
 		about = "Booked meetings of a user, organization or group; pass one. Another user's events need both user and organization and an admin. status: active or canceled; sort: start_time:asc or start_time:desc."},
 	getScheduledEvent = {method = "GET", path = "/scheduled_events/{event}", doc = "scheduled-events/get-scheduled-event", about = "A booked meeting."},
-	cancelScheduledEvent = {method = "POST", path = "/scheduled_events/{event}/cancellation", doc = "scheduled-events/create-scheduled-event-cancellation",
+	cancelScheduledEvent = {method = "POST", path = "/scheduled_events/{event}/cancellation", access = "data:write", doc = "scheduled-events/create-scheduled-event-cancellation",
 		about = "Body {reason?}. Cancels the meeting for every invitee and notifies them."},
 	listInvitees = {method = "GET", path = "/scheduled_events/{event}/invitees", doc = "scheduled-events/list-event-invitees",
 		query = {"status", "email", "sort", "count", "page_token"}, about = "Invitees of a meeting, with their answers. sort: created_at:asc or created_at:desc."},
 	getInvitee = {method = "GET", path = "/scheduled_events/{event}/invitees/{invitee}", doc = "scheduled-events/get-event-invitee", about = "An invitee."},
-	createInvitee = {method = "POST", path = "/invitees", doc = "scheduled-events/create-event-invitee",
+	createInvitee = {method = "POST", path = "/invitees", access = "data:write", doc = "scheduled-events/create-event-invitee",
 		about = "Books a meeting (paid plans). Body {event_type, start_time, invitee={email, timezone, name?}, location?={kind, location?}, event_guests?, questions_and_answers?, tracking?}. Take start_time from listEventTypeAvailableTimes. Calendly emails the invitee and hosts."},
-	createInviteeNoShow = {method = "POST", path = "/invitee_no_shows", doc = "scheduled-events/create-invitee-no-show",
+	createInviteeNoShow = {method = "POST", path = "/invitee_no_shows", access = "data:write", doc = "scheduled-events/create-invitee-no-show",
 		about = "Body {invitee (invitee URI)}. Marks an invitee as a no-show."},
 	getInviteeNoShow = {method = "GET", path = "/invitee_no_shows/{no_show}", doc = "scheduled-events/get-invitee-no-show", about = "A no-show mark."},
-	deleteInviteeNoShow = {method = "DELETE", path = "/invitee_no_shows/{no_show}", doc = "scheduled-events/delete-invitee-no-show", about = "Removes a no-show mark."},
+	deleteInviteeNoShow = {method = "DELETE", path = "/invitee_no_shows/{no_show}", access = "data:write", doc = "scheduled-events/delete-invitee-no-show", about = "Removes a no-show mark."},
 
-	createSchedulingLink = {method = "POST", path = "/scheduling_links", doc = "scheduling-links/create-scheduling-link",
+	createSchedulingLink = {method = "POST", path = "/scheduling_links", access = "data:write", doc = "scheduling-links/create-scheduling-link",
 		about = "Body {owner (event type URI), owner_type='EventType', max_event_count=1}. Returns a single-use resource.booking_url; unused links expire after 90 days."},
-	createShare = {method = "POST", path = "/shares", doc = "shares/create-share",
+	createShare = {method = "POST", path = "/shares", access = "data:write", doc = "shares/create-share",
 		about = "Body {event_type, name?, duration?, start_date?, end_date?, availability_rule?, ...}. A single-use link with customized settings; omitted fields copy the one-on-one event type."},
 
 	listRoutingForms = {method = "GET", path = "/routing_forms", doc = "routing-forms/list-routing-forms",
@@ -93,9 +93,9 @@ local endpoints: {[string]: Endpoint} = {
 		query = {"organization", "scope", "user", "group", "sort", "count", "page_token"}, required = {"organization", "scope"},
 		about = "Webhook subscriptions. scope: organization, user (pass user) or group (pass group)."},
 	getWebhookSubscription = {method = "GET", path = "/webhook_subscriptions/{webhook}", doc = "webhooks/get-webhook-subscription", about = "A webhook subscription."},
-	createWebhookSubscription = {method = "POST", path = "/webhook_subscriptions", doc = "webhooks/create-webhook-subscription",
+	createWebhookSubscription = {method = "POST", path = "/webhook_subscriptions", access = "data:write", doc = "webhooks/create-webhook-subscription",
 		about = "Body {url, events, organization, scope, user?, group?, signing_key?}. Calendly then posts those events to url, a receiver you control (paid plans)."},
-	deleteWebhookSubscription = {method = "DELETE", path = "/webhook_subscriptions/{webhook}", doc = "webhooks/delete-webhook-subscription", about = "Stops a webhook subscription."},
+	deleteWebhookSubscription = {method = "DELETE", path = "/webhook_subscriptions/{webhook}", access = "data:write", doc = "webhooks/delete-webhook-subscription", about = "Stops a webhook subscription."},
 	getSampleWebhookData = {method = "GET", path = "/sample_webhook_data", doc = "webhooks/get-sample-webhook-data",
 		query = {"event", "organization", "scope", "user", "group"}, required = {"event", "organization", "scope"},
 		about = "An example payload for a webhook event such as invitee.created."},
@@ -111,10 +111,10 @@ local endpoints: {[string]: Endpoint} = {
 		query = {"email", "phone_number", "name", "company", "job_title", "timezone", "country", "state", "city", "exclude", "sort", "count", "page_token"},
 		about = "Contacts. Filters accept one value or an array; exclude='custom_fields' omits custom fields."},
 	getContact = {method = "GET", path = "/contacts/{contact}", doc = "contacts/get-contact", query = {"exclude"}, about = "A contact."},
-	createContact = {method = "POST", path = "/contacts", doc = "contacts/create-contact",
+	createContact = {method = "POST", path = "/contacts", access = "data:write", doc = "contacts/create-contact",
 		about = "Body {name, emails, phone_numbers?, company?, job_title?, city?, state?, country?, timezone?, linkedin?, custom_fields?={{uuid, value}}}."},
-	updateContact = {method = "PATCH", path = "/contacts/{contact}", doc = "contacts/patch-contacts-uuid", about = "Body: the createContact fields to change."},
-	deleteContact = {method = "DELETE", path = "/contacts/{contact}", doc = "contacts/delete-contacts-uuid", about = "Deletes a contact."},
+	updateContact = {method = "PATCH", path = "/contacts/{contact}", access = "data:write", doc = "contacts/patch-contacts-uuid", about = "Body: the createContact fields to change."},
+	deleteContact = {method = "DELETE", path = "/contacts/{contact}", access = "data:write", doc = "contacts/delete-contacts-uuid", about = "Deletes a contact."},
 	listContactCustomFields = {method = "GET", path = "/contacts/custom_field_definitions", doc = "contacts/list-contact-custom-field-definitions",
 		about = "Custom contact field definitions, unpaginated."},
 	getContactCustomField = {method = "GET", path = "/contacts/custom_field_definitions/{field}", doc = "contacts/get-contact-custom-field-definition", about = "A custom field definition."},
@@ -124,9 +124,9 @@ local endpoints: {[string]: Endpoint} = {
 		about = "Notetaker recaps (paid plans). event is a scheduled event URI; status: available (default), processing or unavailable."},
 	getMeetingRecap = {method = "GET", path = "/meeting_recaps/{recap}", doc = "notetaker/get-meeting-recaps-uuid-recap", about = "A recap with its summary, action items and discussion."},
 	getMeetingRecapTranscript = {method = "GET", path = "/meeting_recaps/{recap}/transcript", doc = "notetaker/get-transcript-meeting-recaps", about = "A recap's transcript."},
-	updateMeetingRecap = {method = "PATCH", path = "/meeting_recaps/{recap}", doc = "notetaker/update-meeting-recaps-uuid",
+	updateMeetingRecap = {method = "PATCH", path = "/meeting_recaps/{recap}", access = "data:write", doc = "notetaker/update-meeting-recaps-uuid",
 		about = "Body {summary_md?, action_items_md?, discussion_md?} in Markdown."},
-	deleteMeetingRecap = {method = "DELETE", path = "/meeting_recaps/{recap}", doc = "notetaker/delete-meeting-recaps-uuid", about = "Deletes a recap."},
+	deleteMeetingRecap = {method = "DELETE", path = "/meeting_recaps/{recap}", access = "data:write", doc = "notetaker/delete-meeting-recaps-uuid", about = "Deletes a recap."},
 
 	listActivityLogEntries = {method = "GET", path = "/activity_log_entries", doc = "activity-log/list-activity-log-entries",
 		query = {"organization", "search_term", "actor", "namespace", "action", "min_occurred_at", "max_occurred_at", "sort", "count", "page_token"},
@@ -167,12 +167,6 @@ local function queryParts(value: any, field: string): {string}
 	return parts
 end
 
--- Only GET reads unless write says otherwise.
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
-
 -- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
@@ -188,7 +182,7 @@ end
 -- a top-level JSON array is accepted too, and the second result tells which one came back.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
+	if endpoint.method ~= "GET" and endpoint.access and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
 	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
 	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
@@ -223,7 +217,7 @@ end
 local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if not writes(endpoint) or config.access == "read-write" then
+		if not endpoint.access or houston.allows(endpoint.access) then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		end
 	end

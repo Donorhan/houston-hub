@@ -60,17 +60,17 @@ return {
 						m.raw.auth[method].token_url
 					)
 				end
-				for _, access in { "read-only", "read-write" } do
-					local config = { access = access }
+				for _, access in { "read", "write" } do
+					local config = {}
 					local publisher = { client_id = "houston-client", client_secret = "houston-secret" }
 					if method ~= "carta" then
 						config["own_app"], config["client_id"], config["client_secret"], publisher =
 							true, "fixture-client", "fixture-secret", nil
 					end
-					local r, err = m.resolve(publisher, config, nil, method)
+					local r, err = m.resolve(publisher, config, nil, method, { data = access })
 					assert(not err, tostring(err))
 					local scopes = readScopes
-					if access == "read-write" then
+					if access == "write" then
 						scopes = m.concat(readScopes, writeScopes)
 					end
 					if not (m.equal(r.Scopes, scopes)) then
@@ -89,7 +89,7 @@ return {
 							"GET " .. api .. "/portfolios/P/fundInvestmentDocuments/D:download",
 							"POST " .. api .. "/issuers/7/securities:stockSplitChanges",
 						})
-						m.routes(r, "Bearer " .. token, (access == "read-write"), {
+						m.routes(r, "Bearer " .. token, (access == "write"), {
 							"GET " .. api .. "/investors/firms/F/funds/U/capitalCalls/C",
 							"GET " .. api .. "/investors/firms/F/funds/U/managementFees/M",
 							"GET " .. api .. "/issuers/7/secondaryTransactions/S",
@@ -126,9 +126,10 @@ return {
 		do
 			local carta, err = m.resolve(
 				{ client_id = "houston-client", client_secret = "houston-secret" },
-				{ access = "read-only" },
+				{},
 				nil,
-				"carta"
+				"carta",
+				{ data = "read" }
 			)
 			assert(not err, tostring(err))
 			carta.Context.Auth["carta"].access_token = "carta-token"
@@ -138,9 +139,10 @@ return {
 			})
 			local cartaWrites, err = m.resolve(
 				{ client_id = "houston-client", client_secret = "houston-secret" },
-				{ access = "read-write" },
+				{},
 				nil,
-				"carta"
+				"carta",
+				{ data = "write" }
 			)
 			assert(not err, tostring(err))
 			cartaWrites.Context.Auth["carta"].access_token = "carta-token"

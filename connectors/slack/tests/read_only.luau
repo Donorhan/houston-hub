@@ -1,6 +1,5 @@
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	config = {access = "read-only"},
 	configure = function()
 		requests, responses = {}, {}
 		http = {request = function(req)
@@ -18,7 +17,7 @@ return {
 		table.sort(names)
 		assert(table.concat(names, ",") == "downloadFile,getChannel,getFile,getPermalink,getProfile,getThread,getUser,"
 			.. "listChannels,listMembers,listMentions,listMessages,listUsers,searchMessages",
-			"read-only exposes only reads: " .. table.concat(names, ","))
+			"default access exposes only reads: " .. table.concat(names, ","))
 
 		responses = {'{"ok":true,"channels":[],"response_metadata":{"next_cursor":""}}'}
 		local page = slack.listChannels()

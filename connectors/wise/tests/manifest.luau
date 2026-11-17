@@ -7,12 +7,13 @@ return {
 				{ { "api.wise.com", "api.wise-sandbox.com" }, { "api.wise-sandbox.com", "api.wise.com" } }
 			do
 				local host, api, other = hosts[1], "https://" .. hosts[1], "https://" .. hosts[2]
-				for _, access in { "read-only", "read-write" } do
+				for _, access in { "read", "write" } do
 					local r, err = m.resolve(
 						nil,
-						{ access = access, api_host = host },
+						{ api_host = host },
 						{ token = "wise_fixture" },
-						"token"
+						"token",
+						{ data = access }
 					)
 					assert(not err, tostring(err))
 					m.routes(r, "Bearer wise_fixture", true, {
@@ -38,7 +39,7 @@ return {
 									m.routes(r, "Bearer wise_fixture", true, { route })
 									continue
 								end
-								m.routes(r, "Bearer wise_fixture", (access == "read-write"), { route })
+								m.routes(r, "Bearer wise_fixture", (access == "write"), { route })
 							end
 						end
 					end

@@ -1,6 +1,6 @@
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	config = {access = "read-write"},
+	access = {data = "write"},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
@@ -18,7 +18,7 @@ return {
 		local names = {}
 		for name in c do table.insert(names, name) end
 		table.sort(names)
-		assert(table.concat(names, ",") == "addAttachment,createDraft,createForward,createMailFolder,createReply,createReplyAll,deleteMessage,forward,getAttachment,getMailFolder,getMessage,getProfile,listAttachments,listMailFolders,listMessages,moveMessage,reply,replyAll,sendDraft,sendMail,updateMessage", "read-write got " .. table.concat(names, ","))
+		assert(table.concat(names, ",") == "addAttachment,createDraft,createForward,createMailFolder,createReply,createReplyAll,deleteMessage,forward,getAttachment,getMailFolder,getMessage,getProfile,listAttachments,listMailFolders,listMessages,moveMessage,reply,replyAll,sendDraft,sendMail,updateMessage", "write got " .. table.concat(names, ","))
 
 		local file = fs.open("report.csv", "w")
 		file:write("a,b\n1,2\n")

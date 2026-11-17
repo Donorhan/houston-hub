@@ -10,7 +10,7 @@ import (
 )
 
 func TestBundleContractExercisesProductionTransport(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"schema_version":1,"name":"Contract fixture","files":["main.luau"],"auth":{"key":{"type":"manual","label":"Key","config":{"token":{"type":"secret","label":"Token","required":true}}}},"proxy":[{"match":{"protocol":"http","host":["api.example.com"],"method":["GET"],"path":["/items"]},"action":{"headers":{"set":{"Authorization":"Bearer {{auth.key.token}}"}}}}]}`))
+	m, err := manifest.Parse([]byte(`{"schema_version":2,"name":"Contract fixture","files":["main.luau"],"auth":{"key":{"type":"manual","label":"Key","config":{"token":{"type":"secret","label":"Token","required":true}}}},"proxy":[{"match":{"protocol":"http","host":["api.example.com"],"method":["GET"],"path":["/items"]},"action":{"headers":{"set":{"Authorization":"Bearer {{auth.key.token}}"}}}}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +47,7 @@ func TestBundleContractExercisesProductionTransport(t *testing.T) {
 }
 
 func TestBundleContractBoundsAndIsolation(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"schema_version":1,"name":"Bounded fixture","files":["main.luau"],"proxy":[{"match":{"protocol":"http","host":["api.example.com"]},"action":{}}]}`))
+	m, err := manifest.Parse([]byte(`{"schema_version":2,"name":"Bounded fixture","files":["main.luau"],"proxy":[{"match":{"protocol":"http","host":["api.example.com"]},"action":{}}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}

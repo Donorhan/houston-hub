@@ -13,7 +13,7 @@ cash balances, performance metrics, partners and their contacts. For shareholder
 they can read portfolios, holdings, current fair market values, transactions and fund
 documents shared with limited partners.
 
-With read and write access, agents can also book capital calls, management fees and
+With write access, agents can also book capital calls, management fees and
 carried interest allocations, draft option grants, record exercise payments and tax
 withholding, settle secondary transactions, start companies on Carta Launch and
 upload Open Cap Table files. A fund accounting entry repeated with the same reference

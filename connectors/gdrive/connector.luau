@@ -5,7 +5,7 @@ local FOLDER = "application/vnd.google-apps.folder"
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
+type Endpoint = {method: string, path: string, access: string?, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
@@ -121,16 +121,16 @@ end
 local exports: {[string]: any} = {}
 local help: {[string]: string} = {}
 
--- Exposes an operation when it only reads or the connection allows writes.
-local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
-	if isRead or config.access == "read-write" then
+-- Exposes an operation when the connection allows the access it needs, if any.
+local function export(name: string, access: string?, fn: (any) -> any, doc: string)
+	if access == nil or houston.allows(access) then
 		exports[name], help[name] = fn, doc
 	end
 end
 
 local function exportEndpoints(endpoints: {[string]: Endpoint})
 	for name, endpoint in endpoints do
-		export(name, endpoint.read, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
+		export(name, endpoint.access, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
 	end
 end
 
@@ -152,40 +152,40 @@ local FILE = {fields = FILE_FIELDS, supportsAllDrives = true}
 local FILE_QUERY = {"fields", "supportsAllDrives"}
 local ALL_DRIVES = {supportsAllDrives = true}
 local endpoints: {[string]: Endpoint} = {
-	getAbout = {method = "GET", path = "/about", read = true, defaults = {fields = "user,storageQuota"}, query = {"fields"},
+	getAbout = {method = "GET", path = "/about", defaults = {fields = "user,storageQuota"}, query = {"fields"},
 		help = "getAbout({fields?}) -> {user, storageQuota}. The connected account and its storage use."},
-	listFiles = {method = "GET", path = "/files", read = true, list = "files",
+	listFiles = {method = "GET", path = "/files", list = "files",
 		defaults = {fields = "nextPageToken,incompleteSearch,files(" .. FILE_FIELDS .. ")", supportsAllDrives = true, includeItemsFromAllDrives = true},
 		query = {"q", "pageSize", "pageToken", "orderBy", "fields", "corpora", "driveId", "spaces", "includeItemsFromAllDrives", "supportsAllDrives"},
 		help = "listFiles({q?, pageSize?, pageToken?, orderBy?, corpora?, driveId?, fields?}) -> {files, nextPageToken?, incompleteSearch}. q uses Drive search syntax, e.g. \"name contains 'report' and trashed = false\" or \"'<folderId>' in parents\". pageSize ≤1000. Includes shared drives."},
-	getFile = {method = "GET", path = "/files/{fileId}", read = true, defaults = FILE, query = FILE_QUERY,
+	getFile = {method = "GET", path = "/files/{fileId}", defaults = FILE, query = FILE_QUERY,
 		help = "getFile({fileId, fields?}) -> file metadata. Pass fields='*' for every field."},
-	listDrives = {method = "GET", path = "/drives", read = true, list = "drives", query = {"q", "pageSize", "pageToken"},
+	listDrives = {method = "GET", path = "/drives", list = "drives", query = {"q", "pageSize", "pageToken"},
 		help = "listDrives({q?, pageSize?, pageToken?}) -> {drives, nextPageToken?}. Shared drives the account can access."},
-	listPermissions = {method = "GET", path = "/files/{fileId}/permissions", read = true, list = "permissions",
+	listPermissions = {method = "GET", path = "/files/{fileId}/permissions", list = "permissions",
 		defaults = {fields = "nextPageToken,permissions(id,type,role,emailAddress,domain,displayName)", supportsAllDrives = true},
 		query = {"pageSize", "pageToken", "fields", "supportsAllDrives"},
 		help = "listPermissions({fileId, pageSize?, pageToken?}) -> {permissions, nextPageToken?}. Who can access a file."},
-	createFile = {method = "POST", path = "/files", read = false, body = true, defaults = FILE, query = FILE_QUERY,
+	createFile = {method = "POST", path = "/files", access = "data:write", body = true, defaults = FILE, query = FILE_QUERY,
 		help = "createFile({name, mimeType?, parents?, description?, ...}) -> file. Metadata only: creates folders (mimeType='" .. FOLDER .. "'), shortcuts or empty Google Docs. Use uploadFile for content."},
-	updateFile = {method = "PATCH", path = "/files/{fileId}", read = false, body = true, defaults = FILE, query = {"addParents", "removeParents", "fields", "supportsAllDrives"},
+	updateFile = {method = "PATCH", path = "/files/{fileId}", access = "data:write", body = true, defaults = FILE, query = {"addParents", "removeParents", "fields", "supportsAllDrives"},
 		help = "updateFile({fileId, addParents?, removeParents?, name?, description?, trashed?, ...}) -> file. Renames, moves (addParents/removeParents as comma-separated folder IDs) or trashes (trashed=true)."},
-	copyFile = {method = "POST", path = "/files/{fileId}/copy", read = false, body = true, defaults = FILE, query = FILE_QUERY,
+	copyFile = {method = "POST", path = "/files/{fileId}/copy", access = "data:write", body = true, defaults = FILE, query = FILE_QUERY,
 		help = "copyFile({fileId, name?, parents?}) -> the new file."},
-	deleteFile = {method = "DELETE", path = "/files/{fileId}", read = false, defaults = ALL_DRIVES, query = {"supportsAllDrives"},
+	deleteFile = {method = "DELETE", path = "/files/{fileId}", access = "data:write", defaults = ALL_DRIVES, query = {"supportsAllDrives"},
 		help = "deleteFile({fileId}) -> {success=true}. Permanently deletes, skipping the trash; prefer updateFile({fileId, trashed=true})."},
-	createPermission = {method = "POST", path = "/files/{fileId}/permissions", read = false, body = true, defaults = ALL_DRIVES,
+	createPermission = {method = "POST", path = "/files/{fileId}/permissions", access = "data:write", body = true, defaults = ALL_DRIVES,
 		query = {"sendNotificationEmail", "emailMessage", "transferOwnership", "supportsAllDrives", "fields"},
 		help = "createPermission({fileId, type='user'|'group'|'domain'|'anyone', role='reader'|'commenter'|'writer'|..., emailAddress?, domain?, sendNotificationEmail?, emailMessage?}) -> permission. Shares a file."},
-	deletePermission = {method = "DELETE", path = "/files/{fileId}/permissions/{permissionId}", read = false, defaults = ALL_DRIVES, query = {"supportsAllDrives"},
+	deletePermission = {method = "DELETE", path = "/files/{fileId}/permissions/{permissionId}", access = "data:write", defaults = ALL_DRIVES, query = {"supportsAllDrives"},
 		help = "deletePermission({fileId, permissionId}) -> {success=true}. Revokes access."},
 }
 
 -- Downloads stream the response body to a session file.
 local downloads: {[string]: Endpoint} = {
-	downloadFile = {method = "GET", path = "/files/{fileId}", read = true, defaults = {alt = "media", supportsAllDrives = true}, query = {"alt", "supportsAllDrives", "acknowledgeAbuse"},
+	downloadFile = {method = "GET", path = "/files/{fileId}", defaults = {alt = "media", supportsAllDrives = true}, query = {"alt", "supportsAllDrives", "acknowledgeAbuse"},
 		help = "downloadFile({fileId, path}) -> {path, url, size}. Saves a stored file's bytes to a session path; url is a signed Houston download link. Google Docs, Sheets and Slides have no stored bytes: use exportFile."},
-	exportFile = {method = "GET", path = "/files/{fileId}/export", read = true, query = {"mimeType"},
+	exportFile = {method = "GET", path = "/files/{fileId}/export", query = {"mimeType"},
 		help = "exportFile({fileId, mimeType, path}) -> {path, url, size}. Converts a Google Doc, Sheet or Slides file, e.g. mimeType='text/markdown', 'text/plain', 'text/csv', 'application/pdf' or an Office format. Exports are limited to 10 MB."},
 }
 
@@ -231,11 +231,11 @@ if deleteFile then
 	end
 end
 for name, endpoint in downloads do
-	export(name, true, function(args: Options): Options return download(name, endpoint, args) end, endpoint.help)
+	export(name, nil, function(args: Options): Options return download(name, endpoint, args) end, endpoint.help)
 end
 
 -- Fixed-signature file lookup shared with other storage connectors.
-export("statFile", true, function(...: any): {id: string, name: string, isFolder: boolean, size: number?}
+export("statFile", nil, function(...: any): {id: string, name: string, isFolder: boolean, size: number?}
 	assert(select("#", ...) == 1, "statFile takes exactly one file ID")
 	local id = text((...), "file ID")
 	local file = call("statFile", "GET", API .. "/files/" .. url.segment(id, "file ID") .. "?fields=id%2Cname%2CmimeType%2Csize&supportsAllDrives=true")
@@ -247,7 +247,7 @@ export("statFile", true, function(...: any): {id: string, name: string, isFolder
 	return {id = file.id, name = file.name, isFolder = file.mimeType == FOLDER, size = size}
 end, "statFile(fileId) -> {id, name, isFolder, size?}. One positional file ID; size is absent for folders and Google Docs.")
 
-export("uploadFile", false, upload, "uploadFile({path, name?, parents?, mimeType?, contentType?, fileId?, ...metadata}) -> file. Streams a session file to Drive. name defaults to the path's basename; contentType describes the bytes (default application/octet-stream). Setting mimeType to a Google type converts, e.g. a .docx with mimeType='application/vnd.google-apps.document'. With fileId, replaces that file's content (and applies any metadata). A failed upload may leave nothing or a complete file: check with listFiles before retrying.")
+export("uploadFile", "data:write", upload, "uploadFile({path, name?, parents?, mimeType?, contentType?, fileId?, ...metadata}) -> file. Streams a session file to Drive. name defaults to the path's basename; contentType describes the bytes (default application/octet-stream). Setting mimeType to a Google type converts, e.g. a .docx with mimeType='application/vnd.google-apps.document'. With fileId, replaces that file's content (and applies any metadata). A failed upload may leave nothing or a complete file: check with listFiles before retrying.")
 
 exports.help = helpWith({
 	"Google Drive API v3. Operations take one named options object with Google's camelCase fields and return Google's JSON unchanged; deletes return {success=true}. Shared drives are included by default.",

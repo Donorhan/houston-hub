@@ -1,6 +1,8 @@
 return {
+	-- Files is at Write, but no folder is read-write, so no write is exported.
 	scenario = {publisher = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", auth_config = {}},
-	config = {access = "custom", path_access = '{"/Reports":"read-only","/Incoming":"read-only"}'},
+	access = {files = "write"},
+	config = {folder_policy = true, path_access = '{"/Reports":"read-only","/Incoming":"read-only"}'},
 	configure = function()
 		requests = {}
 		http = {request = function(req)
@@ -11,7 +13,7 @@ return {
 		end}
 	end,
 	run = function(c)
-		for _, name in {"upload", "createFolder", "move", "copy", "delete", "restore", "getCurrentAccount", "listSharedLinks", "listFileRequests"} do assert(c[name] == nil, "All-read-only folder policy exposes " .. name) end
+		for _, name in {"upload", "createFolder", "move", "copy", "delete", "restore", "getCurrentAccount", "listSharedLinks", "listFileRequests"} do assert(c[name] == nil, "All-read-only folder rules expose " .. name) end
 		assert(c.getMetadata({path = "/Incoming"}).path_lower == "/incoming", "Read-only folder policy denied a configured folder")
 		assert(not pcall(c.getMetadata, {path = "/Outside"}), "Read-only folder policy reached an unlisted folder")
 	end,

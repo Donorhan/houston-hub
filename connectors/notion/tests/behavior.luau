@@ -1,6 +1,6 @@
 return {
  scenario={publisher={},config={},auth_method="token",auth_config={token="fixture-notion-private-token"}},
- config={access="read-write"},
+ access={data="write"},
  configure=function()
   requests,responses={},{}
   fs=fixture.files()

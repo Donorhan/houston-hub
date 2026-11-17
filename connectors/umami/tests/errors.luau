@@ -1,5 +1,5 @@
 return {
- scenario={config={access="read-write"},auth_method="token",auth_config={key="fixture-key"}},
+ scenario={access={websites="write"},config={},auth_method="token",auth_config={key="fixture-key"}},
  configure=function()
   calls=0
   status=429

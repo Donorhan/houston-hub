@@ -1,7 +1,7 @@
--- Read and draft (custom) connections expose the reads and the draft operations, and no other change.
+-- Draft connections expose the reads and the draft operations, and no other change.
 return {
 	scenario = {publisher = {}, auth_method = "", auth_config = {}, config = {host = "imap.example.com", username = "ada@example.com", password = "fixture-password"}},
-	config = {access = "custom"},
+	access = {data = "draft"},
 	configure = function()
 		requests = {}
 		imap = {command = function(request)

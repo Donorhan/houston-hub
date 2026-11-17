@@ -1,6 +1,6 @@
 -- Cloudflare API v4 and its GraphQL Analytics API. Arguments and results keep Cloudflare's native snake_case field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?,
+type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, access: string?, body: (boolean | string)?,
 	fields: {string}?, perPage: number?, doc: string, about: string}
 
 local PROVIDER = "Cloudflare"
@@ -33,7 +33,7 @@ local endpoints: {[string]: Endpoint} = {
 		about = "DNS records: {id, type, name, content, proxied, proxiable, ttl (1 is automatic), priority?, data?, comment, tags, settings, created_on, modified_on}. name is the full hostname, such as www.example.com. type: A, AAAA, CNAME, MX, TXT, NS, SRV, CAA and others. search matches any field; match='any' ORs the other filters. order: type (default), name, content, ttl or proxied. per_page is at most 1000 here (default 100)."},
 	getDnsRecord = {method = "GET", path = "/zones/{zone_id}/dns_records/{dns_record_id}", doc = "api/resources/dns/subresources/records/methods/get/", about = "One DNS record."},
 
-	getZoneAnalytics = {method = "POST", path = "/graphql", write = false, body = false, extra = {"zone_id", "since", "until", "granularity", "breakdowns"},
+	getZoneAnalytics = {method = "POST", path = "/graphql", body = false, extra = {"zone_id", "since", "until", "granularity", "breakdowns"},
 		required = {"zone_id", "since", "until"}, doc = "analytics/graphql-api/",
 		about = "A zone's HTTP traffic over time, from Cloudflare's GraphQL Analytics API, as {data={viewer={zones=[{groups=[{dimensions={date or datetime}, sum={requests, cachedRequests, bytes, cachedBytes, encryptedRequests, encryptedBytes, threats, pageViews, ...breakdowns}, uniq={uniques}}]}]}}, errors}, oldest first. granularity 'day' (default) takes since and until as inclusive dates such as '2026-10-01'; 'hour' takes whole UTC hours such as '2026-10-29T00:00:00Z', with until excluded. breakdowns adds per-group lists, an array of: responseStatusMap {edgeResponseStatus, requests}, countryMap {clientCountryName, requests, bytes, threats}, contentTypeMap {edgeResponseContentTypeName, requests, bytes}, browserMap {uaBrowserFamily, pageViews}, clientSSLMap {clientSSLProtocol, requests}, clientHTTPVersionMap {clientHTTPProtocol, requests}, ipClassMap {ipType, requests}, threatPathingMap {threatPathingName, requests}. One request covers at most 1000 days or hours, or 100 with breakdowns; the zone's plan may allow less, and limits how far back data goes."},
 
@@ -68,20 +68,20 @@ local endpoints: {[string]: Endpoint} = {
 	getR2Bucket = {method = "GET", path = "/accounts/{account_id}/r2/buckets/{bucket_name}", extra = {"jurisdiction"},
 		doc = "api/resources/r2/subresources/buckets/methods/get/", about = "One bucket; pass jurisdiction for a bucket in one."},
 
-	createDnsRecord = {method = "POST", path = "/zones/{zone_id}/dns_records", required = {"type", "name"}, fields = DNS_FIELDS,
+	createDnsRecord = {method = "POST", path = "/zones/{zone_id}/dns_records", access = "data:write", required = {"type", "name"}, fields = DNS_FIELDS,
 		doc = "api/resources/dns/subresources/records/methods/create/",
 		about = "Creates a record and returns it. Body {type, name, content, ttl? (1 automatic, else 60 to 86400 seconds, 30 on Enterprise), proxied? (A, AAAA and CNAME only), comment?, tags? ('name:value' strings), priority? (MX), data? (SRV, CAA and other structured types), settings?, private_routing?}. Cloudflare refuses an identical record and a CNAME next to other records of the same name."},
-	updateDnsRecord = {method = "PATCH", path = "/zones/{zone_id}/dns_records/{dns_record_id}", fields = DNS_FIELDS,
+	updateDnsRecord = {method = "PATCH", path = "/zones/{zone_id}/dns_records/{dns_record_id}", access = "data:write", fields = DNS_FIELDS,
 		doc = "api/resources/dns/subresources/records/methods/edit/", about = "Changes only the given fields of a record and returns it."},
-	deleteDnsRecord = {method = "DELETE", path = "/zones/{zone_id}/dns_records/{dns_record_id}", doc = "api/resources/dns/subresources/records/methods/delete/",
+	deleteDnsRecord = {method = "DELETE", path = "/zones/{zone_id}/dns_records/{dns_record_id}", access = "data:write", doc = "api/resources/dns/subresources/records/methods/delete/",
 		about = "Deletes a record and returns {result={id}}."},
-	purgeCache = {method = "POST", path = "/zones/{zone_id}/purge_cache", fields = {"purge_everything", "files", "tags", "hosts", "prefixes"},
+	purgeCache = {method = "POST", path = "/zones/{zone_id}/purge_cache", access = "data:write", fields = {"purge_everything", "files", "tags", "hosts", "prefixes"},
 		doc = "api/resources/cache/methods/purge/",
 		about = "Removes cached content from every Cloudflare data center, so the next requests go to the origin. Body: exactly one of purge_everything=true, files (full URLs, or {url, headers} for cache keys with headers), tags (Cache-Tag values), hosts or prefixes (such as 'www.example.com/blog/'), at most 100 items (500 URLs on Enterprise). Free plans allow 5 purges of everything, hosts, tags or prefixes per minute."},
-	createWorkerDeployment = {method = "POST", path = "/accounts/{account_id}/workers/scripts/{script_name}/deployments", required = {"strategy", "versions"},
+	createWorkerDeployment = {method = "POST", path = "/accounts/{account_id}/workers/scripts/{script_name}/deployments", access = "data:write", required = {"strategy", "versions"},
 		fields = {"strategy", "versions", "annotations"}, doc = "api/resources/workers/subresources/scripts/subresources/deployments/methods/create/",
 		about = "Deploys existing versions, which serve traffic at once, and returns the deployment. Body {strategy='percentage', versions=[{version_id, percentage}] totalling 100, annotations?={['workers/message']=text}}. Roll back with one earlier version at 100 (one of the 100 most recent); Cloudflare refuses when a KV namespace, R2 bucket or queue it binds no longer exists, or Durable Object classes changed since. Bindings, routes and secrets stay as they are."},
-	rollbackPagesDeployment = {method = "POST", path = "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/rollback", body = false,
+	rollbackPagesDeployment = {method = "POST", path = "/accounts/{account_id}/pages/projects/{project_name}/deployments/{deployment_id}/rollback", access = "data:write", body = false,
 		doc = "api/resources/pages/subresources/projects/subresources/deployments/methods/rollback/",
 		about = "Serves production from an earlier successful production deployment at once, without rebuilding, and returns it. Preview deployments are not valid targets."},
 }
@@ -117,12 +117,6 @@ local function queryParts(value: any, field: string): {string}
 	return parts
 end
 
--- Only GET reads unless write says otherwise.
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
-
 -- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
@@ -138,7 +132,7 @@ end
 -- a top-level JSON array is accepted too, and the second result tells which one came back.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
+	if endpoint.method ~= "GET" and endpoint.access and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
 	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
 	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
@@ -173,7 +167,7 @@ end
 local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if not writes(endpoint) or config.access == "read-write" then
+		if not endpoint.access or houston.allows(endpoint.access) then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		end
 	end
@@ -353,7 +347,7 @@ local intro = {
 	"Examples: local zone = cloudflare.listZones({name='example.com'}).result[1]; cloudflare.listDnsRecords({zone_id=zone.id, type='CNAME', per_page=100}); cloudflare.getZoneAnalytics({zone_id=zone.id, since='2026-10-01', ['until']='2026-10-07', breakdowns={'responseStatusMap'}}).",
 	"The token's permissions and resources still apply: HTTP 403 (usually code 10000 'Authentication error') means the token lacks a permission for that account or zone, or doesn't cover it. Cloudflare allows 1200 requests per 5 minutes per token (GraphQL about 300) and then refuses requests for up to 5 minutes; Houston retries an HTTP 429 at most twice, when Retry-After is absent or at most 5 seconds, and the error reports Retry-After when Cloudflare sends one. A GraphQL 429 about query cost or too many nodes needs a shorter period or fewer breakdowns, not a retry. Errors report the HTTP status and Cloudflare's codes and messages. 5xx and 429 are retryable.",
 }
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	table.insert(intro, "Writes change production at once: DNS changes reach Cloudflare's network within seconds, while resolvers may keep old answers for the record's TTL (deleting or editing a record can take a site or its mail offline), purgeCache sends the next requests to the origin, which can overload it, and Worker deployments and Pages rollbacks switch live traffic. Confirm the exact change with the user first, and read the current state (getDnsRecord, listWorkerDeployments, listPagesDeployments) before changing it so it can be restored. Writes are retried only after an HTTP 429, which Cloudflare refused before acting: after a timeout or 5xx, read the state again before repeating one.")
 else
 	table.insert(intro, "This read-only connection omits writes.")

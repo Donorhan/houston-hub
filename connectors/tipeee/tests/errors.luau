@@ -1,6 +1,6 @@
 local status, payload, responseHeaders, calls = 200, "{}", {}, 0
 return {
-	scenario = {config={access="read-write"},auth_method="token",auth_config={token="fixture-token"}},
+	scenario = {access={data="write"},config={},auth_method="token",auth_config={token="fixture-token"}},
 	configure = function()
 		calls = 0
 		http = {request=function(req)

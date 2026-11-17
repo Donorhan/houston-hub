@@ -10,7 +10,7 @@ their deployments, versions and build logs, list your R2 buckets, and report a
 zone's traffic by day or hour, with requests, bandwidth, cache hits, threats and
 breakdowns by status code or country.
 
-With read and write access, agents can also create, change and delete DNS
+With write access, agents can also create, change and delete DNS
 records, purge cached content, roll a Worker back to an earlier version and roll
 a Pages project back to an earlier production deployment. These changes reach
 live traffic at once, so agents confirm them with you first.

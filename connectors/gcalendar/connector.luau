@@ -3,7 +3,7 @@ local API = "https://www.googleapis.com/calendar/v3"
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
+type Endpoint = {method: string, path: string, access: string?, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
@@ -119,16 +119,16 @@ end
 local exports: {[string]: any} = {}
 local help: {[string]: string} = {}
 
--- Exposes an operation when it only reads or the connection allows writes.
-local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
-	if isRead or config.access == "read-write" then
+-- Exposes an operation when the connection allows the access it needs, if any.
+local function export(name: string, access: string?, fn: (any) -> any, doc: string)
+	if access == nil or houston.allows(access) then
 		exports[name], help[name] = fn, doc
 	end
 end
 
 local function exportEndpoints(endpoints: {[string]: Endpoint})
 	for name, endpoint in endpoints do
-		export(name, endpoint.read, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
+		export(name, endpoint.access, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
 	end
 end
 
@@ -148,33 +148,33 @@ end
 local PRIMARY = {calendarId = "primary"}
 local WRITE = {"sendUpdates", "conferenceDataVersion", "supportsAttachments", "maxAttendees"}
 local endpoints: {[string]: Endpoint} = {
-	listCalendars = {method = "GET", path = "/users/me/calendarList", read = true, list = "items",
+	listCalendars = {method = "GET", path = "/users/me/calendarList", list = "items",
 		query = {"maxResults", "pageToken", "minAccessRole", "showDeleted", "showHidden", "showOwnOrganizationOnly", "syncToken"},
 		help = "listCalendars({maxResults?, pageToken?, minAccessRole?, showHidden?, ...}?) -> {items=[{id, summary, accessRole, primary?, timeZone, backgroundColor, ...}], nextPageToken?, nextSyncToken?}. Calendars in the user's list, including subscribed ones. maxResults ≤250; minAccessRole='writer' keeps calendars the user can add events to."},
-	getCalendar = {method = "GET", path = "/calendars/{calendarId}", read = true, defaults = PRIMARY,
+	getCalendar = {method = "GET", path = "/calendars/{calendarId}", defaults = PRIMARY,
 		help = "getCalendar({calendarId?}?) -> {id, summary, description?, timeZone, ...}. getCalendar().timeZone is the user's time zone."},
-	getColors = {method = "GET", path = "/colors", read = true,
+	getColors = {method = "GET", path = "/colors",
 		help = "getColors() -> {calendar={[colorId]={background, foreground}}, event={[colorId]={background, foreground}}}. The palettes behind calendar and event colorId values."},
-	listEvents = {method = "GET", path = "/calendars/{calendarId}/events", read = true, defaults = PRIMARY, list = "items",
+	listEvents = {method = "GET", path = "/calendars/{calendarId}/events", defaults = PRIMARY, list = "items",
 		query = {"timeMin", "timeMax", "q", "maxResults", "pageToken", "singleEvents", "orderBy", "timeZone", "showDeleted", "updatedMin", "syncToken", "iCalUID", "eventTypes", "privateExtendedProperty", "sharedExtendedProperty", "maxAttendees", "showHiddenInvitations"},
 		help = "listEvents({calendarId?, timeMin?, timeMax?, q?, singleEvents?, orderBy?, maxResults?, pageToken?, eventTypes?, syncToken?, ...}?) -> {items=[event], nextPageToken?, nextSyncToken?, timeZone, ...}. Items already carry id, summary, start, end, attendees and status: don't getEvent each one. timeMin and timeMax are RFC 3339 with an offset (2026-10-12T09:00:00Z) and keep events that end after timeMin and start before timeMax. singleEvents=true expands recurring events into instances and allows orderBy='startTime'. q searches text fields. maxResults ≤2500 (default 250); a page may hold fewer events while more remain. The last page has nextSyncToken: listEvents({syncToken}) later returns only changes, cancelled events included, and accepts none of timeMin, timeMax, q, orderBy, iCalUID, updatedMin or the extended-property filters; HTTP 410 [fullSyncRequired] or [updatedMinTooLongAgo] means list again without syncToken or updatedMin."},
-	getEvent = {method = "GET", path = "/calendars/{calendarId}/events/{eventId}", read = true, defaults = PRIMARY,
+	getEvent = {method = "GET", path = "/calendars/{calendarId}/events/{eventId}", defaults = PRIMARY,
 		query = {"timeZone", "maxAttendees"},
 		help = "getEvent({calendarId?, eventId, timeZone?, maxAttendees?}) -> event {id, status, summary, description?, location?, start, end, recurrence?, recurringEventId?, attendees?, organizer, conferenceData?, htmlLink, ...}."},
-	listEventInstances = {method = "GET", path = "/calendars/{calendarId}/events/{eventId}/instances", read = true, defaults = PRIMARY, list = "items",
+	listEventInstances = {method = "GET", path = "/calendars/{calendarId}/events/{eventId}/instances", defaults = PRIMARY, list = "items",
 		query = {"timeMin", "timeMax", "maxResults", "pageToken", "timeZone", "showDeleted", "originalStart", "maxAttendees"},
 		help = "listEventInstances({calendarId?, eventId, timeMin?, timeMax?, maxResults?, pageToken?, originalStart?}) -> {items, nextPageToken?}. Occurrences of a recurring event; each has its own id and recurringEventId."},
-	queryFreeBusy = {method = "POST", path = "/freeBusy", read = true, body = true, required = {timeMin = "string", timeMax = "string", items = "array"},
+	queryFreeBusy = {method = "POST", path = "/freeBusy", body = true, required = {timeMin = "string", timeMax = "string", items = "array"},
 		help = "queryFreeBusy({timeMin, timeMax, items={{id='primary'}, {id='ana@example.com'}}, timeZone?}) -> {calendars={[id]={busy={{start=..., ['end']=...}}, errors?}}}. Busy intervals only, without event details; works for colleagues whose calendars share free/busy. Up to 50 calendars per call; a calendar it cannot read reports errors with an empty busy list, so check errors before treating anyone as free."},
-	insertEvent = {method = "POST", path = "/calendars/{calendarId}/events", read = false, body = true, defaults = PRIMARY, query = WRITE,
+	insertEvent = {method = "POST", path = "/calendars/{calendarId}/events", access = "data:write", body = true, defaults = PRIMARY, query = WRITE,
 		help = "insertEvent({calendarId?, summary, start={dateTime='2026-10-13T09:00:00+02:00', timeZone?} or {date='2026-10-13'}, ['end']={...}, attendees?={{email=...}}, description?, location?, recurrence?={'RRULE:FREQ=WEEKLY;COUNT=4'}, reminders?, colorId?, id?, sendUpdates?, conferenceDataVersion?}) -> event. All-day events end on the following date (end is exclusive). With recurrence, start.timeZone and ['end'].timeZone are required (an IANA name such as 'Europe/Paris'). sendUpdates: all, externalOnly or none (default none: attendees get no email). For Google Meet, pass conferenceDataVersion=1 and conferenceData={createRequest={requestId='<unique>', conferenceSolutionKey={type='hangoutsMeet'}}}. A caller-chosen id (5 to 1024 characters of lowercase a-v and digits) makes a repeated insert usually fail with HTTP 409 [duplicate] instead of creating a second event."},
-	patchEvent = {method = "PATCH", path = "/calendars/{calendarId}/events/{eventId}", read = false, body = true, defaults = PRIMARY, query = WRITE,
+	patchEvent = {method = "PATCH", path = "/calendars/{calendarId}/events/{eventId}", access = "data:write", body = true, defaults = PRIMARY, query = WRITE,
 		help = "patchEvent({calendarId?, eventId, sendUpdates?, ...fields to change}) -> event. Only the given fields change; arrays such as attendees are replaced whole, so read the event and send the full list. Patching a recurring event's id changes the whole series; patch an instance id from listEventInstances to change one occurrence."},
-	deleteEvent = {method = "DELETE", path = "/calendars/{calendarId}/events/{eventId}", read = false, defaults = PRIMARY, query = {"sendUpdates"},
+	deleteEvent = {method = "DELETE", path = "/calendars/{calendarId}/events/{eventId}", access = "data:write", defaults = PRIMARY, query = {"sendUpdates"},
 		help = "deleteEvent({calendarId?, eventId, sendUpdates?}) -> {success=true}. If the user organizes the event, attendees see it cancelled and sendUpdates='all' emails them; deleting an invitation only removes it from this calendar. Deleting a recurring event's id removes the whole series. HTTP 410 [deleted] means it was already deleted."},
-	moveEvent = {method = "POST", path = "/calendars/{calendarId}/events/{eventId}/move", read = false, defaults = PRIMARY, query = {"destination", "sendUpdates"}, required = {destination = "string"},
+	moveEvent = {method = "POST", path = "/calendars/{calendarId}/events/{eventId}/move", access = "data:write", defaults = PRIMARY, query = {"destination", "sendUpdates"}, required = {destination = "string"},
 		help = "moveEvent({calendarId?, eventId, destination, sendUpdates?}) -> event. Moves the event to the destination calendar ID, which becomes its organizer. Only default events can move."},
-	quickAddEvent = {method = "POST", path = "/calendars/{calendarId}/events/quickAdd", read = false, defaults = PRIMARY, query = {"text", "sendUpdates"}, required = {text = "string"},
+	quickAddEvent = {method = "POST", path = "/calendars/{calendarId}/events/quickAdd", access = "data:write", defaults = PRIMARY, query = {"text", "sendUpdates"}, required = {text = "string"},
 		help = "quickAddEvent({calendarId?, text, sendUpdates?}) -> event. Creates an event from text such as 'Lunch with Ana tomorrow 12pm'. Prefer insertEvent when the times are known."},
 }
 
@@ -185,7 +185,7 @@ local overview = {
 	"Lists return one page: pass nextPageToken as pageToken until it is absent. Empty lists are []. Example: listEvents({timeMin='2026-10-12T00:00:00Z', timeMax='2026-10-19T00:00:00Z', singleEvents=true, orderBy='startTime'}).",
 	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason, such as [notFound] for a missing event or a calendar the user cannot see. Google allows about 600 requests per minute per user; HTTP 429 and 403 [rateLimitExceeded] or [userRateLimitExceeded] are retryable after a pause.",
 }
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	table.insert(overview, "Writes can change only events, not calendars or their sharing. Events on calendars the user can only read fail with HTTP 403. A failed or timed-out write may already have succeeded: check with getEvent or listEvents before repeating it, or give insertEvent an id and check it with getEvent({eventId=id}).")
 end
 exports.help = helpWith(overview)

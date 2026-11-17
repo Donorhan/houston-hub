@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {access = "read-write", region = "de.sentry.io", organization = "acme"}, auth_method = "token", auth_config = {token = "fixture-token"}},
+	scenario = {publisher = {}, access = {data = "write"}, config = {region = "de.sentry.io", organization = "acme"}, auth_method = "token", auth_config = {token = "fixture-token"}},
 	configure = function()
 		requests = {}
 		status = 200

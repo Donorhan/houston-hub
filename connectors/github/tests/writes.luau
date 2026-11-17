@@ -1,5 +1,6 @@
 return {
-	scenario = {publisher = {}, config = {access = "read-write"}, auth_method = "token", auth_config = {token = "fixture-token"}},
+	scenario = {publisher = {}, access = {code = "write", conversations = "write", actions = "write", gists = "write", stars = "write", organizations = "read", emails = "read", repositories = "write"},
+		config = {}, auth_method = "token", auth_config = {token = "fixture-token"}},
 	configure = function()
 		requests = {}
 		fs = fixture.files()
@@ -42,7 +43,7 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 161, "wrong read-write surface: " .. #names)
+		assert(#names == 157, "wrong full-access surface: " .. #names)
 
 		payload = '{"number":12,"title":"Crash","labels":[{"name":"bug"}]}'
 		local issue = github.createIssue({owner = "o", repo = "r", title = "Crash", body = "Steps", labels = {"bug"}})
@@ -118,11 +119,6 @@ return {
 		status, payload = 204, ""
 		assert(github.deleteIssueComment({owner = "o", repo = "r", comment_id = 77}).success == true)
 		sent("DELETE", API .. "/repos/o/r/issues/comments/77")
-		assert(github.markThreadDone({thread_id = 1}).success == true)
-		sent("DELETE", API .. "/notifications/threads/1")
-		status, payload = 205, ""
-		assert(github.markThreadRead({thread_id = "1"}).success == true)
-		sent("PATCH", API .. "/notifications/threads/1", "{}")
 
 		payload = '{"id":3,"files":{"a.md":{"content":"x"}}}'
 		github.updateGist({gist_id = "aa5a315d61ae9438b18d", files = {["old.md"] = NULL, ["a.md"] = {content = "x"}}})

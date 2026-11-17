@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Gmail",
   "verification_key": "f8f70b3e9c1ae4e9b94e4cabb680db1c7ac85847721986fa399925cfdc79b980",
   "warning": "**Pending Google approval.** Google is still reviewing Houston's access to Gmail. Until Google approves it, you will see a *Google hasn't verified this app* screen while connecting with Google: select **Advanced**, then continue to Houston.",
@@ -7,28 +7,28 @@
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
-      "description": "Read and draft lets agents create, edit and delete drafts. You review and send them yourself in Gmail.",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "description": "Draft lets agents create, edit and delete drafts. You review and send them yourself in Gmail.",
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and draft",
-          "value": "custom"
+          "value": "draft",
+          "label": "Draft"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "type": "string"
+      "default": "read"
     }
-  },
+  ],
   "auth": {
     "composio": {
       "account": {
@@ -76,20 +76,20 @@
           ]
         },
         {
-          "if": "{{ is config.access \"read-only\" }}",
+          "if": "{{ is access.data \"read\" }}",
           "values": [
             "https://www.googleapis.com/auth/gmail.readonly"
           ]
         },
         {
-          "if": "{{ is config.access \"custom\" }}",
+          "if": "{{ is access.data \"draft\" }}",
           "values": [
             "https://www.googleapis.com/auth/gmail.readonly",
             "https://www.googleapis.com/auth/gmail.compose"
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ is access.data \"write\" }}",
           "values": [
             "https://www.googleapis.com/auth/gmail.modify"
           ]
@@ -163,7 +163,91 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"draft\" }}",
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/upload/gmail/v1/users/me/drafts"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "if": "{{ allows access.data \"draft\" }}",
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/gmail/v1/users/me/drafts/{id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "if": "{{ allows access.data \"draft\" }}",
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/upload/gmail/v1/users/me/drafts/{id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -194,14 +278,13 @@
           "/gmail/v1/users/me/threads/{id}/untrash",
           "/gmail/v1/users/me/labels",
           "/gmail/v1/users/me/drafts/send",
-          "/upload/gmail/v1/users/me/messages/send",
-          "/upload/gmail/v1/users/me/drafts"
+          "/upload/gmail/v1/users/me/messages/send"
         ],
         "protocol": "http"
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -225,146 +308,6 @@
         ],
         "path": [
           "/gmail/v1/users/me/labels/{id}"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "if": "{{ is config.access \"read-write\" }}",
-      "action": {
-        "headers": {
-          "remove": [
-            "Authorization"
-          ],
-          "set": {
-            "Authorization": {
-              "if": "{{ isDefined auth.oauth }}",
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
-          }
-        }
-      },
-      "match": {
-        "host": [
-          "gmail.googleapis.com"
-        ],
-        "method": [
-          "DELETE"
-        ],
-        "path": [
-          "/gmail/v1/users/me/drafts/{id}"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "if": "{{ is config.access \"read-write\" }}",
-      "action": {
-        "headers": {
-          "remove": [
-            "Authorization"
-          ],
-          "set": {
-            "Authorization": {
-              "if": "{{ isDefined auth.oauth }}",
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
-          }
-        }
-      },
-      "match": {
-        "host": [
-          "gmail.googleapis.com"
-        ],
-        "method": [
-          "PUT"
-        ],
-        "path": [
-          "/upload/gmail/v1/users/me/drafts/{id}"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "if": "{{ is config.access \"custom\" }}",
-      "action": {
-        "headers": {
-          "remove": [
-            "Authorization"
-          ],
-          "set": {
-            "Authorization": {
-              "if": "{{ isDefined auth.oauth }}",
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
-          }
-        }
-      },
-      "match": {
-        "host": [
-          "gmail.googleapis.com"
-        ],
-        "method": [
-          "POST"
-        ],
-        "path": [
-          "/upload/gmail/v1/users/me/drafts"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "if": "{{ is config.access \"custom\" }}",
-      "action": {
-        "headers": {
-          "remove": [
-            "Authorization"
-          ],
-          "set": {
-            "Authorization": {
-              "if": "{{ isDefined auth.oauth }}",
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
-          }
-        }
-      },
-      "match": {
-        "host": [
-          "gmail.googleapis.com"
-        ],
-        "method": [
-          "DELETE"
-        ],
-        "path": [
-          "/gmail/v1/users/me/drafts/{id}"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "if": "{{ is config.access \"custom\" }}",
-      "action": {
-        "headers": {
-          "remove": [
-            "Authorization"
-          ],
-          "set": {
-            "Authorization": {
-              "if": "{{ isDefined auth.oauth }}",
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
-          }
-        }
-      },
-      "match": {
-        "host": [
-          "gmail.googleapis.com"
-        ],
-        "method": [
-          "PUT"
-        ],
-        "path": [
-          "/upload/gmail/v1/users/me/drafts/{id}"
         ],
         "protocol": "http"
       }

@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {site_host = "blog.example.com", access = "read-write"}, auth_method = "application_password",
+	scenario = {publisher = {}, access = {data = "write"}, config = {site_host = "blog.example.com"}, auth_method = "application_password",
 		auth_config = {username = "editor", password = "abcd efgh ijkl mnop qrst uvwx"}},
 	configure = function()
 		calls = 0

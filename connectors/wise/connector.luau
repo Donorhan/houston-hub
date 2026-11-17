@@ -2,7 +2,7 @@
 type Options = {[string]: any}
 type Query = {type: "string" | "integer" | "boolean" | "list" | "currency", minimum: number?, maximum: number?, enum: {string}?}
 type Endpoint = {
-	method: string, path: string, query: {[string]: Query}?, required: {string}?, oneOf: {string}?, kind: "download"?,
+	method: string, path: string, access: string?, query: {[string]: Query}?, required: {string}?, oneOf: {string}?, kind: "download"?,
 	idempotence: boolean?, merge: boolean?, minor: boolean?, safe: boolean?, about: string,
 }
 
@@ -48,34 +48,34 @@ local endpoints: {[string]: Endpoint} = {
 	getRecipient = {method = "GET", path = "/v2/accounts/{accountId}", about = "One recipient account."},
 	getBatchGroup = {method = "GET", path = "/v3/profiles/{profileId}/batch-groups/{batchGroupId}", about = "One batch group with status, version and transferIds."},
 
-	createQuote = {method = "POST", path = "/v3/profiles/{profileId}/quotes", required = {"sourceCurrency", "targetCurrency"}, oneOf = {"sourceAmount", "targetAmount"}, safe = true,
+	createQuote = {method = "POST", path = "/v3/profiles/{profileId}/quotes", access = "data:write", required = {"sourceCurrency", "targetCurrency"}, oneOf = {"sourceAmount", "targetAmount"}, safe = true,
 		about = "Price a transfer or conversion; exactly one of sourceAmount or targetAmount; optional targetAccount, payOut, preferredPayIn. Moves no money."},
-	updateQuote = {method = "PATCH", path = "/v3/profiles/{profileId}/quotes/{quoteId}", merge = true, safe = true,
+	updateQuote = {method = "PATCH", path = "/v3/profiles/{profileId}/quotes/{quoteId}", access = "data:write", merge = true, safe = true,
 		about = "Attach targetAccount (and payOut) to a quote, refreshing fees and paymentOptions."},
-	refreshAccountRequirements = {method = "POST", path = "/v1/quotes/{quoteId}/account-requirements", minor = true, safe = true,
+	refreshAccountRequirements = {method = "POST", path = "/v1/quotes/{quoteId}/account-requirements", access = "data:write", minor = true, safe = true,
 		query = {originatorLegalEntityType = LEGAL_ENTITY},
 		about = "Send a partial recipient body to get updated forms when a field has refreshRequirementsOnChange. Creates nothing."},
-	createRecipient = {method = "POST", path = "/v1/accounts", required = {"profile", "accountHolderName", "currency", "type", "details"},
+	createRecipient = {method = "POST", path = "/v1/accounts", access = "data:write", required = {"profile", "accountHolderName", "currency", "type", "details"},
 		about = "Create a recipient account; type and details follow getAccountRequirements. ownedByCustomer marks your own account."},
-	validateTransferRequirements = {method = "POST", path = "/v1/transfer-requirements", required = {"targetAccount", "quoteUuid"}, safe = true,
+	validateTransferRequirements = {method = "POST", path = "/v1/transfer-requirements", access = "data:write", required = {"targetAccount", "quoteUuid"}, safe = true,
 		about = "Array of extra transfer fields (reference, transferPurpose, sourceOfFunds) needed for this quote and recipient. Creates nothing."},
-	createTransfer = {method = "POST", path = "/v1/transfers", required = {"targetAccount", "quoteUuid", "customerTransactionId"},
+	createTransfer = {method = "POST", path = "/v1/transfers", access = "data:write", required = {"targetAccount", "quoteUuid", "customerTransactionId"},
 		about = "Create an unfunded transfer from a quote; customerTransactionId is your UUID idempotency key; details holds reference and requirements."},
-	cancelTransfer = {method = "PUT", path = "/v1/transfers/{transferId}/cancel", about = "Cancel a transfer while its status is incoming_payment_waiting; later states fail with 409."},
-	fundTransfer = {method = "POST", path = "/v3/profiles/{profileId}/transfers/{transferId}/payments", required = {"type"},
+	cancelTransfer = {method = "PUT", path = "/v1/transfers/{transferId}/cancel", access = "data:write", about = "Cancel a transfer while its status is incoming_payment_waiting; later states fail with 409."},
+	fundTransfer = {method = "POST", path = "/v3/profiles/{profileId}/transfers/{transferId}/payments", access = "data:write", required = {"type"},
 		about = "Pay a transfer from your balance: {type='BALANCE'}. Moves money. Check the returned status: REJECTED carries errorCode. " .. SCA},
-	createBalance = {method = "POST", path = "/v4/profiles/{profileId}/balances", required = {"currency", "type", "idempotenceUuid"}, idempotence = true,
+	createBalance = {method = "POST", path = "/v4/profiles/{profileId}/balances", access = "data:write", required = {"currency", "type", "idempotenceUuid"}, idempotence = true,
 		about = "Open a STANDARD balance or a SAVINGS jar (name required for jars)."},
-	deleteBalance = {method = "DELETE", path = "/v4/profiles/{profileId}/balances/{balanceId}", about = "Close an empty balance; its receiving bank details are deactivated and may not be restorable."},
-	createBalanceMovement = {method = "POST", path = "/v2/profiles/{profileId}/balance-movements", required = {"idempotenceUuid"}, idempotence = true,
+	deleteBalance = {method = "DELETE", path = "/v4/profiles/{profileId}/balances/{balanceId}", access = "data:write", about = "Close an empty balance; its receiving bank details are deactivated and may not be restorable."},
+	createBalanceMovement = {method = "POST", path = "/v2/profiles/{profileId}/balance-movements", access = "data:write", required = {"idempotenceUuid"}, idempotence = true,
 		about = "Convert between your balances with {quoteId} (a quote with payOut BALANCE), or move between a balance and a jar with {amount={value,currency}, sourceBalanceId, targetBalanceId}. Moves money."},
-	createBatchGroup = {method = "POST", path = "/v3/profiles/{profileId}/batch-groups", required = {"name", "sourceCurrency"},
+	createBatchGroup = {method = "POST", path = "/v3/profiles/{profileId}/batch-groups", access = "data:write", required = {"name", "sourceCurrency"},
 		about = "Start a batch of up to 1,000 transfers in one source currency."},
-	createBatchTransfer = {method = "POST", path = "/v3/profiles/{profileId}/batch-groups/{batchGroupId}/transfers", required = {"targetAccount", "quoteUuid", "customerTransactionId"},
+	createBatchTransfer = {method = "POST", path = "/v3/profiles/{profileId}/batch-groups/{batchGroupId}/transfers", access = "data:write", required = {"targetAccount", "quoteUuid", "customerTransactionId"},
 		about = "Add a transfer to an open batch; same body as createTransfer."},
-	updateBatchGroup = {method = "PATCH", path = "/v3/profiles/{profileId}/batch-groups/{batchGroupId}", required = {"status", "version"},
+	updateBatchGroup = {method = "PATCH", path = "/v3/profiles/{profileId}/batch-groups/{batchGroupId}", access = "data:write", required = {"status", "version"},
 		about = "Set status COMPLETED (close for funding) or CANCELLED, with the group's current version."},
-	fundBatchGroup = {method = "POST", path = "/v3/profiles/{profileId}/batch-payments/{batchGroupId}/payments", required = {"type"},
+	fundBatchGroup = {method = "POST", path = "/v3/profiles/{profileId}/batch-payments/{batchGroupId}/payments", access = "data:write", required = {"type"},
 		about = "Pay a completed batch from your balance: {type='BALANCE'}. Moves money; same authentication limits as fundTransfer."},
 }
 
@@ -292,7 +292,7 @@ end
 
 local exports: {[string]: any} = {}
 for name, endpoint in endpoints do
-	if endpoint.method == "GET" or config.access == "read-write" then
+	if not endpoint.access or houston.allows(endpoint.access) then
 		exports[name] = function(opts: Options?): any return request(name, endpoint, opts) end
 	end
 end
@@ -305,7 +305,7 @@ exports.help = function(): string
 		"Downloads stream to a session file and return {path,url,size}; url is Houston's signed link. A download that fails while streaming leaves the path as it was.",
 		"Personal API tokens: Wise documents them for business accounts, and a token created as read only rejects writes. Balance statements (and, with write access, funding): " .. SCA .. " Card details, webhooks, profile/KYC changes and recipient deletion are not available here.",
 	}
-	if config.access == "read-write" then
+	if houston.allows("data:write") then
 		table.insert(lines, "Sending money: createQuote({profileId,sourceCurrency,targetCurrency,sourceAmount}) -> getAccountRequirements({quoteId}) -> createRecipient or listRecipients -> updateQuote({profileId,quoteId,targetAccount}) -> validateTransferRequirements -> createTransfer({targetAccount,quoteUuid,customerTransactionId,details={reference=...}}) -> fundTransfer({profileId,transferId,type='BALANCE'}). Quotes expire (expirationTime). Funding moves money and can be irreversible; confirm amount, currency and recipient with the user first. cancelTransfer works only while the status is incoming_payment_waiting. Business accounts with payment approvals enabled in Wise settings cannot create transfers through the API (missing approval error).")
 		local safe: {string} = {}
 		for name, endpoint in endpoints do if endpoint.safe then table.insert(safe, name) end end

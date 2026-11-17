@@ -1,7 +1,7 @@
 local requests = {}
 local payload = "{}"
 return {
-	scenario = {config = {access = "read-only"}, auth_method = "token", auth_config = {token = "fixture-token"}},
+	scenario = {access = {data = "read"}, config = {}, auth_method = "token", auth_config = {token = "fixture-token"}},
 	configure = function()
 		requests = {}; payload = "{}"
 		http = {request = function(req)

@@ -1,11 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Postgres",
   "description": "Query a Postgres database and optionally execute writes.",
   "setup": "Use a database role with the privileges you want this connection to have.",
   "files": [
     "query.luau",
     "execute.luau"
+  ],
+  "access": [
+    {
+      "name": "data",
+      "label": "Access",
+      "levels": [
+        {
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Read and write"
+        }
+      ],
+      "default": "read"
+    }
   ],
   "config": {
     "host": {
@@ -34,22 +51,6 @@
       "label": "Username",
       "required": true,
       "order": 4
-    },
-    "access": {
-      "type": "string",
-      "label": "Access",
-      "default": "read-only",
-      "options": [
-        {
-          "value": "read-only",
-          "label": "Read only"
-        },
-        {
-          "value": "read-write",
-          "label": "Read and write"
-        }
-      ],
-      "order": 5
     },
     "password": {
       "type": "secret",

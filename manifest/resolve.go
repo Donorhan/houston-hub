@@ -24,8 +24,20 @@ type MethodAvailability struct {
 	// PublisherClient marks OAuth methods whose client and redirect URI belong to the publication.
 	PublisherClient bool `json:"publisher_client,omitempty"`
 }
+
+// Inputs are a connection's saved or submitted values for one resolution.
+type Inputs struct {
+	Publisher map[string]any
+	Access    map[string]string
+	Config    map[string]any
+	Auth      map[string]any
+	Method    string
+}
+
 type Resolved struct {
-	Context         Context
+	Context Context
+	// Access holds every row's level; drafts fill missing rows with defaults.
+	Access          map[string]string
 	PublicConfig    map[string]any
 	PublisherFields []FormField
 	ConfigFields    []FormField
@@ -154,7 +166,7 @@ func (m *Manifest) resolveFields(source string, fields map[string]Field, input m
 			v = f.Default
 			present = true
 		}
-		if source == "config" && k == "access" && !f.Required && v == nil {
+		if source == "config" && k == "access" && m.SchemaVersion == 1 && !f.Required && v == nil {
 			v = "read-only"
 			present = true
 		}
@@ -183,24 +195,83 @@ func (m *Manifest) resolveFields(source string, fields map[string]Field, input m
 	return result, nil
 }
 
-// Resolve validates a saved candidate. Retained inactive values are accepted but
-// remain absent from all reference contexts. OAuth tokens are lifecycle-owned;
-// call RequireCredentials before native header preparation.
-func (m *Manifest) Resolve(publisher, config, auth map[string]any, selected string) (*Resolved, error) {
-	return m.resolve(publisher, config, auth, selected, false)
+// Resolve validates a saved candidate, which must hold a level for every access
+// row. Retained inactive values are accepted but remain absent from all reference
+// contexts. OAuth tokens are lifecycle-owned; call RequireCredentials before
+// native header preparation.
+func (m *Manifest) Resolve(in Inputs) (*Resolved, error) {
+	return m.resolve(in, false)
 }
 
 // ResolveDraft returns active form metadata even when required inputs are not
-// supplied. Context.Errors records failures and no failed prerequisite is false.
-func (m *Manifest) ResolveDraft(publisher, config, auth map[string]any, selected string) (*Resolved, error) {
-	return m.resolve(publisher, config, auth, selected, true)
+// supplied, and gives missing access rows their defaults. Context.Errors records
+// failures and no failed prerequisite is false.
+func (m *Manifest) ResolveDraft(in Inputs) (*Resolved, error) {
+	return m.resolve(in, true)
 }
-func (m *Manifest) resolve(publisher, config, auth map[string]any, selected string, draft bool) (*Resolved, error) {
-	r := &Resolved{Context: Context{Publisher: map[string]any{}, Config: map[string]any{}, Auth: map[string]map[string]any{}, SelectedAuth: selected, Errors: map[string]error{}}, PublicConfig: map[string]any{}}
+
+// resolveAccess records every row's level. Only drafts fall back to defaults,
+// so saved connections never gain access from a default they did not choose.
+func (m *Manifest) resolveAccess(input map[string]string, c *Context, draft bool) (map[string]string, error) {
+	levels := map[string]string{}
+	for name := range input {
+		if _, ok := m.AccessRow(name); !ok {
+			return nil, fmt.Errorf("undeclared access row %s", name)
+		}
+	}
+	for _, row := range m.Access {
+		level, ok := input[row.Name]
+		if !ok && draft {
+			level, ok = row.Default, true
+		}
+		if !ok {
+			return nil, fmt.Errorf("access.%s requires a level", row.Name)
+		}
+		resolved, ok := row.level(level)
+		if !ok {
+			return nil, fmt.Errorf("access.%s has no level %q", row.Name, level)
+		}
+		levels[row.Name] = level
+		c.Access[row.Name] = resolved
+	}
+	return levels, nil
+}
+
+// level returns a declared level with the levels it includes.
+func (r AccessRow) level(level string) (AccessLevel, bool) {
+	rank := r.Rank(level)
+	if rank < 0 {
+		return AccessLevel{}, false
+	}
+	includes := make([]string, rank+1)
+	for i := range includes {
+		includes[i] = r.Levels[i].Value
+	}
+	return AccessLevel{Level: level, Includes: includes}, true
+}
+
+// AccessLevels expands declared row levels for connector code, which checks
+// requirements with houston.allows. Undeclared rows and levels are omitted.
+func (m *Manifest) AccessLevels(levels map[string]string) map[string]AccessLevel {
+	out := map[string]AccessLevel{}
+	for _, row := range m.Access {
+		if resolved, ok := row.level(levels[row.Name]); ok {
+			out[row.Name] = resolved
+		}
+	}
+	return out
+}
+
+func (m *Manifest) resolve(in Inputs, draft bool) (*Resolved, error) {
+	publisher, config, auth, selected := in.Publisher, in.Config, in.Auth, in.Method
+	r := &Resolved{Context: Context{Publisher: map[string]any{}, Access: map[string]AccessLevel{}, Config: map[string]any{}, Auth: map[string]map[string]any{}, SelectedAuth: selected, Errors: map[string]error{}}, PublicConfig: map[string]any{}}
 	c := &r.Context
 	var e error
 	r.PublisherFields, e = m.resolveFields("publisher", m.Publisher, publisher, c, false)
 	if e != nil {
+		return r, e
+	}
+	if r.Access, e = m.resolveAccess(in.Access, c, draft); e != nil {
 		return r, e
 	}
 	r.ConfigFields, e = m.resolveFields("config", m.Config, config, c, !draft)
@@ -284,6 +355,11 @@ func (m *Manifest) resolve(publisher, config, auth map[string]any, selected stri
 							seen[s] = true
 						}
 					}
+				}
+			}
+			if len(a.Scopes) > 0 && len(r.Scopes) == 0 {
+				if !draft {
+					return r, fmt.Errorf("the chosen access requests no OAuth scopes; raise at least one access row")
 				}
 			}
 		}

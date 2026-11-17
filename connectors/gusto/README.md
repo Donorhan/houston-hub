@@ -5,7 +5,7 @@ description: Read Gusto payroll, people and benefits, and keep employee records 
 # Gusto
 
 Let agents read payroll, employees, contractors, benefits, time off and accounting
-reports. **Read and write** also permits employee and benefit changes, time sheets
+reports. **Write** access also permits employee and benefit changes, time sheets
 and draft payroll edits.
 
 > Agents cannot submit payroll or pay people directly. Changes to pay and draft

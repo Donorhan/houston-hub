@@ -27,16 +27,17 @@ return {
 			do
 				local host, other = hosts[1], hosts[2]
 				local api = "https://" .. host .. "/betty-V2"
-				for _, access in { "custom", "read-only", "read-write" } do
+				for _, access in { "status", "read", "write" } do
 					local r, err = m.resolve(
 						nil,
-						{ access = access, api_host = host },
+						{ api_host = host },
 						{ token = token },
-						"token"
+						"token",
+						{ data = access }
 					)
 					assert(not err, tostring(err))
 					if
-						((m.count(r.PublicConfig) ~= 2) or (r.PublicConfig["access"] ~= access))
+						(m.count(r.PublicConfig) ~= 1)
 						or (r.PublicConfig["api_host"] ~= host)
 					then
 						m.fail("unexpected Lua config: %s", r.PublicConfig)
@@ -68,7 +69,7 @@ return {
 						"GET " .. api .. "/groups" .. g .. "/users"
 					)
 					assert(
-						(access ~= "custom"),
+						(access ~= "status"),
 						"GET " .. api .. "/locales",
 						"GET " .. api .. "/candidate" .. c,
 						"GET " .. api .. "/candidate" .. c .. "/scores",
@@ -84,7 +85,7 @@ return {
 						"GET " .. api .. "/webhooks"
 					)
 					assert(
-						(access == "read-write"),
+						(access == "write"),
 						"POST " .. api .. "/candidate/send-invitation",
 						"POST " .. api .. "/candidate",
 						"POST " .. api .. "/candidate" .. c .. "/init-voice" .. pm,

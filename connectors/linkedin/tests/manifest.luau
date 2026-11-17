@@ -10,10 +10,8 @@ return {
 			do
 				local draft, err = m.draft(publisher, nil, nil, "")
 				assert(not err, tostring(err))
-				for _, field in draft.ConfigFields do
-					if field.name ~= "access" then
-						m.fail("connection form asks for %s", field.name)
-					end
+				if m.count(draft.ConfigFields) ~= 0 then
+					m.fail("connection form asks for %s", draft.ConfigFields)
 				end
 				local want = (m.count(publisher) == 2)
 				if (m.count(draft.Methods) ~= 1) or (draft.Methods[1].available ~= want) then
@@ -34,8 +32,8 @@ return {
 			end
 			local r, err = m.resolve(publisher, nil, nil, "oauth")
 			assert(not err, tostring(err))
-			if (r.PublicConfig["access"] ~= "read-only") or (m.count(r.PublicConfig) ~= 1) then
-				m.fail("unexpected public settings: %s", r.PublicConfig)
+			if (r.Access["data"] ~= "read") or (m.count(r.PublicConfig) ~= 0) then
+				m.fail("unexpected access %s or public settings %s", r.Access, r.PublicConfig)
 			end
 		end
 		-- TestLinkedInScopesAndAccessRoutes
@@ -54,12 +52,12 @@ return {
 				"PUT https://api.linkedin.com/dms-uploads/C4E10AQ",
 				"GET https://api.linkedin.com.evil.test/v2/userinfo",
 			}
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local publisher = { client_id = "fixture-client", client_secret = "fixture-secret" }
-				local r, err = m.resolve(publisher, { access = access }, nil, "oauth")
+				local r, err = m.resolve(publisher, {}, nil, "oauth", { data = access })
 				assert(not err, tostring(err))
 				local scopes = { "openid", "profile", "email" }
-				if access == "read-write" then
+				if access == "write" then
 					scopes = m.concat(scopes, { "w_member_social" })
 				end
 				if not (m.equal(r.Scopes, scopes)) or (m.raw.auth["oauth"].scope_separator ~= ",") then
@@ -85,7 +83,7 @@ return {
 					check(route, true)
 				end
 				for _, route in writes do
-					check(route, (access == "read-write"))
+					check(route, (access == "write"))
 				end
 				for _, route in denied do
 					check(route, false)

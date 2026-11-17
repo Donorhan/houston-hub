@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {access = "read-write"}, auth_method = "api_key", auth_config = {token = "cal_live_fixture"}},
+	scenario = {publisher = {}, access = {data = "write"}, config = {}, auth_method = "api_key", auth_config = {token = "cal_live_fixture"}},
 	configure = function()
 		calls = 0
 		status = 200

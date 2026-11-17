@@ -2,8 +2,8 @@ return {
 	contract = function(m)
 		local AUTH = "https://www.googleapis.com/auth/"
 		local SCOPES = {
-			["read-only"] = {"cloud-platform.read-only", "run.readonly", "monitoring.read", "compute.readonly", "cloud-billing.readonly"},
-			["read-write"] = {"cloud-platform"},
+			read = {"cloud-platform.read-only", "run.readonly", "monitoring.read", "compute.readonly", "cloud-billing.readonly"},
+			write = {"cloud-platform"},
 		}
 		local run = "https://run.googleapis.com/v2/projects/my-project-123/locations/us-central1"
 		local compute = "https://compute.googleapis.com/compute/v1/projects/my-project-123"
@@ -45,7 +45,7 @@ return {
 			"POST " .. build .. "/builds/b-1:retry", "POST " .. build .. "/builds/b-1:cancel",
 		}
 		for access, scopes in SCOPES do
-			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {access = access}, nil, "oauth")
+			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {}, nil, "oauth", {data = access})
 			assert(r and not err, tostring(err))
 			local want = {AUTH .. "userinfo.email"}
 			for _, scope in scopes do table.insert(want, AUTH .. scope) end
@@ -53,8 +53,8 @@ return {
 			r.Context.Auth.oauth.access_token = "fixture-token"
 			m.routes(r, "Bearer fixture-token", true, reads)
 			m.rejectOverrides(r, reads)
-			m.routes(r, "Bearer fixture-token", access == "read-write", writes)
-			if access == "read-write" then m.rejectOverrides(r, writes) end
+			m.routes(r, "Bearer fixture-token", access == "write", writes)
+			if access == "write" then m.rejectOverrides(r, writes) end
 			-- The token never reaches Google's token endpoint, batch endpoints, lookalike hosts, other
 			-- Google APIs, secret payloads, IAM changes, other custom methods or routes the connector
 			-- never calls, at either access level.

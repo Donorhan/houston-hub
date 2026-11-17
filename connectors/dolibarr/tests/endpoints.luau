@@ -7,7 +7,7 @@ return {
 			end
 			local method = string.match(line, 'method = "([^"]+)"')
 			local path = assert(string.match(line, 'path = "([^"]+)"'), "endpoint without path")
-			local gate = if method then '{{ is config.access "read-write" }}' else ""
+			local gate = if method then '{{ allows access.data "write" }}' else ""
 			for _, prefix in { "", "/{base}", "/{base}/{sub}" } do
 				table.insert(
 					want,

@@ -1,6 +1,6 @@
 -- Native file and Reader ownership, including media larger than the JSON result limit.
 return {
-	scenario = {config = {access = "read-write"}, auth_method = "api_key", auth_config = {token = "gladia-fixture-key"}},
+	scenario = {access = {data = "write"}, config = {}, auth_method = "api_key", auth_config = {token = "gladia-fixture-key"}},
 	configure = function()
 		fs = fixture.files()
 		opened = {}

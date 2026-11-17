@@ -2,8 +2,8 @@ return {
 	contract = function(m)
 		local api = "https://graph.microsoft.com/v1.0/me"
 		local w = api .. "/drive/items/I1/workbook"
-		for access, scopes in {["read-only"] = {"Files.Read"}, ["read-write"] = {"Files.ReadWrite"}} do
-			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {access = access}, nil, "oauth")
+		for access, scopes in {read = {"Files.Read"}, write = {"Files.ReadWrite"}} do
+			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {}, nil, "oauth", {data = access})
 			assert(r and not err, tostring(err))
 			assert(m.equal(r.Scopes, m.concat({"offline_access", "User.Read"}, scopes)), "requested OAuth scopes for " .. access)
 			r.Context.Auth.oauth.access_token = "fixture-token"
@@ -32,8 +32,8 @@ return {
 				"PUT " .. api .. "/drive/root:/Budget%202026.xlsx:/content?@microsoft.graph.conflictBehavior=fail",
 				"PUT " .. api .. "/drive/items/P1%21101:/Q3%20sales.xlsx:/content?@microsoft.graph.conflictBehavior=fail",
 			}
-			m.routes(r, "Bearer fixture-token", access == "read-write", writes)
-			if access == "read-write" then m.rejectOverrides(r, writes) end
+			m.routes(r, "Bearer fixture-token", access == "write", writes)
+			if access == "write" then m.rejectOverrides(r, writes) end
 			-- The token stays off Microsoft's token endpoints, batches that could wrap writes, other users,
 			-- drives and APIs, file contents by item id and sharing, lookalike hosts, and workbook features the
 			-- connector never calls: functions, charts, protection, formats, table and name changes,

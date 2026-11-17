@@ -119,7 +119,7 @@ kind with their credentials.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Example",
   "description": "Read Example items.",
   "files": ["connector.luau"],
@@ -388,12 +388,13 @@ the immutable Luau `config` table. `display: "masked"` on a normal string affect
 presentation only; it is not secret storage.
 
 The immutable `auth` table contains the selected method key (`auth.method`) and,
-when known, `auth.scopes`: granted OAuth scopes intersected with the selected
-method's release-declared scope vocabulary. Undeclared upstream values and
+when known, `auth.scopes`: the OAuth scopes the connection's access requested and
+the provider granted, intersected with the selected method's release-declared
+scope vocabulary. Undeclared upstream values and
 credentials never enter this table. Nil scopes mean unknown (including manual
 API tokens); an empty list means none of the declared scopes were granted.
-Derive exports directly from `config` and these facts, without a second export
-list. Do not infer manual token permissions from the token or probe operations
+Derive exports directly from `access`, `config` and these facts, without a second
+export list. Do not infer manual token permissions from the token or probe operations
 during initialization. Unknown upstream restrictions must produce clear errors
 when an operation is invoked. Publication fixtures can set synthetic
 `scenario.granted_scopes` to test known OAuth restrictions.
@@ -462,7 +463,8 @@ again (see the [Notion manifest](connectors/notion/houston.json)). A failed
 request never blocks the connection.
 
 An omitted `auth` map permits root-secret injection without a synthetic method.
-Fields activate through the bounded `if` operations `is`, `isDefined`, and `and`.
+Fields activate through the bounded `if` operations `is`, `isDefined`, `allows`
+and `and`; [Access](#access) describes `allows` and access references.
 Dependencies precede presentation order. Missing required selectors are errors;
 inactive saved values cannot satisfy references. Templates use explicit owners:
 `publisher.name`, `config.name`, `auth.token.token`, or an OAuth method's
@@ -693,11 +695,12 @@ empty. A plain empty Luau table encodes as a JSON object. For example,
 array shape when an account has no folders. Behavioral fixtures must cover both
 empty and populated results for array-valued operations.
 
-Read-only configuration is ordinary public config. A bundle can omit writes:
+Access is chosen per connection ([Access](#access)). A bundle omits what the
+chosen levels do not allow:
 
 ```lua
 local exports = {read = read}
-if config.access == "read-write" then exports.write = write end
+if houston.allows("data:write") then exports.write = write end
 return exports
 ```
 
@@ -708,9 +711,10 @@ who may use a connection, and provider/database grants remain part of authorizat
 ## Configured exports, help, and provider validation
 
 The connector Luau is the sole authority for configured functions and their help.
-Return only functions enabled by the public configuration: every caller granted
-a connection gets exactly what it is configured for. A `custom` mode enforces its
-active policy settings on each operation.
+Return only functions enabled by the connection's access and public
+configuration: every caller granted a connection gets exactly what it is
+configured for. A policy setting, such as a folder list, is enforced on each
+operation.
 The same configured Luau serves discovery and execution. Native dispatch
 rechecks current connection access and the configuration before each
 transport request. Do not infer permission from function names or HTTP verbs.
@@ -881,14 +885,14 @@ They contain no provider names or registration lists.
 | Helper | Purpose |
 | --- | --- |
 | `m.raw`, `m.modules` | Parsed manifest and bundle source text |
-| `m.resolve(publisher, config, authConfig, method)`, `m.draft(...)` | Resolve submitted inputs or an unfinished setup form; return value and error |
+| `m.resolve(publisher, config, authConfig, method, access?)`, `m.draft(...)` | Resolve submitted inputs or an unfinished setup form; return value and error. Rows missing from `access` take their defaults |
 | `m.recipe(connection, method, url, headers?)` | Select the production HTTP proxy recipe |
 | `m.prepare(recipe, connection.Context, headers?)`, `m.prepareUrl(recipe, connection.Context)` | Check injected headers and rendered query credentials |
 | `m.database(connection)`, `m.credentials(connection.Context)` | Resolve a native connection or check required credentials |
 | `m.routes(connection, authorization, allowed, routes)` | Assert route selection and replacement of a forged Authorization header |
 | `m.rejectOverrides(connection, routes)`, `m.refused(connection, reason, routes)` | Assert method-override rejection or a matching refusal reason |
-| `m.exports(config, method, scopes?, facts?)` | Inspect actual configured exports and help, including initialization errors |
-| `m.endpoints()`, `m.endpointRules()` | Read a uniform endpoint table and compare its access gates with manifest routes |
+| `m.exports(config, method, scopes?, facts?, access?)` | Inspect actual configured exports and help, including initialization errors |
+| `m.endpoints()`, `m.endpointRules()` | Read a uniform endpoint table and compare each record's `access = "row:level"` requirement with its manifest route's `allows` gate |
 
 Resolution uses the production Go result fields, such as `Context`,
 `PublicConfig`, `Scopes` and `Proxy`; manifest declarations use their JSON names.
@@ -913,9 +917,10 @@ and fixture validation.
 
 Set `HOUSTON_RUNTIME` to a newly built Houston service runtime and put the pinned
 `luau-analyze` on `PATH`. A fixture returns a table with `scenario`, optional
-public `config` overrides, optional `configure`, and `run`. The scenario contains
-synthetic `publisher`, root `config`, `auth_method`, and selected `auth_config`
-inputs, plus optional `granted_scopes` and OAuth `facts`.
+public `access` and `config` overrides, optional `configure`, and `run`. The
+scenario contains synthetic `publisher`, `access`, root `config`, `auth_method`,
+and selected `auth_config` inputs, plus optional `granted_scopes` and OAuth
+`facts`. Access rows a fixture omits take their defaults.
 Houston resolves settings, including a database rule's connection, through
 the production manifest contract before
 projecting only active nonsecret root values into the fixture VM. A
@@ -926,8 +931,9 @@ Eligibility coverage does not establish which rule wins; matcher tests separatel
 cover rule order, request filters, and action behavior.
 Fixtures assert actual provider arguments, responses and behavior. Publication
 checks deterministic configured exports and help, and requires fixture scenarios
-covering each authentication method and enabled proxy rule. Access is determined
-by the configured Luau exports; there is no operation-access metadata sidecar.
+covering each authentication method and enabled proxy rule. The configured Luau
+exports and the access-gated proxy rules together determine what a connection
+can do; there is no operation-access metadata sidecar.
 Initialization is also checked without fixture transport mocks.
 `configure` supplies synthetic
 native responses before the real bundle initializes; it is a test-only environment.
@@ -962,19 +968,108 @@ borrow credentials. Fresh catalogs are empty until explicitly registered. Local
 source registration uses Houston's development-only source adapter and the same
 validation/release pipeline; see the main repository's local-development guide.
 
-`config.access` is a reserved public field. When declared it must be an
-unconditional string field accepting `read-only`; defaults and options use only
-`read-only`, `read-write`, and `custom`. An optional field without an explicit default
-defaults to `read-only` before conditional fields, OAuth scopes, and proxies are
-resolved. Required fields still require a value, and explicit null inputs are
-invalid. When undeclared, Houston supplies `read-only`.
-The publication type checker exposes this reserved field even if the manifest
-does not declare a configurable Access setting.
+## Access
 
-`config.access` is the only access setting: a grant decides who may use a
-connection, never how much of it. For `custom`, enforce the configured policy on
-every operation; never substitute unrestricted account-wide reads. Custom write
-exports require a policy permitting the write.
+A connector declares what a connection may do as an access matrix: the top-level
+`access` array of rows, each set to one level per connection. The setup form shows
+one row per resource with a segmented control, and agents see the chosen levels.
+Access is separate from settings: a grant decides who may use a connection, the
+access matrix how much of it.
+
+```json
+"access": [
+  {
+    "name": "code",
+    "label": "Code and releases",
+    "description": "Files, branches, commits, merges and releases.",
+    "levels": [
+      {"value": "none", "label": "None"},
+      {"value": "read", "label": "Read"},
+      {"value": "write", "label": "Write"}
+    ],
+    "default": "read"
+  }
+]
+```
+
+- Levels run from least to most access, and each level includes the ones before
+  it. `none`, when present, comes first. Rows have 2 to 4 levels, and a manifest
+  at most 32 rows. Every row needs a `default`, which new connections start from.
+- Use `none`, `read` and `write` with the labels None, Read and Write. Add an
+  intermediate level only for a real step, such as `draft` (label Draft) between
+  read and write for mail. Capabilities that are not steps of one ladder, such as
+  reacting and posting, are separate rows.
+- A connector with one kind of access declares one row named `data` with label
+  Access and levels `read` and `write`, default `read`.
+- Without `access`, a connection has no access choice: every declared route and
+  export is available.
+
+Predicates read rows two ways:
+
+- `{{ allows access.code "write" }}` holds when the row's level is at or above
+  `write`. It is valid in every `if` except publisher fields, and it is the only
+  form for proxy rules, header values, auth methods and config fields. Lowering a
+  level can therefore only disable rules, never enable one.
+- `{{ is access.code "read" }}` holds at exactly that level. It is valid only on
+  OAuth scope groups, for providers whose read and write scopes replace each other
+  (`drive.readonly` or `drive`). Cumulative providers use `allows` on scopes too.
+
+An OAuth method that declares scopes must request at least one for the chosen
+levels; a connection that lowers every row to `none` is refused with a message
+asking to raise one.
+
+Combine requirements with `and`:
+`{{ and (allows access.code "write") (allows access.conversations "write") }}`.
+
+In Luau, the read-only `access` table holds each row's level (`access.code ==
+"write"`), and `houston.allows("code:write")` checks requirements written as
+space-separated `row:level` pairs, all of which must hold. Use `houston.allows`
+rather than comparing levels by hand. An endpoint table annotates each record with
+the same syntax, `access = "code:write"`, and `m.endpointRules()` checks that
+its route carries the matching `allows` gate. Records without `access` are
+available at every level.
+
+Native protocols (databases, Redis, IMAP) declare at most one row, and it must
+have a `read` level. Houston allows native writes only when that row is above
+`read`, so a `draft` level between read and write permits the writes the
+connector's own code then restricts. Without a row, native writes are refused.
+
+Houston enforces access in the proxy and, through the exports, in connector code.
+When a row selects OAuth scopes, the provider enforces it too, and the setup form
+says "Enforced by <provider>" for it. Raising any row on an OAuth connection asks
+the account holder to authorize again; lowering one saves immediately.
+
+A manual method can link to the provider's token page with the chosen access
+filled in. `setup_url` is a literal HTTPS URL, which may carry fixed query
+parameters, and `setup_params` maps query parameters to rows; Houston appends each
+row's level except `none`. Level values must therefore match the provider's values:
+
+```json
+"setup_url": "https://github.com/settings/personal-access-tokens/new?name=Houston",
+"setup_params": {"contents": "code", "issues": "conversations"}
+```
+
+### Migrating from schema version 1
+
+Houston publishes only `schema_version: 2`. Version 1 releases stay readable only
+while connections still use them.
+
+1. Set `"schema_version": 2`.
+2. Replace the `config.access` field with `access` rows. A connector with one kind
+   of access declares the single `data` row (`read`, `write`); mail connectors that
+   offered "Read and draft" add a `draft` level between them.
+3. Replace `{{ is config.access "read-write" }}` with `{{ allows access.data
+   "write" }}`. Keep `is` only on scope groups whose read and write scopes are
+   exclusive, as `{{ is access.data "read" }}` and `{{ is access.data "write" }}`.
+4. In Luau, replace `config.access == "read-write"` with
+   `houston.allows("data:write")`, and endpoint-table `write = true` flags with
+   `access = "data:write"`.
+5. In fixtures, replace `config = {access = "read-write"}` with
+   `access = {data = "write"}`, at the top level or in `scenario`.
+
+When a connection follows the new release, Houston maps a saved `read-only` to
+each row's `read` level (or its lowest) and `read-write` to each row's top level.
+Connections saved as `custom` are set up again.
 
 `houston.seal(value)` returns an opaque encrypted token, and `houston.unseal(token)`
 returns the original plain JSON value. These synchronous connector-only helpers
@@ -1276,7 +1371,7 @@ end
 
 Parameterize values and keep transport credentials out of arguments. Do not infer
 write authorization from a SQL string or a function name. Gate mutation exports
-with effective `config.access` and let the database enforce its own permissions.
+with `houston.allows("data:write")` and let the database enforce its own permissions.
 
 ## Publish a Connector on Houston Hub
 

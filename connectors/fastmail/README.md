@@ -14,13 +14,13 @@ read messages, and help you stay on top of email.
 
 ## Prepare replies for you
 
-With **Read and draft** access, agents can also prepare drafts and replies, with
+With **Draft** access, agents can also prepare drafts and replies, with
 attachments, for you to review and send from Fastmail. Reply drafts open in the
 original conversation. Agents cannot send or change any other mail.
 
 ## Keep your inbox moving
 
-With **Read and write** access, agents can also:
+With **Write** access, agents can also:
 
 - Send emails, drafts, or replies to a person or an entire conversation.
 - Choose which email address to send from and include attachments.
@@ -28,4 +28,4 @@ With **Read and write** access, agents can also:
   mail you no longer need.
 - Mark individual messages or batches as read or unread.
 
-**Read-only** cannot change your inbox or send mail.
+**Read** cannot change your inbox or send mail.

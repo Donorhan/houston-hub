@@ -70,7 +70,7 @@ func TestOAuthTokenEncodingAndHeaders(t *testing.T) {
 	if _, err := Parse([]byte(strings.ReplaceAll(string(body), `"token_encoding":"xml"`, `"token_encoding":""`))); err == nil {
 		t.Fatal("accepted explicit empty token encoding")
 	}
-	manual := `{"schema_version":1,"name":"Manual","files":["connector.lua"],"auth":{"token":{"type":"manual","label":"Token","config":{"token":{"type":"secret","label":"Token"}},%s}},"proxy":[{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"Authorization":"{{auth.token.token}}"}}}}]}`
+	manual := `{"schema_version":2,"name":"Manual","files":["connector.lua"],"auth":{"token":{"type":"manual","label":"Token","config":{"token":{"type":"secret","label":"Token"}},%s}},"proxy":[{"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"set":{"Authorization":"{{auth.token.token}}"}}}}]}`
 	for _, setting := range []string{`"token_encoding":"json"`, `"token_headers":{}`} {
 		if _, err := Parse([]byte(strings.Replace(manual, "%s", setting, 1))); err == nil {
 			t.Fatal("accepted OAuth token setting on manual method")

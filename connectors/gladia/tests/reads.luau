@@ -1,7 +1,7 @@
--- A read-only connection: job reads, paging, audio downloads and Gladia's errors.
+-- A connection with Read access: job reads, paging, audio downloads and Gladia's errors.
 return {
 	scenario = {publisher = {}, config = {}, auth_method = "api_key", auth_config = {token = "gladia-fixture-key"}},
-	config = {access = "read-only"},
+	access = {data = "read"},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
@@ -32,7 +32,7 @@ return {
 		local names = {}
 		for name in c do if name ~= "help" then table.insert(names, name) end end
 		table.sort(names)
-		assert(table.concat(names, ",") == "downloadAudio,getTranscription,listTranscriptions", "read-only got " .. table.concat(names, ","))
+		assert(table.concat(names, ",") == "downloadAudio,getTranscription,listTranscriptions", "read got " .. table.concat(names, ","))
 
 		-- A finished job comes back unchanged, transcript included.
 		responses = {{body = '{"id":"' .. ID .. '","request_id":"G-1","version":2,"status":"done","created_at":"2026-11-09T10:00:00Z","completed_at":"2026-11-09T10:01:00Z","kind":"pre-recorded","post_session_metadata":{},"file":{"id":"f1","filename":"call.wav","source":null,"audio_duration":42.5,"number_of_channels":1},"request_params":{"diarization":true},"result":{"metadata":{"audio_duration":42.5,"number_of_distinct_channels":1,"billing_time":42.5,"transcription_time":3.1},"transcription":{"full_transcript":"Hello there.","languages":["en"],"utterances":[{"start":0.1,"end":1.2,"confidence":0.98,"channel":0,"speaker":0,"text":"Hello there.","language":"en","words":[{"word":"Hello","start":0.1,"end":0.5,"confidence":0.99}]}]}}}'}}

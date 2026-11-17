@@ -4,8 +4,8 @@ return {
 		do
 			local api = "https://api.stripe.com"
 			local files = "https://files.stripe.com"
-			for _, access in { "read-only", "read-write" } do
-				local r, err = m.resolve(nil, { access = access }, { token = "rk_test_fixture" }, "token")
+			for _, access in { "read", "write" } do
+				local r, err = m.resolve(nil, {}, { token = "rk_test_fixture" }, "token", { data = access })
 				assert(not err, tostring(err))
 				m.routes(r, "Bearer rk_test_fixture", true, {
 					"GET " .. api .. "/v1/account",
@@ -17,7 +17,7 @@ return {
 					"GET " .. api .. "/v1/files/file_1",
 					"GET " .. files .. "/v1/files/file_1/contents",
 				})
-				m.routes(r, "Bearer rk_test_fixture", (access == "read-write"), {
+				m.routes(r, "Bearer rk_test_fixture", (access == "write"), {
 					"POST " .. api .. "/v1/payment_intents",
 					"POST " .. api .. "/v1/payment_intents/pi_1/confirm",
 					"POST " .. api .. "/v1/refunds",

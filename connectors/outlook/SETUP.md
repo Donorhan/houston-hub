@@ -1,11 +1,11 @@
 # Connect your Microsoft account
 
-1. Choose the access level:
-   - **Read-only** to let agents read without changing anything.
-   - **Read and draft** to also let agents prepare drafts, replies and forwards
-     for you to review and send from Outlook. Agents can also update or delete
-     existing drafts, but Houston refuses every send request on this level.
-   - **Read and write** to also let agents send, reply, forward and organize mail.
+1. Choose **Access**:
+   - **Read** to let agents read without changing anything.
+   - **Draft** to also let agents prepare drafts, replies and forwards for you
+     to review and send from Outlook. Agents can also update or delete existing
+     drafts, but Houston refuses every send request on this level.
+   - **Write** to also let agents send, reply, forward and organize mail.
 2. Select **Continue with Microsoft**, sign in with your Outlook.com, work or
    school account, and select **Accept** on the permissions Microsoft lists.
 

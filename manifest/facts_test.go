@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-const factsManifest = `{"schema_version":1,"name":"Bound","files":["main.luau"],
+const factsManifest = `{"schema_version":2,"name":"Bound","files":["main.luau"],
  "config":{"host":{"type":"string","label":"Host","required":true}},
  "publisher":{"client_id":{"type":"string","label":"Client","required":true},"client_secret":{"type":"secret","label":"Secret","required":true},"bot":{"type":"secret","label":"Bot","required":true}},
  "auth":{"oauth":{"type":"oauth2","label":"Install","authorize_url":"https://example.com/authorize","token_url":"https://example.com/token","client_id":"{{publisher.client_id}}","client_secret":"{{publisher.client_secret}}","pkce":"none",
@@ -84,7 +84,7 @@ func TestOAuthFactPathsRenderPerConnection(t *testing.T) {
 		t.Fatal(err)
 	}
 	publisher := map[string]any{"client_id": "client", "client_secret": "secret", "bot": "bot-secret"}
-	r, err := m.Resolve(publisher, map[string]any{"host": "example.org"}, nil, "oauth")
+	r, err := m.Resolve(Inputs{Publisher: publisher, Config: map[string]any{"host": "example.org"}, Method: "oauth"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,10 +136,10 @@ func TestOAuthFactPathsRenderPerConnection(t *testing.T) {
 	if m, err = Parse([]byte(manual)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := m.Resolve(publisher, map[string]any{"host": "example.org"}, nil, "oauth"); err != nil {
+	if _, err := m.Resolve(Inputs{Publisher: publisher, Config: map[string]any{"host": "example.org"}, Method: "oauth"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := m.Resolve(publisher, map[string]any{"host": "example.org"}, map[string]any{"token": "manual"}, "token"); err == nil || !strings.Contains(err.Error(), "proxy path") {
+	if _, err := m.Resolve(Inputs{Publisher: publisher, Config: map[string]any{"host": "example.org"}, Auth: map[string]any{"token": "manual"}, Method: "token"}); err == nil || !strings.Contains(err.Error(), "proxy path") {
 		t.Errorf("fact path rule resolved for a manual method: %v", err)
 	}
 }

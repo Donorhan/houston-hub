@@ -49,8 +49,8 @@ through private session files; returned download URLs expire.
 Marking read/unread, moving, archiving, deleting, and destroying messages use batches of 50.
 `markRead(ids)` sets the JMAP `$seen` keyword; `markUnread(ids)` removes it.
 Both preserve other keywords and mailbox membership and accept a single ID,
-an `{id = "..."}` row, or a list of either. They require read-write connection
-access and a writable Email token, without needing Email submission permission.
+an `{id = "..."}` row, or a list of either. They require **Write** access and a
+writable Email token, without needing Email submission permission.
 `deleteMessage(s)` moves mail to Trash; `destroyMessage(s)` permanently removes
 it. A later batch can fail after earlier batches succeeded. Sending can also
 succeed before a response is lost. These operations are never automatically

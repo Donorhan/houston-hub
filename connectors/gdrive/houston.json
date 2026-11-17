@@ -1,28 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Google Drive",
   "warning": "**Pending Google approval.** Google is still reviewing Houston's access to Google Drive. Until Google approves it, you will see a *Google hasn't verified this app* screen while connecting: select **Advanced**, then continue to Houston.",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "type": "string",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "default": "read-only",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
-      ]
+      ],
+      "default": "read"
     }
-  },
+  ],
   "auth": {
     "oauth": {
       "type": "oauth2",
@@ -47,13 +47,13 @@
           ]
         },
         {
-          "if": "{{ is config.access \"read-only\" }}",
+          "if": "{{ is access.data \"read\" }}",
           "values": [
             "https://www.googleapis.com/auth/drive.readonly"
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ is access.data \"write\" }}",
           "values": [
             "https://www.googleapis.com/auth/drive"
           ]
@@ -113,7 +113,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -138,7 +138,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -161,7 +161,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -184,7 +184,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [

@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {access = "read-write"}, auth_method = "api_key", auth_config = {token = "re_fixture"}},
+	scenario = {publisher = {}, access = {data = "write"}, config = {}, auth_method = "api_key", auth_config = {token = "re_fixture"}},
 	configure = function()
 		requests = {}
 		status = 200
@@ -23,7 +23,7 @@ return {
 
 		local count = 0
 		for name in resend do if name ~= "help" then count += 1 end end
-		assert(count == 133, "wrong read-write surface: " .. count)
+		assert(count == 133, "wrong write surface: " .. count)
 		assert(resend.getWebhook and resend.getLog and resend.sendEmail and resend.createContactImport)
 
 		-- The idempotency key travels as a header, never in the body.

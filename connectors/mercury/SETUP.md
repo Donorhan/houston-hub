@@ -3,7 +3,7 @@
 1. Create a **Read Only** token under [Settings → Tokens](https://app.mercury.com/settings/tokens).
    Ask your organization admin if this page is unavailable.
 2. Paste the complete token, including `secret-token:`, into Houston's **API token**.
-3. Choose **Read-only** and save, or configure writes as described below.
+3. Choose **Read** for **Access** and save, or configure writes as described below.
 
 [Token guide](https://docs.mercury.com/docs/getting-started).
 
@@ -11,7 +11,7 @@
 
 ### Payments and changes
 
-Choose **Read and write** and grant only the needed Mercury scopes. Mercury write
+Choose **Write** for **Access** and grant only the needed Mercury scopes. Mercury write
 tokens require an IP allowlist containing Houston's server egress addresses,
 obtained from your Houston operator. A **Custom** token with `RequestSendMoney`
 can queue payments for approval without an IP allowlist. Approvals happen in Mercury.

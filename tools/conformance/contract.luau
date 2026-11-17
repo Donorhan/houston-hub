@@ -66,49 +66,42 @@ return function(call, raw, modules)
 		end
 		assert(m.equal(a, b), "expected " .. table.concat(a, "\n") .. "\nreceived " .. table.concat(b, "\n"))
 	end
+	-- Endpoint records name the access they need as access = "row:level", with
+	-- several space-separated requirements when every one must hold.
 	function m.endpoints()
 		local source = m.modules["connector.luau"]
 		local entries = {}
 		for method, path, rest in
 			string.gmatch(source, '\n\t[%w_]+ = %{method = "([A-Z]+)", path = "([^"]+)"([^\n]*)')
 		do
-			local write = method ~= "GET"
-			local flag, value = string.match(rest, "([%w_]+) = (true)")
-			if not flag then
-				flag, value = string.match(rest, "([%w_]+) = (false)")
-			end
-			if flag == "write" or flag == "read" then
-				write = (value == "true") ~= (flag == "read")
-			end
-			table.insert(entries, {
-				method = method,
-				path = path,
-				rest = rest,
-				write = write,
-				custom = string.find(rest, "custom = {", 1, true) ~= nil,
-			})
+			table.insert(entries, { method = method, path = path, rest = rest, access = string.match(rest, 'access = "([^"]+)"') })
 		end
 		local _, count = string.gsub(source, "= %{method = ", "")
 		assert(#entries > 0 and #entries == count, "endpoint table was not fully read")
 		return entries
+	end
+	function m.accessGate(requirements)
+		if not requirements then
+			return ""
+		end
+		local terms = {}
+		for row, level in string.gmatch(requirements, "([%w_]+):([%w-]+)") do
+			table.insert(terms, string.format('allows access.%s "%s"', row, level))
+		end
+		assert(#terms > 0, "invalid access requirement: " .. requirements)
+		if #terms == 1 then
+			return "{{ " .. terms[1] .. " }}"
+		end
+		return "{{ and (" .. table.concat(terms, ") (") .. ") }}"
 	end
 	function m.endpointRules()
 		local source = m.modules["connector.luau"]
 		local prefix = string.match(source, 'local API = "https://[^/"]+([^"]*)"')
 			or string.match(source, 'local API = "https://" %.%. config%.[%w_]+ %.%. "([^"]*)"')
 			or ""
-		local entries = m.endpoints()
-		local narrows = m.some(entries, function(entry)
-			return entry.custom
-		end)
 		local want, got = {}, {}
-		for _, entry in entries do
-			local gates = { "" }
-			if entry.write then
-				gates = { '{{ is config.access "read-write" }}' }
-			elseif narrows and not entry.custom then
-				gates = { '{{ is config.access "read-only" }}', '{{ is config.access "read-write" }}' }
-			end
+		for _, entry in m.endpoints() do
+			local gate = m.accessGate(entry.access)
 			local paths = { prefix .. entry.path }
 			if string.find(entry.path, "{format}", 1, true) then
 				paths = {}
@@ -121,9 +114,7 @@ return function(call, raw, modules)
 				end
 			end
 			for _, path in paths do
-				for _, gate in gates do
-					table.insert(want, entry.method .. " " .. path .. " " .. gate)
-				end
+				table.insert(want, entry.method .. " " .. path .. " " .. gate)
 			end
 		end
 		for _, rule in m.raw.proxy do
@@ -138,16 +129,17 @@ return function(call, raw, modules)
 		end
 		m.sortedEqual(want, got)
 	end
-	function m.resolve(publisher, config, auth, method)
+	-- Unlisted access rows take their defaults, so fixtures name only the rows they exercise.
+	function m.resolve(publisher, config, auth, method, access)
 		return call(
 			"resolve",
-			{ publisher = publisher, config = config, auth_config = auth, auth_method = method }
+			{ publisher = publisher, access = access, config = config, auth_config = auth, auth_method = method }
 		)
 	end
-	function m.draft(publisher, config, auth, method)
+	function m.draft(publisher, config, auth, method, access)
 		return call(
 			"draft",
-			{ publisher = publisher, config = config, auth_config = auth, auth_method = method }
+			{ publisher = publisher, access = access, config = config, auth_config = auth, auth_method = method }
 		)
 	end
 	function m.recipe(r, method, href, headers)
@@ -172,8 +164,8 @@ return function(call, raw, modules)
 	function m.discovery(method, scopes, facts)
 		return call("discovery", { auth_method = method, scopes = scopes, facts = facts })
 	end
-	function m.exports(config, method, scopes, facts)
-		return call("exports", { config = config, auth_method = method, scopes = scopes, facts = facts })
+	function m.exports(config, method, scopes, facts, access)
+		return call("exports", { access = access, config = config, auth_method = method, scopes = scopes, facts = facts })
 	end
 	function m.header(headers, name)
 		for key, values in headers or {} do
@@ -247,7 +239,7 @@ return function(call, raw, modules)
 	end
 	function m.authentication(cases)
 		for _, case in cases do
-			local r, err = m.resolve(case.publisher, case.config, case.auth, case.method)
+			local r, err = m.resolve(case.publisher, case.config, case.auth, case.method, case.access)
 			assert(r and not err, tostring(err))
 			for name, value in r.PublicConfig or {} do
 				assert(m.raw.config[name].type ~= "secret", "secret field in public config: " .. name)

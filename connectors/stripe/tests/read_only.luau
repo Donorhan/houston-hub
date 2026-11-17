@@ -1,5 +1,5 @@
 return {
-	scenario = {config = {access = "read-only"}, auth_method = "token", auth_config = {token = "rk_test_fixture"}},
+	scenario = {access = {data = "read"}, config = {}, auth_method = "token", auth_config = {token = "rk_test_fixture"}},
 	configure = function()
 		requests = {}
 		payload = '{"object":"list","data":[{"id":"cus_1","metadata":{"key":"value"}}],"has_more":true}'

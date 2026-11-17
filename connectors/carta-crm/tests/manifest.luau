@@ -1,7 +1,7 @@
 return {
 	contract = function(m)
 		do
-			local r, err = m.resolve(nil, { access = "read-write" }, { token = "crm-key" }, "token")
+			local r, err = m.resolve(nil, {}, { token = "crm-key" }, "token", { data = "write" })
 			assert(not err, tostring(err))
 			local api = "https://crm-public-api.app.carta.com/v1"
 			for _, route in
@@ -46,7 +46,7 @@ return {
 			end
 		end
 		do
-			local crm, err = m.resolve(nil, { access = "read-write" }, { token = "crm-key" }, "token")
+			local crm, err = m.resolve(nil, {}, { token = "crm-key" }, "token", { data = "write" })
 			assert(not err, tostring(err))
 			local api = "https://crm-public-api.app.carta.com/v1"
 			m.rejectOverrides(crm, {

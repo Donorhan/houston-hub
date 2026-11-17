@@ -3,9 +3,9 @@
 You need a work or school Microsoft account: Microsoft's Excel API does not
 support personal accounts such as Outlook.com.
 
-1. Choose the access level:
-   - **Read-only** to let agents read your workbooks without changing anything.
-   - **Read and write** to also let agents create workbooks and change cells,
+1. Choose the level for **Access**:
+   - **Read** to let agents read your workbooks without changing anything.
+   - **Write** to also let agents create workbooks and change cells,
      tables and worksheets.
 2. Select **Continue with Microsoft**, sign in with your work or school
    account, and select **Accept** on the permissions Microsoft lists.
@@ -14,8 +14,8 @@ Microsoft's permission covers all your files, but Houston keeps your
 authorization on its server, agent scripts never see it, and an Excel
 connection only reads and changes Excel workbooks in your own OneDrive, even if
 you also connect other Microsoft services. One exception: to create workbooks,
-Read and write access can write a file by name in your OneDrive, as OneDrive's
-Read and write access can. Creating a workbook never replaces an existing file,
+**Write** access can write a file by name in your OneDrive, as OneDrive's
+**Write** access can. Creating a workbook never replaces an existing file,
 but an agent's own script could replace a file whose name it knows.
 
 ## Advanced: changing access and troubleshooting

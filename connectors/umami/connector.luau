@@ -196,8 +196,7 @@ local function namespace(path: string): (Options, string)
  return node, parts[#parts]
 end
 for name, endpoint in endpoints do
- local access = if config.access == "custom" then config[endpoint.group] else config.access
- if (SELF_HOSTED or endpoint.cloud) and (access == "read-write" or (access == "read-only" and endpoint.read)) then
+ if (SELF_HOSTED or endpoint.cloud) and houston.allows(endpoint.group .. (if endpoint.read then ":read" else ":write")) then
   local properties: Options = {}
   local filters: Options = {}
   local required: {string} = json.decode("[]")

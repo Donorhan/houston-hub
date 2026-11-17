@@ -1,5 +1,5 @@
 return {
-	scenario = {config = {access = "read-write"}, auth_method = "token", auth_config = {token = "rk_test_fixture"}},
+	scenario = {access = {data = "write"}, config = {}, auth_method = "token", auth_config = {token = "rk_test_fixture"}},
 	configure = function()
 		requests = {}
 		fs = fixture.files()

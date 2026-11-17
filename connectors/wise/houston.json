@@ -1,27 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Wise",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "order": 1,
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "api_host": {
       "default": "api.wise.com",
       "description": "Use Sandbox only with a token created at wise-sandbox.com.",
@@ -107,7 +108,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.api_host}}"
@@ -139,7 +140,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.api_host}}"
@@ -162,7 +163,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.api_host}}"
@@ -184,7 +185,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.api_host}}"

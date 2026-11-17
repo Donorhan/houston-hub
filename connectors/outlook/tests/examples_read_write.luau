@@ -12,7 +12,7 @@ local function run(c)
 end
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	config = {access = "read-write"},
+	access = {data = "write"},
 	configure = function()
 		calls = 0
 		fs = fixture.files()

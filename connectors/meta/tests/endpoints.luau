@@ -22,8 +22,8 @@ return {
 			end
 		end
 		m.sortedEqual(want, got, true)
-		for _, access in { "read-only", "read-write" } do
-			local r, err = m.resolve(nil, { access = access }, { token = "EAAPAGE" }, "token")
+		for _, access in { "read", "write" } do
+			local r, err = m.resolve(nil, {}, { token = "EAAPAGE" }, "token", { data = access })
 			assert(r and not err, tostring(err))
 			for _, entry in entries do
 				local route = entry.method
@@ -31,7 +31,7 @@ return {
 					.. host(entry)
 					.. "/v26.0"
 					.. string.gsub(entry.path, "{[%w_]+}", "101_1")
-				m.routes(r, "Bearer EAAPAGE", not entry.write or access == "read-write", { route })
+				m.routes(r, "Bearer EAAPAGE", not entry.access or access == "write", { route })
 			end
 		end
 	end,

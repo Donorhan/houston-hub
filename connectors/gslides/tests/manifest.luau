@@ -3,9 +3,10 @@ return {
 		local function google(access, scopes)
 			local r, err = m.resolve(
 				{ client_id = "publisher-client", client_secret = "publisher-secret" },
-				{ access = access },
+				{},
 				nil,
-				"oauth"
+				"oauth",
+				{ data = access }
 			)
 			assert(r and not err, tostring(err))
 			local want = { "https://www.googleapis.com/auth/userinfo.email" }
@@ -18,9 +19,9 @@ return {
 		end
 		do
 			local api = "https://slides.googleapis.com/v1/presentations"
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local scope = "presentations.readonly"
-				if access == "read-write" then
+				if access == "write" then
 					scope = "presentations"
 				end
 				local r = google(access, { scope })
@@ -38,8 +39,8 @@ return {
 				m.routes(r, "Bearer fixture-token", true, reads)
 				m.rejectOverrides(r, reads)
 				local writes = { "POST " .. api, "POST " .. api .. "/p1:batchUpdate" }
-				m.routes(r, "Bearer fixture-token", (access == "read-write"), writes)
-				if access == "read-write" then
+				m.routes(r, "Bearer fixture-token", (access == "write"), writes)
+				if access == "write" then
 					m.rejectOverrides(r, writes)
 				end
 				m.routes(r, "Bearer fixture-token", false, {

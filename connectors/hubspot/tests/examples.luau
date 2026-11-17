@@ -1,4 +1,4 @@
--- Every documented example runs as a real call against a permissive HubSpot mock; read-write
+-- Every documented example runs as a real call against a permissive HubSpot mock; full access
 -- documents every operation. Each operation's examples come from its help record: indexes are tried
 -- until the record has no more, so a new example cannot be skipped.
 local function run(c)
@@ -29,4 +29,4 @@ local function configure()
 	end}
 end
 local scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}}
-return {scenario = scenario, config = {access = "read-write"}, configure = configure, run = run}
+return {scenario = scenario, access = {contacts = "write", companies = "write", deals = "write", tickets = "write", engagements = "write"}, configure = configure, run = run}

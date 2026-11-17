@@ -1,7 +1,7 @@
 -- Meta Graph API v26.0 for one Facebook Page and its linked Instagram account. Arguments and
 -- results keep Meta's native field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, host: string?, query: {string}?, required: {string}?, paging: {string}?,
+type Endpoint = {method: string, path: string, access: string?, host: string?, query: {string}?, required: {string}?, paging: {string}?,
 	body: {string}?, fields: string?, upload: boolean?, about: string}
 
 -- Graph versions work for two years after their successor ships; v26.0 has no sunset date yet.
@@ -82,31 +82,31 @@ local endpoints: {[string]: Endpoint} = {
 	listHashtagRecentMedia = {method = "GET", path = "/{hashtag}/recent_media", query = {"user_id"}, required = {"user_id"}, paging = {"limit", "after"},
 		fields = HASHTAG_MEDIA_FIELDS, about = "Public media with a hashtag from the last 24 hours. limit is at most 50."},
 
-	createPost = {method = "POST", path = "/me/feed",
+	createPost = {method = "POST", path = "/me/feed", access = "data:write",
 		about = "Body {message?, link?, published?, scheduled_publish_time?, attached_media?, place?}. Posts as the Page; returns {id}. Pass message or link."},
-	updatePost = {method = "POST", path = "/{post}", body = {"message", "is_hidden", "is_published", "scheduled_publish_time", "is_pinned", "timeline_visibility"},
+	updatePost = {method = "POST", path = "/{post}", access = "data:write", body = {"message", "is_hidden", "is_published", "scheduled_publish_time", "is_pinned", "timeline_visibility"},
 		about = "Body {message?, is_hidden?, is_published?, scheduled_publish_time?, is_pinned?, timeline_visibility?}. Only posts made through the token's Meta app can change."},
-	uploadPhoto = {method = "POST", path = "/me/photos", upload = true,
+	uploadPhoto = {method = "POST", path = "/me/photos", access = "data:write", upload = true,
 		about = "Body {url | path, caption?, published?, temporary?, scheduled_publish_time?, no_story?, alt_text_custom?}. JPEG, PNG, GIF, BMP or TIFF up to 10 MB; returns {id, post_id}."},
-	uploadVideo = {method = "POST", path = "/me/videos", host = VIDEO_API, upload = true,
+	uploadVideo = {method = "POST", path = "/me/videos", access = "data:write", host = VIDEO_API, upload = true,
 		about = "Body {file_url | path, title?, description?, published?, scheduled_publish_time?, no_story?}. Returns {id}; Meta processes the video afterwards."},
-	createComment = {method = "POST", path = "/{object}/comments",
+	createComment = {method = "POST", path = "/{object}/comments", access = "data:write",
 		about = "Body {message?, attachment_url?, attachment_id?, attachment_share_url?}. Comments as the Page on a Facebook post, photo, video or comment, or on Instagram media (message only); returns {id}."},
-	updateComment = {method = "POST", path = "/{comment}", body = {"message", "is_hidden", "hide", "attachment_url", "attachment_id", "attachment_share_url"},
+	updateComment = {method = "POST", path = "/{comment}", access = "data:write", body = {"message", "is_hidden", "hide", "attachment_url", "attachment_id", "attachment_share_url"},
 		about = "Body {is_hidden} or {message} for a Facebook comment, {hide} for an Instagram comment."},
-	createInstagramReply = {method = "POST", path = "/{comment}/replies", required = {"message"},
+	createInstagramReply = {method = "POST", path = "/{comment}/replies", access = "data:write", required = {"message"},
 		about = "Body {message}. Replies as the account to a top-level Instagram comment; returns {id}."},
-	updateInstagramMedia = {method = "POST", path = "/{media}", required = {"comment_enabled"}, body = {"comment_enabled"},
+	updateInstagramMedia = {method = "POST", path = "/{media}", access = "data:write", required = {"comment_enabled"}, body = {"comment_enabled"},
 		about = "Body {comment_enabled}. Turns comments on Instagram media on or off."},
-	deleteObject = {method = "DELETE", path = "/{id}",
+	deleteObject = {method = "DELETE", path = "/{id}", access = "data:write",
 		about = "Deletes a Facebook post, photo, video or comment, or Instagram media or comment. Instagram media need the instagram_manage_contents permission; carousels are deleted whole."},
-	sendMessage = {method = "POST", path = "/me/messages", required = {"recipient"},
+	sendMessage = {method = "POST", path = "/me/messages", access = "data:write", required = {"recipient"},
 		about = "Body {recipient, messaging_type?, message? | sender_action?, tag?, notification_type?, reply_to?}. Sends as the Page on Messenger or Instagram, or privately replies to a Facebook comment; see Inbox above. Returns {recipient_id, message_id}."},
-	sendInstagramPrivateReply = {method = "POST", path = "/{ig_user}/messages", required = {"recipient", "message"},
+	sendInstagramPrivateReply = {method = "POST", path = "/{ig_user}/messages", access = "data:write", required = {"recipient", "message"},
 		about = "Body {recipient={comment_id}, message={text}}. Sends the commenter the one private message allowed per Instagram comment, within 7 days of it; at most 750 per hour."},
-	createInstagramContainer = {method = "POST", path = "/{ig_user}/media",
+	createInstagramContainer = {method = "POST", path = "/{ig_user}/media", access = "data:write",
 		about = "Body {image_url? (JPEG), video_url?, media_type? (REELS, STORIES, CAROUSEL or VIDEO for carousel items), caption?, children?, is_carousel_item?, alt_text?, cover_url?, share_to_feed?, location_id?, user_tags?, collaborators?}. Returns {id}; see Publishing to Instagram above."},
-	publishInstagramMedia = {method = "POST", path = "/{ig_user}/media_publish", required = {"creation_id"},
+	publishInstagramMedia = {method = "POST", path = "/{ig_user}/media_publish", access = "data:write", required = {"creation_id"},
 		about = "Body {creation_id}. Publishes a FINISHED container; returns the media {id}."},
 }
 
@@ -392,7 +392,7 @@ end
 
 local exports: {[string]: any} = {}
 for name, endpoint in endpoints do
-	if endpoint.method == "GET" or config.access == "read-write" then
+	if not endpoint.access or houston.allows(endpoint.access) then
 		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 	end
 end
@@ -434,7 +434,7 @@ exports.help = function(): string
 		"Moderation: updateComment({comment, is_hidden=true}) hides a Facebook comment and updateComment({comment, hide=true}) an Instagram one; deleteObject({id}) deletes either. Instagram comments can be deleted only on the account's own media.",
 		"Writes return {id} or {success=true}. There are no automatic retries: after a timeout or 5xx, read the Page again before repeating a write, since a post or message may already be live.",
 	}
-	if config.access == "read-write" then table.move(writing, 1, #writing, #lines + 1, lines) end
+	if houston.allows("data:write") then table.move(writing, 1, #writing, #lines + 1, lines) end
 	local names: {string} = {}
 	for name in exports do if name ~= "help" then table.insert(names, name) end end
 	table.sort(names)

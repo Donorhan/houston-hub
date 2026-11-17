@@ -3,7 +3,7 @@
 1. Open [Account Tokens](https://vercel.com/account/tokens), name a token, choose
    the team under **Scope** and select **All Projects**. Set an expiry and copy it.
 2. Paste **Access token** into Houston and leave **Team** empty for a team token.
-3. Choose **Read-only** or **Read and write**, then save.
+3. Choose **Read** or **Write** for **Access**, then save.
 
 > Vercel tokens can write; Houston enforces the selected access level. Write access
 > includes environment variables, whose values may be secrets.

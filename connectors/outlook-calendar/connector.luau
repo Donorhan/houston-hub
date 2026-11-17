@@ -187,7 +187,7 @@ timeZone or bodyFormat if used). Example: listEvents({startDateTime='2026-11-09T
 endDateTime='2026-11-16T00:00:00Z', timeZone='Romance Standard Time', top=100}).
 Houston itself retries only a short 429 wait. Errors report the HTTP status and Graph's code and
 message, e.g. 'Microsoft Graph HTTP 404 (ErrorItemNotFound)'; 429 is retryable, and so are
-503 and other transient server errors on reads. Graph serves at most 4 concurrent requests per mailbox.]] .. (if config.access == "read-write" then [[
+503 and other transient server errors on reads. Graph serves at most 4 concurrent requests per mailbox.]] .. (if houston.allows("data:write") then [[
 
 Writes change only events, not calendars or their sharing. Outlook emails attendees when the
 organizer creates, changes or cancels a meeting, and the organizer when an attendee replies with
@@ -312,7 +312,7 @@ local function event(args: Options, action: string): string
 end
 
 help.functions.listCalendars = {
-	description = "One page of the user's calendars: {value={{id, name, color, isDefaultCalendar, canEdit, owner, allowedOnlineMeetingProviders, ...}}, ['@odata.nextLink']?}. Calendars others shared with the user are listed too; a shared custom calendar's events are readable" .. (if config.access == "read-write" then ", and changeable where canEdit is true" else "") .. ", but a colleague's main calendar may refuse access.",
+	description = "One page of the user's calendars: {value={{id, name, color, isDefaultCalendar, canEdit, owner, allowedOnlineMeetingProviders, ...}}, ['@odata.nextLink']?}. Calendars others shared with the user are listed too; a shared custom calendar's events are readable" .. (if houston.allows("data:write") then ", and changeable where canEdit is true" else "") .. ", but a colleague's main calendar may refuse access.",
 	inputSchema = {
 		type = "object",
 		properties = {select = SELECT, filter = {type = "string"}, top = {type = "integer", minimum = 1}, nextLink = NEXT},
@@ -448,7 +448,7 @@ function exports.getSchedule(input: any): Options
 	return result
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	help.functions.createEvent = {
 		description = [[Creates an event in the default calendar, or in calendarId, and returns it. With attendees it is
 a meeting: Outlook emails each one an invitation. All-day events set isAllDay=true with midnight

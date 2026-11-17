@@ -1,5 +1,5 @@
--- Read and draft connections prepare drafts but expose no send or other mail change.
-return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},config={access="custom"}, configure=function()
+-- Draft connections prepare drafts but expose no send or other mail change.
+return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},access = {data = "draft"}, configure=function()
 
         requests, responses = {}, {}
         http = {request = function(req)
@@ -15,10 +15,10 @@ return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["a
 
 end, run=function(fastmail)
     for _, name in {"createDraft", "createReplyDraft", "updateDraft", "deleteDraft", "listMessages", "getMessage"} do
-        assert(type(fastmail[name]) == "function", "Read and draft must export " .. name)
+        assert(type(fastmail[name]) == "function", "Draft access must export " .. name)
     end
     for _, name in {"sendDraft", "sendMessage", "replyMessage", "deleteMessage", "destroyMessage", "moveMessages", "archiveMessages", "createFolder", "markRead"} do
-        assert(fastmail[name] == nil, "Read and draft must omit " .. name)
+        assert(fastmail[name] == nil, "Draft access must omit " .. name)
     end
     responses={session, result("Mailbox/get", {list=folders}), result("Email/set", {created={draft={id="d1"}}}),
         result("Email/get", {list={{id="d1", keywords={["$draft"]=true}}}}), result("Email/set", {destroyed={"d1"}})}

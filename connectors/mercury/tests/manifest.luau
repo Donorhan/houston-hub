@@ -8,13 +8,14 @@ return {
 					m.fail("accepted missing token")
 				end
 			end
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				for _, reveal in { false, true } do
 					local r, err = m.resolve(
 						nil,
-						{ access = access, reveal_card_details = reveal },
+						{ reveal_card_details = reveal },
 						{ token = "secret-token:fixture-private" },
-						"token"
+						"token",
+						{ data = access }
 					)
 					assert(not err, tostring(err))
 					do
@@ -104,7 +105,7 @@ return {
 						assertRoute(
 							route[1],
 							"https://api.mercury.com/api/v1" .. route[2],
-							(access == "read-write")
+							(access == "write")
 						)
 					end
 					assertRoute("GET", "https://vault-api.mercury.com/api/v1/cards/c/reveal", reveal)
@@ -133,7 +134,7 @@ return {
 			end
 			local r, err = m.resolve(nil, nil, { token = "fixture" }, "token")
 			if
-				((err ~= nil) or (r.PublicConfig["access"] ~= "read-only"))
+				((err ~= nil) or (r.Access["data"] ~= "read"))
 				or (r.PublicConfig["reveal_card_details"] ~= false)
 			then
 				m.fail("wrong defaults: %s, %s", r, err)

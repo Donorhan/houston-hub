@@ -7,13 +7,13 @@ description: Work with Notion pages, databases, files, agents and workspace admi
 Give your agents access to Notion so they can find shared pages, work with your
 knowledge and keep projects up to date.
 
-With read-only access, agents can search pages, read content and comments, query
-databases and views, and download files. With read and write access, they can also
+With read access, agents can search pages, read content and comments, query
+databases and views, and download files. With write access, they can also
 create and edit pages, organize data, add comments and upload files.
 
 The connector supports Notion agents and sessions, meeting notes, custom emojis,
 and skills where your Notion account has access to those features. Running an
-agent session requires read and write access in Houston because the agent can
+agent session requires write access in Houston because the agent can
 use its own tools to take actions.
 
 Enterprise organization bots can use a separate connection for administration:

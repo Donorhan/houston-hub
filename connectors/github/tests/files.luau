@@ -1,6 +1,6 @@
 return {
-	scenario = {publisher = {client_id = "Iv23liFixture", client_secret = "fixture-client-secret"}, config = {access = "read-write"},
-		auth_method = "oauth", auth_config = {}},
+	scenario = {publisher = {client_id = "Iv23liFixture", client_secret = "fixture-client-secret"}, access = {code = "write", conversations = "write", actions = "write", gists = "write", stars = "write", organizations = "read", emails = "read", repositories = "write"},
+		config = {}, auth_method = "oauth", auth_config = {}},
 	configure = function()
 		requests = {}
 		responses = {}
@@ -42,9 +42,6 @@ return {
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
 		assert(#names == 159, "wrong surface for Connect with GitHub: " .. #names)
-		for _, name in {"listNotifications", "markNotificationsRead", "markThreadRead", "markThreadDone"} do
-			assert(github[name] == nil, "GitHub App tokens cannot use " .. name)
-		end
 
 		respond(200, "binary\0bytes")
 		local saved = github.getContent({owner = "o", repo = "r", path = "assets/logo.png", ref = "main", save_as = "logo.png"})

@@ -1,6 +1,6 @@
 -- Expected requests and responses taken from Mercury's published OpenAPI definitions.
 return {
- scenario = {publisher = {}, config = {access = "read-write", reveal_card_details = true}, auth_method = "token", auth_config = {token = "fixture-private-mercury-token"}},
+ scenario = {publisher = {}, access = {data = "write"}, config = {reveal_card_details = true}, auth_method = "token", auth_config = {token = "fixture-private-mercury-token"}},
  configure = function()
   requests = {}
   fs = fixture.files()

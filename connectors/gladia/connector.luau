@@ -293,7 +293,7 @@ function exports.downloadAudio(input: any): Options
 	return saved
 end
 
-if config.access ~= "read-write" then
+if not houston.allows("data:write") then
 	help.text ..= [[
 
 This connection is read-only: it lists and reads jobs and saves their audio, but cannot upload files,
@@ -302,7 +302,7 @@ Example: local page = gladia.listTranscriptions({status={'done'}, limit=10}); fo
 do print(job.id, job.created_at) end; local t = gladia.getTranscription({id=page.items[1].id}).]]
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	help.text ..= [[
 
 To transcribe, pass a public audio or video URL as audio_url to createTranscription, or first upload a

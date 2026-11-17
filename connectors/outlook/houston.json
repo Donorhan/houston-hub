@@ -1,32 +1,32 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Microsoft Outlook",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "type": "string",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "default": "read-only",
-      "description": "Read and draft lets agents create, update and delete drafts for you to review and send from Outlook; Houston refuses every send request on that level.",
-      "options": [
+      "description": "Draft lets agents create, update and delete drafts for you to review and send from Outlook; Houston refuses every send request on that level.",
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and draft",
-          "value": "custom"
+          "value": "draft",
+          "label": "Draft"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
-      ]
+      ],
+      "default": "read"
     }
-  },
+  ],
   "auth": {
     "oauth": {
       "type": "oauth2",
@@ -50,21 +50,20 @@
           ]
         },
         {
-          "if": "{{ is config.access \"read-only\" }}",
+          "if": "{{ is access.data \"read\" }}",
           "values": [
             "Mail.Read"
           ]
         },
         {
-          "if": "{{ is config.access \"custom\" }}",
+          "if": "{{ allows access.data \"draft\" }}",
           "values": [
             "Mail.ReadWrite"
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ allows access.data \"write\" }}",
           "values": [
-            "Mail.ReadWrite",
             "Mail.Send"
           ]
         }
@@ -140,7 +139,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"custom\" }}",
+      "if": "{{ allows access.data \"draft\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -166,7 +165,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"custom\" }}",
+      "if": "{{ allows access.data \"draft\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -189,7 +188,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -202,39 +201,11 @@
           "/v1.0/me/sendMail",
           "/v1.0/me/mailFolders",
           "/v1.0/me/mailFolders/{id}/childFolders",
-          "/v1.0/me/messages",
-          "/v1.0/me/messages/{id}/attachments",
-          "/v1.0/me/messages/{id}/createReply",
-          "/v1.0/me/messages/{id}/createReplyAll",
-          "/v1.0/me/messages/{id}/createForward",
           "/v1.0/me/messages/{id}/send",
           "/v1.0/me/messages/{id}/reply",
           "/v1.0/me/messages/{id}/replyAll",
           "/v1.0/me/messages/{id}/forward",
           "/v1.0/me/messages/{id}/move"
-        ]
-      },
-      "action": {
-        "headers": {
-          "set": {
-            "Authorization": "Bearer {{auth.oauth.access_token}}"
-          }
-        }
-      }
-    },
-    {
-      "if": "{{ is config.access \"read-write\" }}",
-      "match": {
-        "protocol": "http",
-        "host": [
-          "graph.microsoft.com"
-        ],
-        "method": [
-          "PATCH",
-          "DELETE"
-        ],
-        "path": [
-          "/v1.0/me/messages/{id}"
         ]
       },
       "action": {

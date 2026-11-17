@@ -6,8 +6,8 @@
    **View all incident data** only if agents may see private incidents.
 3. For writes, also grant **Create incidents** and **Edit incidents**; optionally
    **Opt out of post-incident flow** if agents may skip it.
-4. Paste **API key** into Houston, choose **Read-only** or **Read and write** to
-   match the intended access, and save.
+4. Paste **API key** into Houston, choose **Read** or **Write** for **Access**
+   to match the intended access, and save.
 
 [Official API key guide](https://docs.incident.io/admin/api-keys).
 

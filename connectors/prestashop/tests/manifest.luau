@@ -19,15 +19,16 @@ return {
 			end
 			local basic = "Basic " .. m.base64(key .. ":")
 			local api = "https://shop.example.com/api/"
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local r, err = m.resolve(
 					nil,
-					{ access = access, store_host = "Shop.Example.com" },
+					{ store_host = "Shop.Example.com" },
 					{ token = key },
-					"key"
+					"key",
+					{ data = access }
 				)
 				assert(not err, tostring(err))
-				if (r.PublicConfig["store_host"] ~= "Shop.Example.com") or (m.count(r.PublicConfig) ~= 2) then
+				if (r.PublicConfig["store_host"] ~= "Shop.Example.com") or (m.count(r.PublicConfig) ~= 1) then
 					m.fail("unexpected Lua config: %s", r.PublicConfig)
 				end
 				m.routes(r, basic, true, {
@@ -48,7 +49,7 @@ return {
 					"GET " .. api .. "cart_rules",
 					"GET " .. api .. "languages",
 				})
-				m.routes(r, basic, (access == "read-write"), {
+				m.routes(r, basic, (access == "write"), {
 					"POST " .. api .. "products",
 					"POST " .. api .. "customers",
 					"POST " .. api .. "order_histories?sendemail=1",

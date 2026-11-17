@@ -24,7 +24,7 @@ func TestQueryInjectionSelectionEncodingAndSnapshot(t *testing.T) {
 	}
 	secret := "private +&=/#?%é\r\n"
 	for _, enabled := range []bool{true, false} {
-		r, err := snapshot.Resolve(nil, map[string]any{"token": secret, "enabled": enabled}, nil, "")
+		r, err := snapshot.Resolve(Inputs{Config: map[string]any{"token": secret, "enabled": enabled}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -78,7 +78,7 @@ func TestQueryInjectionRejectsMalformedQueryAndMissingCredential(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := m.Resolve(nil, nil, nil, ""); err == nil {
+	if _, err := m.Resolve(Inputs{}); err == nil {
 		t.Fatal("connection resolved with missing active query credential")
 	}
 }
@@ -103,14 +103,14 @@ func TestQueryDeclarationValidationAndPublisherOwnership(t *testing.T) {
 		if owner == "publisher" {
 			fields = `"publisher":{"token":{"type":"secret","label":"Token"},"host":{"type":"string","label":"Host","required":true}}`
 		}
-		input := fmt.Sprintf(`{"schema_version":1,"name":"Query","files":["main.lua"],%s,"proxy":[{"match":{"protocol":"http","host":["{{%s.host}}"]},"action":{"query":{"access_token":"{{publisher.token}}"}}}]}`, fields, owner)
+		input := fmt.Sprintf(`{"schema_version":2,"name":"Query","files":["main.lua"],%s,"proxy":[{"match":{"protocol":"http","host":["{{%s.host}}"]},"action":{"query":{"access_token":"{{publisher.token}}"}}}]}`, fields, owner)
 		_, err := Parse([]byte(input))
 		if (err == nil) != (owner == "publisher") {
 			t.Errorf("%s recipient: %v", owner, err)
 		}
 	}
 	for _, query := range []string{`{"token":"literal"}`, `{}`, `null`} {
-		native := `{"schema_version":1,"name":"Database","files":["main.lua"],"proxy":[{"match":{"protocol":"postgres"},"action":{"connection":{"host":"db.example.com","database":"db","user":"reader","password":""},"query":` + query + `}}]}`
+		native := `{"schema_version":2,"name":"Database","files":["main.lua"],"proxy":[{"match":{"protocol":"postgres"},"action":{"connection":{"host":"db.example.com","database":"db","user":"reader","password":""},"query":` + query + `}}]}`
 		if _, err := Parse([]byte(native)); err == nil {
 			t.Fatal("database query action accepted")
 		}
@@ -118,7 +118,7 @@ func TestQueryDeclarationValidationAndPublisherOwnership(t *testing.T) {
 }
 
 func TestQueryManagedOAuthAndManualSecrets(t *testing.T) {
-	raw := `{"schema_version":1,"name":"Query OAuth","files":["main.lua"],"config":{"client_id":{"type":"string","label":"Client","required":true}},"auth":{"oauth":{"type":"oauth2","label":"OAuth","authorize_url":"https://api.example.com/auth","token_url":"https://api.example.com/token","client_id":"{{config.client_id}}","client_auth":"none","pkce":"S256"},"token":{"type":"manual","label":"Token","config":{"token":{"type":"secret","label":"Token","required":true}}}},"proxy":[{"match":{"protocol":"http","host":["api.example.com"]},"action":{"query":{"access_token":"{{auth.oauth.access_token || auth.token.token}}"}}}]}`
+	raw := `{"schema_version":2,"name":"Query OAuth","files":["main.lua"],"config":{"client_id":{"type":"string","label":"Client","required":true}},"auth":{"oauth":{"type":"oauth2","label":"OAuth","authorize_url":"https://api.example.com/auth","token_url":"https://api.example.com/token","client_id":"{{config.client_id}}","client_auth":"none","pkce":"S256"},"token":{"type":"manual","label":"Token","config":{"token":{"type":"secret","label":"Token","required":true}}}},"proxy":[{"match":{"protocol":"http","host":["api.example.com"]},"action":{"query":{"access_token":"{{auth.oauth.access_token || auth.token.token}}"}}}]}`
 	m, err := Parse([]byte(raw))
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +128,7 @@ func TestQueryManagedOAuthAndManualSecrets(t *testing.T) {
 		if method == "token" {
 			inputs["token"] = "manual-secret"
 		}
-		resolved, err := m.Resolve(nil, map[string]any{"client_id": "public-client"}, inputs, method)
+		resolved, err := m.Resolve(Inputs{Config: map[string]any{"client_id": "public-client"}, Auth: inputs, Method: method})
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -45,7 +45,7 @@ func TestCompleteExamples(t *testing.T) {
 	}
 }
 func TestStrictShape(t *testing.T) {
-	base := `{"description":"test","files":["main.luau"],"name":"test","proxy":[{"match":{"protocol":"http","host":["api.example.com"]},"action":{}}],"schema_version":1}`
+	base := `{"description":"test","files":["main.luau"],"name":"test","proxy":[{"match":{"protocol":"http","host":["api.example.com"]},"action":{}}],"schema_version":2}`
 	for _, bad := range []string{
 		strings.Replace(base, `"name":"test"`, `"name":"test","name":"other"`, 1),
 		strings.Replace(base, `"name":"test"`, `"name":null`, 1),
@@ -66,7 +66,7 @@ func TestStrictShape(t *testing.T) {
 }
 func TestDefaultsAndPrivateProjection(t *testing.T) {
 	m := example(t, 2)
-	r, e := m.Resolve(nil, map[string]any{"host": "db.example.com", "database": "demo", "username": "reader", "password": " exact secret "}, nil, "")
+	r, e := m.Resolve(Inputs{Access: map[string]string{"data": "read"}, Config: map[string]any{"host": "db.example.com", "database": "demo", "username": "reader", "password": " exact secret "}})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -78,7 +78,7 @@ func TestDefaultsAndPrivateProjection(t *testing.T) {
 		t.Fatalf("database resolution: %#v %v", db, e)
 	}
 	for _, bad := range []any{"", "5432", nil, 0, 65536, 3.5} {
-		_, e = m.Resolve(nil, map[string]any{"host": "db.example.com", "database": "demo", "username": "reader", "password": "x", "port": bad}, nil, "")
+		_, e = m.Resolve(Inputs{Access: map[string]string{"data": "read"}, Config: map[string]any{"host": "db.example.com", "database": "demo", "username": "reader", "password": "x", "port": bad}})
 		if e == nil {
 			t.Fatalf("accepted invalid port %#v", bad)
 		}
@@ -86,7 +86,7 @@ func TestDefaultsAndPrivateProjection(t *testing.T) {
 }
 func TestInactiveValuesAndSelection(t *testing.T) {
 	m := example(t, 8)
-	r, e := m.Resolve(nil, map[string]any{"password": "old secret", "username": "old", "database": "old"}, map[string]any{"api_key": "public"}, "rest")
+	r, e := m.Resolve(Inputs{Config: map[string]any{"password": "old secret", "username": "old", "database": "old"}, Auth: map[string]any{"api_key": "public"}, Method: "rest"})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -99,27 +99,27 @@ func TestInactiveValuesAndSelection(t *testing.T) {
 	if e = r.ValidateSubmission("config", map[string]any{"password": "new"}); e == nil {
 		t.Fatal("accepted inactive submission")
 	}
-	r, e = m.Resolve(nil, map[string]any{"connection_type": "postgres", "password": "secret", "username": "reader"}, nil, "")
+	r, e = m.Resolve(Inputs{Config: map[string]any{"connection_type": "postgres", "password": "secret", "username": "reader"}})
 	if e != nil || (len(r.ProxyIndices) != 1 || r.ProxyIndices[0] != 2) {
 		t.Fatalf("Postgres resolution %v", e)
 	}
 	if _, ok, _ := r.Context.Lookup("auth.rest"); ok {
 		t.Fatal("inactive marker defined")
 	}
-	if _, e = m.Resolve(nil, map[string]any{"connection_type": "postgres", "password": "secret", "username": "reader"}, nil, "rest"); e == nil {
+	if _, e = m.Resolve(Inputs{Config: map[string]any{"connection_type": "postgres", "password": "secret", "username": "reader"}, Method: "rest"}); e == nil {
 		t.Fatal("retained ineligible auth selection")
 	}
 }
 func TestUnavailableOAuthDoesNotBlockManual(t *testing.T) {
 	m := example(t, 1)
-	r, e := m.Resolve(nil, nil, map[string]any{"token": "test-token"}, "api_key")
+	r, e := m.Resolve(Inputs{Access: map[string]string{"files": "read"}, Auth: map[string]any{"token": "test-token"}, Method: "api_key"})
 	if e != nil {
 		t.Fatal(e)
 	}
 	if r.Methods[1].Available {
 		t.Fatal("unconfigured OAuth available")
 	}
-	if _, e = m.Resolve(nil, nil, nil, "oauth"); e == nil {
+	if _, e = m.Resolve(Inputs{Access: map[string]string{"files": "read"}, Method: "oauth"}); e == nil {
 		t.Fatal("unconfigured selected OAuth accepted")
 	}
 }
@@ -188,7 +188,7 @@ func TestCyclesAndOrdering(t *testing.T) {
 	f = m.Config["database"]
 	f.Order = -99
 	m.Config["database"] = f
-	r, e := m.Resolve(nil, map[string]any{"connection_type": "postgres", "username": "reader", "password": "x"}, nil, "")
+	r, e := m.Resolve(Inputs{Config: map[string]any{"connection_type": "postgres", "username": "reader", "password": "x"}})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -246,24 +246,20 @@ func TestPublisherRecipientAndFallbackSinks(t *testing.T) {
 }
 func TestRequiredPrerequisitesAndScopeIsolation(t *testing.T) {
 	m := example(t, 1)
-	access := m.Config["access"]
-	access.Default = nil
-	access.Required = true
-	m.Config["access"] = access
-	if _, e := m.Resolve(nil, nil, map[string]any{"token": "test"}, "api_key"); e == nil {
-		t.Fatal("missing required selector hidden")
+	if _, e := m.Resolve(Inputs{Auth: map[string]any{"token": "test"}, Method: "api_key"}); e == nil {
+		t.Fatal("missing access level hidden")
 	}
 	m = example(t, 1)
 	a := m.Auth["oauth"]
 	a.Scopes[0].If = `{{ isDefined config.client_id }}`
 	m.Auth["oauth"] = a
-	if _, e := m.Resolve(nil, nil, map[string]any{"token": "test"}, "api_key"); e != nil {
+	if _, e := m.Resolve(Inputs{Access: map[string]string{"files": "read"}, Auth: map[string]any{"token": "test"}, Method: "api_key"}); e != nil {
 		t.Fatalf("unselected OAuth scope blocked manual: %v", e)
 	}
 }
 func TestClickHouseDefaultsToHTTPS(t *testing.T) {
 	m := example(t, 6)
-	r, e := m.Resolve(nil, map[string]any{"host": "db.example.com", "username": "reader", "password": "test"}, nil, "")
+	r, e := m.Resolve(Inputs{Config: map[string]any{"host": "db.example.com", "username": "reader", "password": "test"}})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -274,12 +270,12 @@ func TestClickHouseDefaultsToHTTPS(t *testing.T) {
 func TestAmbiguousAndMissingProxy(t *testing.T) {
 	m := example(t, 8)
 	m.Proxy[2].If = `{{ is config.connection_type "http" }}`
-	if _, e := m.Resolve(nil, nil, map[string]any{"api_key": "test"}, "rest"); e == nil {
+	if _, e := m.Resolve(Inputs{Auth: map[string]any{"api_key": "test"}, Method: "rest"}); e == nil {
 		t.Fatal("multiple proxy matches accepted")
 	}
 	m = example(t, 8)
 	m.Proxy = m.Proxy[2:]
-	if _, e := m.Resolve(nil, nil, map[string]any{"api_key": "test"}, "rest"); e == nil {
+	if _, e := m.Resolve(Inputs{Auth: map[string]any{"api_key": "test"}, Method: "rest"}); e == nil {
 		t.Fatal("zero proxy matches accepted")
 	}
 }
@@ -296,7 +292,7 @@ func TestDatabaseUsesFirstEnabledRule(t *testing.T) {
 		t.Fatal(err)
 	}
 	config := map[string]any{"host": "db.example.com", "database": "demo", "username": "reader", "password": "first-secret"}
-	r, err := m.Resolve(nil, config, nil, "")
+	r, err := m.Resolve(Inputs{Access: map[string]string{"data": "read"}, Config: config})
 	if err != nil || !reflect.DeepEqual(r.ProxyIndices, []int{0, 1}) {
 		t.Fatalf("first database rule was blocked by a later rule: %v", err)
 	}
@@ -305,14 +301,14 @@ func TestDatabaseUsesFirstEnabledRule(t *testing.T) {
 		t.Fatalf("first database action not selected: %v", err)
 	}
 	m.Proxy[0], m.Proxy[1] = m.Proxy[1], m.Proxy[0]
-	if _, err := m.Resolve(nil, config, nil, ""); err == nil {
+	if _, err := m.Resolve(Inputs{Access: map[string]string{"data": "read"}, Config: config}); err == nil {
 		t.Fatal("failed first database action fell through to later credentials")
 	}
 }
 
 func TestIMAPConnection(t *testing.T) {
 	raw := func(connection string) []byte {
-		return []byte(`{"schema_version":1,"name":"IMAP","files":["connector.lua"],
+		return []byte(`{"schema_version":2,"name":"IMAP","files":["connector.lua"],
 			"config":{"host":{"type":"string","label":"Host","required":true},"username":{"type":"string","label":"Username","required":true},"password":{"type":"secret","label":"Password","required":true}},
 			"proxy":[{"match":{"protocol":"imap"},"action":{"connection":{"host":"{{config.host}}","user":"{{config.username}}","password":"{{config.password}}"` + connection + `}}}]}`)
 	}
@@ -326,7 +322,7 @@ func TestIMAPConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := m.Resolve(nil, map[string]any{"host": "imap.example.com", "username": "ada@example.com", "password": "secret"}, nil, "")
+	r, err := m.Resolve(Inputs{Config: map[string]any{"host": "imap.example.com", "username": "ada@example.com", "password": "secret"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -343,7 +339,7 @@ func TestIMAPConnection(t *testing.T) {
 
 func TestRedisDatabaseIndex(t *testing.T) {
 	raw := func(database string) []byte {
-		return []byte(`{"schema_version":1,"name":"Redis","files":["connector.lua"],
+		return []byte(`{"schema_version":2,"name":"Redis","files":["connector.lua"],
 			"config":{"host":{"type":"string","label":"Host","required":true},"database":{"type":"integer","label":"Database","default":0,"minimum":0},"password":{"type":"secret","label":"Password","required":true}},
 			"proxy":[{"match":{"protocol":"redis"},"action":{"connection":{"host":"{{config.host}}","database":"` + database + `","user":"default","password":"{{config.password}}"}}}]}`)
 	}
@@ -354,7 +350,7 @@ func TestRedisDatabaseIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := m.Resolve(nil, map[string]any{"host": "cache.example.com", "password": "secret", "database": 3}, nil, "")
+	r, err := m.Resolve(Inputs{Config: map[string]any{"host": "cache.example.com", "password": "secret", "database": 3}})
 	if err != nil {
 		t.Fatal(err)
 	}

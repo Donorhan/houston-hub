@@ -1,27 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "MariaDB",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "order": 1,
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "host": {
       "label": "Host",
       "order": 2,

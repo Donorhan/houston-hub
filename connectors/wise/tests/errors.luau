@@ -1,5 +1,5 @@
 return {
-	scenario = {config = {access = "read-write"}, auth_method = "token", auth_config = {token = "fixture-wise-token"}},
+	scenario = {access = {data = "write"}, config = {}, auth_method = "token", auth_config = {token = "fixture-wise-token"}},
 	configure = function()
 		calls, status, payload, responseHeaders = 0, 200, "{}", {}
 		http = {request = function(req)

@@ -9,7 +9,7 @@ Sentry's own search syntax, open an issue's events with their stack traces,
 breadcrumbs, tags and request details, and follow your projects, teams and
 releases, including each release's crash-free sessions and users and adoption.
 
-With read and write access, agents can also resolve issues (now, in the next
+With write access, agents can also resolve issues (now, in the next
 release or in a given release), ignore or reopen them, assign them to a person
 or team, set their priority, and comment on them. Sentry notifies the people
 subscribed to those issues.

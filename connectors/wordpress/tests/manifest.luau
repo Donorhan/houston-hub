@@ -12,15 +12,16 @@ return {
 				end
 			end
 			local basic = "Basic " .. m.base64("editor:abcd efgh ijkl mnop qrst uvwx")
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local r, err = m.resolve(
 					nil,
-					{ access = access, site_host = "Blog.Example.com" },
+					{ site_host = "Blog.Example.com" },
 					password,
-					"application_password"
+					"application_password",
+					{ data = access }
 				)
 				assert(not err, tostring(err))
-				if (r.PublicConfig["site_host"] ~= "Blog.Example.com") or (m.count(r.PublicConfig) ~= 2) then
+				if (r.PublicConfig["site_host"] ~= "Blog.Example.com") or (m.count(r.PublicConfig) ~= 1) then
 					m.fail("unexpected Lua config: %s", r.PublicConfig)
 				end
 				local assertRoute = function(method, url, allowed)
@@ -69,7 +70,7 @@ return {
 				do
 					assertRoute("GET", api .. path, true)
 				end
-				assertRoute("GET", api .. "/settings", (access == "read-write"))
+				assertRoute("GET", api .. "/settings", (access == "write"))
 				for _, route in
 					{
 						{ "POST", "/posts" },
@@ -85,7 +86,7 @@ return {
 						{ "DELETE", "/comments/5" },
 					}
 				do
-					assertRoute(route[1], api .. route[2], (access == "read-write"))
+					assertRoute(route[1], api .. route[2], (access == "write"))
 				end
 				for _, route in
 					{

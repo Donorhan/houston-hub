@@ -1,8 +1,8 @@
 return {
 	contract = function(m)
 		local api = "https://graph.microsoft.com/v1.0/me"
-		for access, scopes in {["read-only"] = {"Contacts.Read"}, ["read-write"] = {"Contacts.ReadWrite"}} do
-			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {access = access}, nil, "oauth")
+		for access, scopes in {read = {"Contacts.Read"}, write = {"Contacts.ReadWrite"}} do
+			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {}, nil, "oauth", {data = access})
 			assert(r and not err, tostring(err))
 			assert(m.equal(r.Scopes, m.concat({"offline_access", "User.Read"}, scopes)), "requested OAuth scopes for " .. access)
 			r.Context.Auth.oauth.access_token = "fixture-token"
@@ -20,8 +20,8 @@ return {
 				"PATCH " .. api .. "/contactFolders/F1/contacts/C1", "DELETE " .. api .. "/contactFolders/F1/contacts/C1",
 				"PATCH " .. api .. "/contactFolders/F1", "DELETE " .. api .. "/contactFolders/F1",
 			}
-			m.routes(r, "Bearer fixture-token", access == "read-write", writes)
-			if access == "read-write" then m.rejectOverrides(r, writes) end
+			m.routes(r, "Bearer fixture-token", access == "write", writes)
+			if access == "write" then m.rejectOverrides(r, writes) end
 			-- The token stays off Microsoft's token endpoint, batches that could wrap writes, other users,
 			-- APIs and mailboxes, lookalike hosts and contact routes the connector never calls: photos,
 			-- extensions, folder delta, permanent deletes, folder reads by id, deeper paths and other methods.

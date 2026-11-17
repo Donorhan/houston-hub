@@ -35,7 +35,7 @@ function exports.query(sql: string, params: Params?): Result
 	return await(db.query({sql = sql, params = params, maxRows = MAX_ROWS, readOnly = true}))
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	help.functions.execute = {
 		description = [[Runs one statement that may change data, outside any transaction, with the
 	  same parameters as query. affectedRows counts the inserted, updated or deleted

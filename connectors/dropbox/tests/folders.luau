@@ -1,6 +1,7 @@
 return {
 	scenario = {publisher = {client_id = "fixture-app-key", client_secret = "fixture-private-secret"}, auth_method = "oauth", auth_config = {}},
-	config = {access = "custom", path_access = '{"/Reports":"read-only","/Incoming":"read-write","/Incoming/Approved":"read-only","/Équipe":"read-write","/Incoming/k":"read-only"}'},
+	access = {files = "write"},
+	config = {folder_policy = true, path_access = '{"/Reports":"read-only","/Incoming":"read-write","/Incoming/Approved":"read-only","/Équipe":"read-write","/Incoming/k":"read-only"}'},
 	configure = function()
 		requests, responses, metadataOverride = {}, {}, nil
 		fs = fixture.files()
@@ -56,9 +57,9 @@ return {
 			expected[name] = true
 			assert(type(c[name]) == "function", "Missing scoped operation " .. name)
 		end
-		for name in c do assert(expected[name], "Custom connection exposes " .. name) end
+		for name in c do assert(expected[name], "Folder-limited connection exposes " .. name) end
 		local function reject(fn, args)
-			assert(not pcall(fn, args), "Unsafe custom operation succeeded")
+			assert(not pcall(fn, args), "Unsafe folder-limited operation succeeded")
 		end
 		for _, fn in {c.getMetadata, c.delete, c.upload, c.createFolder} do
 			local errors = {}

@@ -1,5 +1,5 @@
 return {
-	scenario = {config = {access = "read-write"}, auth_method = "token", auth_config = {token = "sk_test_fixture"}},
+	scenario = {access = {data = "write"}, config = {}, auth_method = "token", auth_config = {token = "sk_test_fixture"}},
 	configure = function()
 		requests = {}
 		payload = '{"id":"fixture","object":"customer","deleted":true}'

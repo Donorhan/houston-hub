@@ -1,4 +1,21 @@
 {
+  "access": [
+    {
+      "default": "read",
+      "label": "Access",
+      "levels": [
+        {
+          "label": "Read",
+          "value": "read"
+        },
+        {
+          "label": "Write",
+          "value": "write"
+        }
+      ],
+      "name": "data"
+    }
+  ],
   "auth": {
     "token": {
       "config": {
@@ -10,23 +27,6 @@
       },
       "label": "Stripe API key",
       "type": "manual"
-    }
-  },
-  "config": {
-    "access": {
-      "default": "read-only",
-      "label": "Access",
-      "options": [
-        {
-          "label": "Read-only",
-          "value": "read-only"
-        },
-        {
-          "label": "Read and write",
-          "value": "read-write"
-        }
-      ],
-      "type": "string"
     }
   },
   "files": [
@@ -48,7 +48,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "api.stripe.com"
@@ -162,7 +162,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "api.stripe.com"
@@ -218,7 +218,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "files.stripe.com"
@@ -233,5 +233,5 @@
       }
     }
   ],
-  "schema_version": 1
+  "schema_version": 2
 }

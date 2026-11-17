@@ -2,7 +2,7 @@
 
 Requires Dolibarr 16 or later over HTTPS and an administrator to enable the API.
 
-> For read-only access, use a non-admin user's key with only read permissions.
+> For **Read** access, use a non-admin user's key with only read permissions.
 > Dolibarr administrators bypass most permission checks.
 
 1. Enable **API / Web services (REST server)** under **Setup → Modules/Applications**.
@@ -13,8 +13,8 @@ Requires Dolibarr 16 or later over HTTPS and an administrator to enable the API.
 3. On the user's card, choose **Modify** and generate **Token for API**
    (**Key for API** before version 23). Save and copy it.
 4. In Houston, enter **Dolibarr domain** without `https://` or a path. Put a folder
-   such as `/dolibarr` in **Install path**. Paste **API key**, choose **Read-only**
-   and save.
+   such as `/dolibarr` in **Install path**. Paste **API key**, choose **Read** for
+   **Access** and save.
 
 [Official REST API guide](https://wiki.dolibarr.org/index.php/Module_Web_Services_API_REST_(developer)).
 
@@ -22,7 +22,7 @@ Requires Dolibarr 16 or later over HTTPS and an administrator to enable the API.
 
 ### Changes
 
-Use a separate key and **Read and write** connection. Grant create/modify
+Use a separate key and a connection with **Write** access. Grant create/modify
 permissions only for the relevant modules. Stock changes require **Create/modify
 warehouses**; invoice payments require **Create payments for customer invoices**
 (version 24+) or **Create/modify customer invoices** on earlier versions. With

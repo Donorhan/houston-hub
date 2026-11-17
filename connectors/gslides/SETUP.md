@@ -1,9 +1,9 @@
 # Connect your Google account
 
-1. Choose the access level:
-   - **Read-only** to let agents read presentations and preview slides without
+1. Choose the level for **Access**:
+   - **Read** to let agents read presentations and preview slides without
      changing anything.
-   - **Read and write** to also let agents create presentations and edit their
+   - **Write** to also let agents create presentations and edit their
      slides, text, notes and comments.
 2. Select **Continue with Google**, choose your account, and approve the
    permissions Google lists. If Google shows a checkbox per permission, tick

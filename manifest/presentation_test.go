@@ -54,32 +54,32 @@ func multilineManifest(source, field string) string {
 		settings = `"auth":{"manual":{"type":"manual","label":"Manual","config":{"notes":` + field + `}}}`
 		reference = "auth.manual.notes"
 	}
-	return `{"schema_version":1,"name":"Multiline","files":["connector.lua"],` + settings + `,"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{"headers":{"set":{"X-Notes":"{{` + reference + `}}"}}}}]}`
+	return `{"schema_version":2,"name":"Multiline","files":["connector.lua"],` + settings + `,"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{"headers":{"set":{"X-Notes":"{{` + reference + `}}"}}}}]}`
 }
 
 func TestConditionalRequiredMultiline(t *testing.T) {
-	m, err := Parse([]byte(`{"schema_version":1,"name":"Conditional","files":["connector.lua"],"config":{"mode":{"type":"string","label":"Mode","default":"simple"},"policy":{"type":"string","label":"Policy","required":true,"multiline":true,"format":"json","if":"{{ is config.mode \"custom\" }}"}},"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{}}]}`))
+	m, err := Parse([]byte(`{"schema_version":2,"name":"Conditional","files":["connector.lua"],"config":{"mode":{"type":"string","label":"Mode","default":"simple"},"policy":{"type":"string","label":"Policy","required":true,"multiline":true,"format":"json","if":"{{ is config.mode \"custom\" }}"}},"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{}}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	inactive, err := m.Resolve(nil, nil, nil, "")
+	inactive, err := m.Resolve(Inputs{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(inactive.ConnectionFields) != 1 {
 		t.Fatal("inactive policy shown")
 	}
-	if _, err := m.Resolve(nil, map[string]any{"mode": "custom"}, nil, ""); err == nil {
+	if _, err := m.Resolve(Inputs{Config: map[string]any{"mode": "custom"}}); err == nil {
 		t.Fatal("missing active required policy accepted")
 	}
-	draft, err := m.ResolveDraft(nil, map[string]any{"mode": "custom"}, nil, "")
+	draft, err := m.ResolveDraft(Inputs{Config: map[string]any{"mode": "custom"}})
 	if err != nil || len(draft.ConnectionFields) != 2 {
 		t.Fatalf("required field unavailable in draft: %#v %v", draft, err)
 	}
 	if err := inactive.ValidateSubmission("config", map[string]any{"policy": "{}"}); err == nil {
 		t.Fatal("inactive submitted policy accepted")
 	}
-	saved, err := m.Resolve(nil, map[string]any{"mode": "simple", "policy": "{}"}, nil, "")
+	saved, err := m.Resolve(Inputs{Config: map[string]any{"mode": "simple", "policy": "{}"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func TestOAuthBrandContract(t *testing.T) {
 		if _, err := Parse(snapshot); err != nil || !strings.Contains(string(snapshot), `"brand":"`+brand+`"`) {
 			t.Fatalf("brand %s lost from snapshot: %v", brand, err)
 		}
-		r, err := m.Resolve(nil, map[string]any{"client_id": "client"}, nil, "oauth")
+		r, err := m.Resolve(Inputs{Config: map[string]any{"client_id": "client"}, Method: "oauth"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -122,5 +122,5 @@ func TestOAuthBrandContract(t *testing.T) {
 }
 
 func brandManifest(method, credential string) string {
-	return `{"schema_version":1,"name":"Brand","files":["connector.lua"],"config":{"client_id":{"type":"string","label":"Client ID"}},"auth":{"oauth":{` + method + `}},"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{"headers":{"set":{"Authorization":"{{auth.oauth.` + credential + `}}"}}}}]}`
+	return `{"schema_version":2,"name":"Brand","files":["connector.lua"],"config":{"client_id":{"type":"string","label":"Client ID"}},"auth":{"oauth":{` + method + `}},"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{"headers":{"set":{"Authorization":"{{auth.oauth.` + credential + `}}"}}}}]}`
 }

@@ -85,7 +85,7 @@ return {
 			function() wp.getComment({id = 5, author_ip = "10.0.0.1"}) end,
 		} do
 			local ok, err = pcall(call)
-			assert(not ok and (string.find(tostring(err), "needs read-write access", 1, true) or string.find(tostring(err), "not available on read-only connections", 1, true)), tostring(err))
+			assert(not ok and (string.find(tostring(err), "needs write access", 1, true) or string.find(tostring(err), "not available on read-only connections", 1, true)), tostring(err))
 		end
 		assert(#requests == before and #requests == 11, "edit context reached WordPress")
 	end,

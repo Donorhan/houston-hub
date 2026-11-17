@@ -1,4 +1,4 @@
-// Package manifest is the authoritative connector manifest v1 contract. Its
+// Package manifest is the authoritative connector manifest contract. Its
 // contexts contain private values and must never be exposed to connector code.
 package manifest
 
@@ -9,6 +9,10 @@ import (
 	"io"
 	"unicode/utf8"
 )
+
+// SchemaVersion is the manifest version new publications must declare.
+// Version 1 snapshots stay readable until no connection pins them.
+const SchemaVersion = 2
 
 type Manifest struct {
 	SchemaVersion   int                   `json:"schema_version"`
@@ -21,6 +25,7 @@ type Manifest struct {
 	Icon            string                `json:"icon,omitempty"`
 	VerificationKey string                `json:"verification_key,omitempty"`
 	Files           []string              `json:"files"`
+	Access          []AccessRow           `json:"access,omitempty"`
 	Config          map[string]Field      `json:"config,omitempty"`
 	Publisher       map[string]Field      `json:"publisher,omitempty"`
 	Auth            map[string]AuthMethod `json:"auth,omitempty"`
@@ -69,6 +74,43 @@ type Option struct {
 	Value string `json:"value"`
 	Label string `json:"label"`
 }
+
+// AccessRow is one resource of a connector's access matrix. Levels run from
+// least to most access; a connection holds exactly one level per row.
+type AccessRow struct {
+	Name        string   `json:"name"`
+	Label       string   `json:"label"`
+	Description string   `json:"description,omitempty"`
+	Levels      []Option `json:"levels"`
+	Default     string   `json:"default"`
+}
+
+// Rank returns the position of level in the row's order, or -1 when undeclared.
+func (r AccessRow) Rank(level string) int {
+	for i, l := range r.Levels {
+		if l.Value == level {
+			return i
+		}
+	}
+	return -1
+}
+
+// Lowest returns the level granting the least access.
+func (r AccessRow) Lowest() string { return r.Levels[0].Value }
+
+// Top returns the level granting the most access.
+func (r AccessRow) Top() string { return r.Levels[len(r.Levels)-1].Value }
+
+// AccessRow returns the declared row with that name.
+func (m *Manifest) AccessRow(name string) (AccessRow, bool) {
+	for _, r := range m.Access {
+		if r.Name == name {
+			return r, true
+		}
+	}
+	return AccessRow{}, false
+}
+
 type AuthMethod struct {
 	Availability    *AuthAvailability `json:"availability,omitempty"`
 	AuthConfigID    string            `json:"auth_config_id,omitempty"`
@@ -81,6 +123,8 @@ type AuthMethod struct {
 	Order           int64             `json:"order,omitempty"`
 	Brand           string            `json:"brand,omitempty"`
 	Config          map[string]Field  `json:"config,omitempty"`
+	SetupURL        string            `json:"setup_url,omitempty"`
+	SetupParams     map[string]string `json:"setup_params,omitempty"`
 	AuthorizeURL    string            `json:"authorize_url,omitempty"`
 	TokenURL        string            `json:"token_url,omitempty"`
 	ClientID        string            `json:"client_id,omitempty"`
@@ -251,9 +295,14 @@ func decode(data []byte, v any) error {
 	return nil
 }
 
-// Parse rejects duplicate keys, nulls, unknown properties and invalid semantics.
+// Parse reads a manifest for publication. It rejects duplicate keys, nulls,
+// unknown properties, invalid semantics and every schema version but the current one.
 func Parse(data []byte) (*Manifest, error) {
-	return parseManifest(data, true)
+	m, err := parseManifest(data, true)
+	if err == nil && m.SchemaVersion != SchemaVersion {
+		return nil, fmt.Errorf("schema_version %d is no longer supported; declare schema_version %d (see the v1 to v2 migration guide in AUTHORING.md)", m.SchemaVersion, SchemaVersion)
+	}
+	return m, err
 }
 
 // UnmarshalJSON keeps pinned snapshots and catalog readers on the same strict

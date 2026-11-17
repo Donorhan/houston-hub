@@ -3,12 +3,13 @@ return {
 		-- TestVercelAccessRoutes
 		do
 			local api = "https://api.vercel.com"
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local r, err = m.resolve(
 					nil,
-					{ access = access, team = "team_fixture" },
+					{ team = "team_fixture" },
 					{ token = "vcp_fixture" },
-					"token"
+					"token",
+					{ data = access }
 				)
 				assert(not err, tostring(err))
 				m.routes(r, "Bearer vcp_fixture", true, {
@@ -27,7 +28,7 @@ return {
 					"GET " .. api .. "/v9/projects/web/domains",
 					"GET " .. api .. "/v1/projects/prj_1/promote/aliases?failedOnly=true",
 				})
-				m.routes(r, "Bearer vcp_fixture", (access == "read-write"), {
+				m.routes(r, "Bearer vcp_fixture", (access == "write"), {
 					"GET " .. api .. "/v10/projects/web/env?decrypt=true",
 					"GET " .. api .. "/v1/projects/web/env/e1",
 					"POST " .. api .. "/v13/deployments?forceNew=1",

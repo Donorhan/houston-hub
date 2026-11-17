@@ -4,8 +4,8 @@ return {
 		do
 			local api = "https://api.revenuecat.com/v2"
 			local p = api .. "/projects/proj1ab2c3d4"
-			for _, access in { "read-only", "read-write" } do
-				local r, err = m.resolve(nil, { access = access }, { token = "sk_fixture" }, "token")
+			for _, access in { "read", "write" } do
+				local r, err = m.resolve(nil, {}, { token = "sk_fixture" }, "token", { data = access })
 				assert(not err, tostring(err))
 				m.routes(r, "Bearer sk_fixture", true, {
 					"GET " .. api .. "/projects",
@@ -31,7 +31,7 @@ return {
 					"GET " .. p .. "/packages/pkge1/products",
 					"GET " .. p .. "/metrics/overview?currency=EUR",
 				})
-				m.routes(r, "Bearer sk_fixture", (access == "read-write"), {
+				m.routes(r, "Bearer sk_fixture", (access == "write"), {
 					"POST " .. p .. "/customers/user-1/actions/grant_entitlement",
 					"POST " .. p .. "/customers/user-1/actions/revoke_granted_entitlement",
 					"POST " .. p .. "/offerings",

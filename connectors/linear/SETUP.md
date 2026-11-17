@@ -19,7 +19,7 @@ If key creation is disabled, ask an admin to enable **Member API keys** under
 3. Enter **OAuth client ID** and **OAuth client secret** in Houston, then select
    **Continue with Linear**, choose the workspace and allow access.
 
-Each connection has its own callback. Read-only requests `read`; writes request
+Each connection has its own callback. **Read** requests `read`; **Write** requests
 `write`, which includes reading. Reauthorize after changing access. For an API key,
 create a replacement with the new permissions. Check key team limits if data is
 missing. [OAuth guide](https://linear.app/developers/oauth-2-0-authentication).

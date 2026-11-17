@@ -7,7 +7,7 @@
    **Storage → Cookies**. Find the cookie named **auth** and copy its value.
 3. In Houston, choose **Website session** and paste the value into
    **Tipeee session token**. Keep it private, just like a password.
-4. Choose **Read-only** to view content and reports, or **Read and write** to
+4. For **Access**, choose **Read** to view content and reports, or **Write** to
    manage your page, use your inbox, send messages or request payouts. Save
    the connection.
 

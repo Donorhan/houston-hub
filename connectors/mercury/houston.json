@@ -1,26 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Mercury",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "reveal_card_details": {
       "default": false,
       "label": "Allow revealing agent card numbers and CVCs",
@@ -49,7 +51,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "api.mercury.com"
@@ -137,7 +139,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "api.mercury.com"
@@ -159,7 +161,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "api.mercury.com"

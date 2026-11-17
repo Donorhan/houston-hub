@@ -1,7 +1,7 @@
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret", bot_token = "fixture-bot-token"},
 		config = {}, auth_method = "oauth", auth_config = {}, granted_scopes = {"bot"}, facts = {guild_id = "290926798626357999"}},
-	config = {access = "read-write"},
+	access = {data = "write"},
 	configure = function()
 		requests, responses = {}, {}
 		http = {request = function(req)
@@ -38,7 +38,7 @@ return {
 	end,
 	run = function(discord)
 		for _, name in {"postMessage", "reply", "editMessage", "deleteMessage", "addReaction", "removeReaction", "createThread"} do
-			assert(type(discord[name]) == "function", name .. " is exported with read-write access")
+			assert(type(discord[name]) == "function", name .. " is exported with write access")
 		end
 
 		responses = {CHANNEL, POSTED}

@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {access = "read-write"}, auth_method = "token", auth_config = {token = "pennylane-fixture-token"}},
+	scenario = {publisher = {}, access = {data = "write"}, config = {}, auth_method = "token", auth_config = {token = "pennylane-fixture-token"}},
 	configure = function()
 		requests = {}
 		status = 201
@@ -24,7 +24,7 @@ return {
 
 		local names = {}
 		for name in pennylane do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 182, "wrong read-write surface: " .. #names)
+		assert(#names == 182, "wrong write surface: " .. #names)
 
 		payload = '{"id":42,"draft":true,"invoice_lines":{"url":"https://app.pennylane.com/api/external/v2/customer_invoices/42/invoice_lines"}}'
 		local lines = {{label = "Consulting", quantity = 2, raw_currency_unit_price = "100.00", unit = "hour", vat_rate = "FR_200"}}

@@ -1,26 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Sentry",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "region": {
       "default": "us.sentry.io",
       "description": "Where your organization stores its data, shown under Data Storage Location in your organization's settings.",
@@ -102,7 +104,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -124,7 +126,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [

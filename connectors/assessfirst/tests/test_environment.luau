@@ -1,6 +1,6 @@
 local API = "https://simu.assessfirst.com/betty-V2"
 return {
-	scenario = {publisher = {}, config = {access = "read-write", api_host = "simu.assessfirst.com"}, auth_method = "token", auth_config = {token = "fixture-simu-assessfirst-token"}},
+	scenario = {publisher = {}, access = {data = "write"}, config = {api_host = "simu.assessfirst.com"}, auth_method = "token", auth_config = {token = "fixture-simu-assessfirst-token"}},
 	configure = function()
 		payload = "{}"
 		http = {request = function(req)

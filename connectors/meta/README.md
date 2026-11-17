@@ -5,7 +5,7 @@ description: Read your Facebook Page and Instagram posts, comments, messages and
 # Meta Business Suite
 
 Let agents read posts, comments, messages and insights for one Facebook Page and
-its linked Instagram professional account. **Read and write** also permits
+its linked Instagram professional account. **Write** access also permits
 publishing, scheduling, replying and moderation.
 
 > Customer conversations require Meta's Advanced Access, business verification

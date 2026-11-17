@@ -13,13 +13,13 @@ said, who said it and when.
 - Ask for summaries, translations, named entities, sentiment, custom vocabulary
   or PII redaction alongside the transcript.
 - Browse recent transcriptions and download the audio each one used.
-- With **Read and write** access: upload recordings, start new transcriptions
+- With **Write** access: upload recordings, start new transcriptions
   and delete old ones.
 
 > Gladia bills each accepted transcription to your account by audio duration.
 > Gladia does not deduplicate requests: sending the same recording twice creates
 > two separately billed jobs.
 
-Read-only access reads and downloads but cannot create or delete anything. This
+**Read** access reads and downloads but cannot create or delete anything. This
 connector covers recorded audio up to 135 minutes (4 hours 15 minutes on Enterprise)
 and 1000 MB per job, not live transcription from a microphone.

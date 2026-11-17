@@ -1,6 +1,6 @@
 return {
  scenario={publisher={},config={},auth_method="admin",auth_config={token="fixture-notion-private-token"}},
- config={access="read-only"},
+ access={data="read"},
  configure=function()
   calls=0
   http={request=function(req)

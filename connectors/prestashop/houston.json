@@ -1,28 +1,29 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "PrestaShop",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
-      "description": "Read-only is only guaranteed by your PrestaShop key. Houston sends no changes on a Read-only connection, but PrestaShop lets any request turn a read into an edit or a delete, so give a Read-only connection a key with only View (GET) ticked. A key with Add, Modify, Patch or Delete ticked can change or delete store data.",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "description": "Read access is only guaranteed by your PrestaShop key. Houston sends no changes with Read access, but PrestaShop lets any request turn a read into an edit or a delete, so give a Read connection a key with only View (GET) ticked. A key with Add, Modify, Patch or Delete ticked can change or delete store data.",
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "order": 1,
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "store_host": {
       "description": "The domain your store is served from, without https:// or a path.",
       "label": "Store domain",
@@ -57,7 +58,7 @@
           "username": "{{auth.key.token}}"
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.store_host}}"
@@ -80,7 +81,7 @@
           "username": "{{auth.key.token}}"
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.store_host}}"
@@ -104,7 +105,7 @@
           "username": "{{auth.key.token}}"
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.store_host}}"

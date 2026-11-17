@@ -1,27 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "WordPress",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "order": 1,
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "site_host": {
       "description": "The domain your WordPress site is served from, without https:// or a path.",
       "label": "Site domain",
@@ -62,7 +63,7 @@
           "username": "{{auth.application_password.username}}"
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.site_host}}"
@@ -94,7 +95,7 @@
           "username": "{{auth.application_password.username}}"
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.site_host}}"
@@ -120,7 +121,7 @@
           "username": "{{auth.application_password.username}}"
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.site_host}}"

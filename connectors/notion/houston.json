@@ -1,4 +1,21 @@
 {
+  "access": [
+    {
+      "default": "read",
+      "label": "Access",
+      "levels": [
+        {
+          "label": "Read",
+          "value": "read"
+        },
+        {
+          "label": "Write",
+          "value": "write"
+        }
+      ],
+      "name": "data"
+    }
+  ],
   "auth": {
     "admin": {
       "config": {
@@ -71,23 +88,6 @@
       "label": "Internal connection or personal access token",
       "order": 2,
       "type": "manual"
-    }
-  },
-  "config": {
-    "access": {
-      "default": "read-only",
-      "label": "Access",
-      "options": [
-        {
-          "label": "Read-only",
-          "value": "read-only"
-        },
-        {
-          "label": "Read and write",
-          "value": "read-write"
-        }
-      ],
-      "type": "string"
     }
   },
   "files": [
@@ -309,7 +309,7 @@
           }
         }
       },
-      "if": "{{ and (isDefined auth.token) (is config.access \"read-write\") }}",
+      "if": "{{ and (isDefined auth.token) (allows access.data \"write\") }}",
       "match": {
         "host": [
           "api.notion.com"
@@ -344,7 +344,7 @@
           }
         }
       },
-      "if": "{{ and (isDefined auth.oauth) (is config.access \"read-write\") }}",
+      "if": "{{ and (isDefined auth.oauth) (allows access.data \"write\") }}",
       "match": {
         "host": [
           "api.notion.com"
@@ -379,7 +379,7 @@
           }
         }
       },
-      "if": "{{ and (isDefined auth.token) (is config.access \"read-write\") }}",
+      "if": "{{ and (isDefined auth.token) (allows access.data \"write\") }}",
       "match": {
         "host": [
           "api.notion.com"
@@ -411,7 +411,7 @@
           }
         }
       },
-      "if": "{{ and (isDefined auth.oauth) (is config.access \"read-write\") }}",
+      "if": "{{ and (isDefined auth.oauth) (allows access.data \"write\") }}",
       "match": {
         "host": [
           "api.notion.com"
@@ -443,7 +443,7 @@
           }
         }
       },
-      "if": "{{ and (isDefined auth.token) (is config.access \"read-write\") }}",
+      "if": "{{ and (isDefined auth.token) (allows access.data \"write\") }}",
       "match": {
         "host": [
           "api.notion.com"
@@ -470,7 +470,7 @@
           }
         }
       },
-      "if": "{{ and (isDefined auth.oauth) (is config.access \"read-write\") }}",
+      "if": "{{ and (isDefined auth.oauth) (allows access.data \"write\") }}",
       "match": {
         "host": [
           "api.notion.com"
@@ -536,7 +536,7 @@
           }
         }
       },
-      "if": "{{ and (isDefined auth.admin) (is config.access \"read-write\") }}",
+      "if": "{{ and (isDefined auth.admin) (allows access.data \"write\") }}",
       "match": {
         "host": [
           "api.notion.com"
@@ -567,7 +567,7 @@
           }
         }
       },
-      "if": "{{ and (isDefined auth.admin) (is config.access \"read-write\") }}",
+      "if": "{{ and (isDefined auth.admin) (allows access.data \"write\") }}",
       "match": {
         "host": [
           "api.notion.com"
@@ -596,7 +596,7 @@
           }
         }
       },
-      "if": "{{ and (isDefined auth.admin) (is config.access \"read-write\") }}",
+      "if": "{{ and (isDefined auth.admin) (allows access.data \"write\") }}",
       "match": {
         "host": [
           "api.notion.com"
@@ -620,7 +620,7 @@
           }
         }
       },
-      "if": "{{ and (isDefined auth.admin) (is config.access \"read-write\") }}",
+      "if": "{{ and (isDefined auth.admin) (allows access.data \"write\") }}",
       "match": {
         "host": [
           "api.notion.com"
@@ -713,5 +713,5 @@
       "type": "secret"
     }
   },
-  "schema_version": 1
+  "schema_version": 2
 }
