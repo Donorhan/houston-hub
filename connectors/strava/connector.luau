@@ -179,8 +179,10 @@ end
 -- Strava errors are {message, errors = {{resource, field, code}}}. A permission the athlete
 -- unticked on Strava's consent page reads as field "activity:read_permission", code "missing".
 -- Server errors are retryable only for idempotent calls: a create may already have been applied.
+-- nonUpload marks calls that also count against the non-upload limit (all but creating activities
+-- and uploads), so only those are stopped for the day when its daily quota is spent.
 -- Upload errors may come as HTML, whose text is kept; a body beyond 4 KiB gives the status alone.
-local function fail(operation: string, response: HttpResponse, idempotent: boolean): never
+local function fail(operation: string, response: HttpResponse, idempotent: boolean, nonUpload: boolean): never
 	local status = response.statusCode
 	local raw = await(response.body:readPrefix(4096))
 	local ok, problem = pcall(json.decode, raw)
@@ -217,8 +219,12 @@ local function fail(operation: string, response: HttpResponse, idempotent: boole
 		local reads, readsDaily = usage(response.headers, "readratelimit", "non-upload requests")
 		if overall then message ..= "; " .. overall end
 		if reads then message ..= "; " .. reads end
-		daily = overallDaily or readsDaily
-		message ..= if daily then "; the daily limit resets at midnight UTC" else "; the 15-minute limit resets on the quarter hour"
+		daily = overallDaily or (nonUpload and readsDaily)
+		if not overall and not reads then
+			message ..= "; Strava's rate limit was reached"
+		else
+			message ..= if daily then "; the daily limit resets at midnight UTC" else "; the 15-minute limit resets on the quarter hour"
+		end
 	end
 	return houston.fail({operation = operation, layer = "upstream", upstream_status = status, message = message,
 		retryable = (status == 429 and not daily) or (idempotent and status >= 500)})
@@ -244,7 +250,10 @@ local function call(operation: string, request: Call): any
 	end
 	local query = if request.query and #request.query > 0 then "?" .. table.concat(request.query, "&") else ""
 	local response = await(http.request({method = request.method, url = API .. request.path .. query, headers = headers, body = body}))
-	if response.statusCode < 200 or response.statusCode >= 300 then fail(operation, response, request.idempotent) end
+	if response.statusCode < 200 or response.statusCode >= 300 then
+		local upload = request.method == "POST" and (request.path == "/activities" or request.path == "/uploads")
+		fail(operation, response, request.idempotent, not upload)
+	end
 	local read, raw = pcall(function(): string return await(response.body:readAll()) end)
 	if not read then
 		if not string.find(tostring(raw), "limit_exceeded", 1, true) then error(raw, 0) end
@@ -272,7 +281,7 @@ local function export(operation: string, args: Options, format: string): Options
 	local output = fs.open(target, "w")
 	local ok, err = pcall(function()
 		local response = await(http.request({method = "GET", url = API .. path}))
-		if response.statusCode ~= 200 then fail(operation, response, true) end
+		if response.statusCode ~= 200 then fail(operation, response, true, true) end
 		output:write(response.body)
 		await(output:close())
 	end)

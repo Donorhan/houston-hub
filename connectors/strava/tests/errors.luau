@@ -51,7 +51,12 @@ return {
 		upstream(429, '{"message":"Rate Limit Exceeded"}', {["x-ratelimit-limit"] = {"200,2000"}, ["x-ratelimit-usage"] = {"12,1990"},
 			["x-readratelimit-limit"] = {"100,1000"}, ["x-readratelimit-usage"] = {"10,1000"}},
 			c.getLoggedInAthlete, nil, {"non-upload requests 10/100 in 15 minutes, 1000/1000 today", "the daily limit resets at midnight UTC", '"retryable":false'})
-		upstream(429, "", {["x-ratelimit-limit"] = {"bogus"}}, c.getLoggedInAthlete, nil, {"Strava HTTP 429", '"retryable":true'}, {"today"})
+		upstream(429, "", {["x-ratelimit-limit"] = {"bogus"}}, c.getLoggedInAthlete, nil, {"Strava HTTP 429; Strava's rate limit was reached", '"retryable":true'}, {"today", "15-minute"})
+		-- Creating activities and uploads do not count against the non-upload limit, so its spent daily
+		-- quota does not stop them for the day.
+		local spentReads = {["x-ratelimit-limit"] = {"200,2000"}, ["x-ratelimit-usage"] = {"205,1500"}, ["x-readratelimit-limit"] = {"100,1000"}, ["x-readratelimit-usage"] = {"60,1000"}}
+		upstream(429, "", spentReads, c.createActivity, RUN, {"the 15-minute limit resets on the quarter hour", '"retryable":true'})
+		upstream(429, "", spentReads, c.getLoggedInAthlete, nil, {"the daily limit resets at midnight UTC", '"retryable":false'})
 
 		-- Server errors are retryable for reads and updates, never for creates that may have applied.
 		upstream(500, '{"message":"Internal Server Error"}', {}, c.getActivityById, {id = 1}, {"Strava HTTP 500: Internal Server Error", '"retryable":true'})
