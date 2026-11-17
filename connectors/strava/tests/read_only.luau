@@ -97,6 +97,12 @@ return {
 			local result = case[1](case[2])
 			last(API .. case[3])
 			assert(json.encode(result) == json.encode(json.decode(case[4])), case[3] .. ": " .. json.encode(result))
+			-- Every list keeps both empty and populated pages as arrays.
+			if string.sub(case[4], 1, 1) == "[" then
+				local other = if case[4] == "[]" then '[{"id":1}]' else "[]"
+				responses = {{body = other}}
+				assert(json.encode(case[1](case[2])) == other, case[3] .. " with " .. other)
+			end
 		end
 
 		-- Route exports stream to the session file and report its size.
@@ -113,6 +119,7 @@ return {
 		rejects("id must be a positive integer, or a string of digits", c.getActivityById, {id = 1.5})
 		rejects("id must be a positive integer, or a string of digits", c.getActivityById, {id = 9007199254740992})
 		rejects("id must be a positive integer, or a string of digits", c.getActivityById, {})
+		rejects("id must be a positive integer, or a string of digits", c.getSegmentEffortById, {id = "9223372036854775808"})
 		rejects("per_page must be an integer from 1 to 200", c.getLoggedInAthleteClubs, {per_page = 201})
 		rejects("include_all_efforts must be a boolean", c.getActivityById, {id = 1, include_all_efforts = "yes"})
 		rejects("keys[2] must be one of", c.getActivityStreams, {id = 1, keys = {"time", "power"}})

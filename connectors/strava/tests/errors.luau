@@ -13,6 +13,9 @@ return {
 	end,
 	run = function(c)
 		local RUN = {name = "Run", sport_type = "Run", start_date_local = "2026-11-16T12:15:00Z", elapsed_time = 60}
+		local file = fs.open("ride.gpx", "w")
+		file:write("<gpx/>")
+		await(file:close())
 		local function upstream(code: number, body: string, headers: {[string]: {string}}, fn: (any) -> any, input: any, expected: {string}, absent: {string}?): string
 			status, payload, responseHeaders = code, body, headers
 			local before = calls
@@ -54,6 +57,9 @@ return {
 		upstream(500, '{"message":"Internal Server Error"}', {}, c.getActivityById, {id = 1}, {"Strava HTTP 500: Internal Server Error", '"retryable":true'})
 		upstream(503, "", {}, c.updateLoggedInAthlete, {weight = 70}, {"Strava HTTP 503", '"retryable":true'})
 		upstream(500, "", {}, c.createActivity, RUN, {"Strava HTTP 500", '"retryable":false'})
+		upstream(500, "", {}, c.createUpload, {path = "ride.gpx", data_type = "gpx"}, {"Strava HTTP 500", '"retryable":false'})
+		upstream(502, "", {}, c.updateActivityById, {id = 1, name = "x"}, {"Strava HTTP 502", '"retryable":true'})
+		upstream(503, "", {}, c.starSegment, {id = 1, starred = true}, {"Strava HTTP 503", '"retryable":true'})
 		upstream(502, "", {}, c.getRouteAsGPX, {id = 1, path = "route.gpx"}, {"Strava HTTP 502", '"retryable":true'})
 		assert(not await(fs.exists("route.gpx")), "a failed export wrote its file")
 

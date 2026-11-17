@@ -37,15 +37,16 @@ local function boolean(value: any, field: string): boolean
 	return value
 end
 
--- A Strava numeric ID: an integer, or a string of digits for IDs beyond 2^53 - 1, which results
--- carry as strings.
+-- A Strava numeric ID: an integer, or a string of digits up to the int64 maximum for IDs beyond
+-- 2^53 - 1, which results carry as strings.
 local function id(value: any, field: string): string
 	local problem = field .. " must be a positive integer, or a string of digits"
 	if type(value) == "number" then
 		assert(value == math.floor(value) and value >= 1 and value <= MAX_SAFE_INTEGER, problem)
 		return string.format("%.0f", value)
 	end
-	assert(type(value) == "string" and string.match(value, "^[1-9]%d*$") ~= nil and #value <= 19, problem)
+	assert(type(value) == "string" and string.match(value, "^[1-9]%d*$") ~= nil
+		and (#value < 19 or (#value == 19 and value <= "9223372036854775807")), problem)
 	return value
 end
 
@@ -66,7 +67,21 @@ local function keys(value: any, allowed: {string}): string
 	return table.concat(value, ",")
 end
 
-local function tags(value: any): Options
+local function sportType(value: any): string
+	assert(type(value) == "string" and string.match(value, "^%a+$") ~= nil, "sport_type must be a Strava sport type such as Run")
+	return value
+end
+
+local function description(value: any): string
+	assert(type(value) == "string", "description must be a string")
+	return value
+end
+
+-- An activity's tags option, checked: tag names with booleans, never together with commute.
+local function activityTags(args: Options): Options?
+	local value = args.tags
+	if value == nil then return nil end
+	assert(args.commute == nil, "tags cannot be combined with commute; use tags.Commute")
 	assert(type(value) == "table", "tags must be an object of tag names and booleans")
 	local count = 0
 	for name, flag in value do
@@ -78,8 +93,14 @@ local function tags(value: any): Options
 	return value
 end
 
--- Form fields for a tags object, sorted so requests are deterministic: tags[WithPet]=true.
-local function tagFields(fields: {Field}, value: Options)
+-- The form fields createActivity and createUpload share: trainer and commute as 1 or 0, and
+-- tags as tags[Name]=true|false, sorted so requests are deterministic.
+local function activityFlags(fields: {Field}, args: Options)
+	for _, flag in {"trainer", "commute"} do
+		if args[flag] ~= nil then table.insert(fields, {flag, if boolean(args[flag], flag) then "1" else "0"}) end
+	end
+	local value = activityTags(args)
+	if value == nil then return end
 	local names: {string} = {}
 	for name in value do table.insert(names, name) end
 	table.sort(names)
@@ -709,26 +730,16 @@ Commute) cannot be combined with commute. To import a recorded file, use createU
 		local args = options(input, "createActivity", {"name", "sport_type", "start_date_local", "elapsed_time", "description", "distance", "trainer", "commute", "tags"})
 		local fields: {Field} = {
 			{"name", text(args.name, "name")},
-			{"sport_type", text(args.sport_type, "sport_type")},
+			{"sport_type", sportType(args.sport_type)},
 			{"start_date_local", text(args.start_date_local, "start_date_local")},
 			{"elapsed_time", integer(args.elapsed_time, "elapsed_time", 1, MAX_SAFE_INTEGER)},
 		}
-		assert(string.match(args.sport_type, "^%a+$"), "sport_type must be a Strava sport type such as Run")
-		if args.description ~= nil then
-			assert(type(args.description) == "string", "description must be a string")
-			table.insert(fields, {"description", args.description})
-		end
+		if args.description ~= nil then table.insert(fields, {"description", description(args.description)}) end
 		if args.distance ~= nil then
 			assert(type(args.distance) == "number" and args.distance >= 0 and args.distance < math.huge, "distance must be a number of meters")
 			table.insert(fields, {"distance", tostring(args.distance)})
 		end
-		for _, flag in {"trainer", "commute"} do
-			if args[flag] ~= nil then table.insert(fields, {flag, if boolean(args[flag], flag) then "1" else "0"}) end
-		end
-		if args.tags ~= nil then
-			assert(args.commute == nil, "tags cannot be combined with commute; use tags.Commute")
-			tagFields(fields, tags(args.tags))
-		end
+		activityFlags(fields, args)
 		return call("createActivity", {method = "POST", path = "/activities", form = fields, expect = "object", idempotent = false})
 	end
 
@@ -755,16 +766,13 @@ activity. Fields left out stay unchanged. tags cannot be combined with commute.]
 		args.id = nil
 		assert(next(args) ~= nil, "updateActivityById needs at least one field to change")
 		if args.name ~= nil then text(args.name, "name") end
-		assert(args.description == nil or type(args.description) == "string", "description must be a string")
-		if args.sport_type ~= nil then assert(string.match(text(args.sport_type, "sport_type"), "^%a+$"), "sport_type must be a Strava sport type such as Run") end
+		if args.description ~= nil then description(args.description) end
+		if args.sport_type ~= nil then sportType(args.sport_type) end
 		if args.gear_id ~= nil then gearId(args.gear_id, "gear_id") end
 		for _, flag in {"commute", "trainer", "hide_from_home"} do
 			if args[flag] ~= nil then boolean(args[flag], flag) end
 		end
-		if args.tags ~= nil then
-			assert(args.commute == nil, "tags cannot be combined with commute; use tags.Commute")
-			tags(args.tags)
-		end
+		activityTags(args)
 		return call("updateActivityById", {method = "PUT", path = path, json = args, expect = "object", idempotent = true})
 	end
 
@@ -805,20 +813,11 @@ is set. external_id defaults to the file name; Strava refuses a file it already 
 		local dataType = text(args.data_type, "data_type")
 		assert(table.find(DATA_TYPES, dataType), "data_type must be one of " .. table.concat(DATA_TYPES, ", "))
 		local fields: {Field} = {{"data_type", dataType}}
-		for _, field in {"name", "description", "sport_type", "external_id"} do
-			if args[field] ~= nil then
-				if field == "description" then assert(type(args[field]) == "string", "description must be a string") else text(args[field], field) end
-				table.insert(fields, {field, args[field]})
-			end
-		end
-		if args.sport_type ~= nil then assert(string.match(args.sport_type, "^%a+$"), "sport_type must be a Strava sport type such as Run") end
-		for _, flag in {"trainer", "commute"} do
-			if args[flag] ~= nil then table.insert(fields, {flag, if boolean(args[flag], flag) then "1" else "0"}) end
-		end
-		if args.tags ~= nil then
-			assert(args.commute == nil, "tags cannot be combined with commute; use tags.Commute")
-			tagFields(fields, tags(args.tags))
-		end
+		if args.name ~= nil then table.insert(fields, {"name", text(args.name, "name")}) end
+		if args.description ~= nil then table.insert(fields, {"description", description(args.description)}) end
+		if args.sport_type ~= nil then table.insert(fields, {"sport_type", sportType(args.sport_type)}) end
+		if args.external_id ~= nil then table.insert(fields, {"external_id", text(args.external_id, "external_id")}) end
+		activityFlags(fields, args)
 		assert(await(fs.exists(path)) and await(fs.stat(path)).isFile, "path " .. path .. " is not a session file")
 		local filename = string.match(path, "[^/]+$") or path
 		local parts: {any} = {}
