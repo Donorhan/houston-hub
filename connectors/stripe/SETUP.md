@@ -7,7 +7,7 @@
    or **Write** where agents should make changes. Related objects may need
    their own permissions.
 3. Paste the `rk_test_` or `rk_live_` key into Houston's **Stripe API key**, choose
-   **Read-only** or **Read and write**, and save. A secret `sk_` key also works;
+   **Read** or **Write** for **Access**, and save. A secret `sk_` key also works;
    a publishable `pk_` key does not.
 
 > Live write access can move money and send email. The key's permissions and

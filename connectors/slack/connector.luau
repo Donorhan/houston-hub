@@ -297,24 +297,46 @@ local function uploadFile(path: string, opts: Options?): Options
 	return call("uploadFile", "files.completeUploadExternal", complete, "json")
 end
 
-local exports: {[string]: any} = {
-	getProfile = getProfile, listChannels = listChannels, getChannel = getChannel,
-	listMessages = listMessages, getThread = getThread, searchMessages = searchMessages,
-	listMentions = listMentions, listMembers = listMembers, getUser = getUser, listUsers = listUsers,
-	getPermalink = getPermalink, getFile = getFile, downloadFile = downloadFile,
-}
-if config.access == "read-write" then
+local exports: {[string]: any} = {getProfile = getProfile}
+-- Conversation reads share routes; Slack's scopes limit them to the conversation types the rows allow.
+if houston.allows("channels:read") or houston.allows("private_channels:read") or houston.allows("direct_messages:read") then
+	exports.listChannels = listChannels
+	exports.getChannel = getChannel
+	exports.listMessages = listMessages
+	exports.getThread = getThread
+	exports.listMembers = listMembers
+	exports.getPermalink = getPermalink
+end
+if houston.allows("search:read") then
+	exports.searchMessages = searchMessages
+	exports.listMentions = listMentions
+end
+if houston.allows("users:read") then
+	exports.getUser = getUser
+	exports.listUsers = listUsers
+end
+if houston.allows("files:read") then
+	exports.getFile = getFile
+	exports.downloadFile = downloadFile
+end
+if houston.allows("messages:write") then
 	exports.postMessage = postMessage
 	exports.reply = reply
 	exports.updateMessage = updateMessage
 	exports.deleteMessage = deleteMessage
+end
+if houston.allows("direct_messages:write") then
 	exports.openConversation = openConversation
+end
+if houston.allows("reactions:write") then
 	exports.addReaction = function(channel: string, ts: string, name: string): Options
 		return reaction("addReaction", "reactions.add", channel, ts, name)
 	end
 	exports.removeReaction = function(channel: string, ts: string, name: string): Options
 		return reaction("removeReaction", "reactions.remove", channel, ts, name)
 	end
+end
+if houston.allows("files:write") then
 	exports.uploadFile = uploadFile
 end
 
@@ -369,7 +391,7 @@ exports.help = function(): string
 		if name ~= "help" then table.insert(names, name) end
 	end
 	table.sort(names)
-	local sections = {[[Slack: one connected user in one workspace. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Pass channel IDs, user IDs and message timestamps (ts) as strings, never numbers. Unknown options are rejected. Writes act as the connected user and need Read and write access.
+	local sections = {[[Slack: one connected user in one workspace. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Pass channel IDs, user IDs and message timestamps (ts) as strings, never numbers. Unknown options are rejected. Writes act as the connected user. Only calls the connection's access allows are listed.
 Each call returns one page. Pass cursor = result.nextCursor (or page = result.nextPage for searches) for the next one. Slack limits conversations.history and conversations.replies to 1 request per minute and 15 messages for apps outside the Slack Marketplace, so listMessages and getThread can fail with ratelimited: wait as the error says, and prefer searchMessages to scan many channels. Slack errors name the Slack error code, such as not_in_channel or missing_scope.]]}
 	for _, name in names do
 		local section = operationHelp[name]

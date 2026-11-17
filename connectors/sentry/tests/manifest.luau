@@ -5,12 +5,13 @@ return {
 			for _, hosts in { { "us.sentry.io", "de.sentry.io" }, { "de.sentry.io", "us.sentry.io" } } do
 				local api, other = "https://" .. hosts[1] .. "/api/0", "https://" .. hosts[2] .. "/api/0"
 				local org = api .. "/organizations/acme"
-				for _, access in { "read-only", "read-write" } do
+				for _, access in { "read", "write" } do
 					local r, err = m.resolve(
 						nil,
-						{ access = access, region = hosts[1], organization = "acme" },
+						{ region = hosts[1], organization = "acme" },
 						{ token = "sntryu_fixture" },
-						"token"
+						"token",
+						{ data = access }
 					)
 					assert(not err, tostring(err))
 					m.routes(r, "Bearer sntryu_fixture", true, {
@@ -34,7 +35,7 @@ return {
 					m.routes(
 						r,
 						"Bearer sntryu_fixture",
-						(access == "read-write"),
+						(access == "write"),
 						{ "PUT " .. org .. "/issues/1001/", "POST " .. org .. "/issues/WEB-1A/comments/" }
 					)
 					m.routes(r, "Bearer sntryu_fixture", false, {

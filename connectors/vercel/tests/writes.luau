@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {access = "read-write", team = "team_Fixture1"}, auth_method = "token", auth_config = {token = "fixture-token"}},
+	scenario = {publisher = {}, access = {data = "write"}, config = {team = "team_Fixture1"}, auth_method = "token", auth_config = {token = "fixture-token"}},
 	configure = function()
 		requests = {}
 		status = 200
@@ -25,7 +25,7 @@ return {
 		for name in vercel do table.insert(names, name) end
 		table.sort(names)
 		assert(table.concat(names, ",") == "cancelDeployment,createEnvVar,deleteEnvVar,getDeployment,getDomain,getDomainConfig,getEnvVar,getProject,getProjectDomain,getUser,listBuildLogs,listDeployments,listDomains,listEnvVars,listProjectDomains,listProjects,listPromoteAliases,listRuntimeLogs,listTeams,promoteDeployment,redeploy,rollbackDeployment,updateEnvVar",
-			"wrong read-write surface: " .. table.concat(names, ","))
+			"wrong write surface: " .. table.concat(names, ","))
 
 		-- The connection's team goes with every request except the user and team lists.
 		vercel.getUser()

@@ -19,6 +19,7 @@ import (
 
 type Scenario struct {
 	Publisher     map[string]any    `json:"publisher"`
+	Access        map[string]string `json:"access"`
 	Config        map[string]any    `json:"config"`
 	AuthMethod    string            `json:"auth_method"`
 	AuthConfig    map[string]any    `json:"auth_config"`
@@ -27,9 +28,10 @@ type Scenario struct {
 	SettingsError string            `json:"settings_error"`
 }
 type metadata struct {
-	Scenario Scenario       `json:"scenario"`
-	Config   map[string]any `json:"config"`
-	Contract bool           `json:"contract"`
+	Scenario Scenario          `json:"scenario"`
+	Access   map[string]string `json:"access"`
+	Config   map[string]any    `json:"config"`
+	Contract bool              `json:"contract"`
 }
 type boundedOutput struct{ bytes.Buffer }
 
@@ -64,6 +66,19 @@ func call(ctx context.Context, binary, mode string, input any, output any) error
 		return fmt.Errorf("trailing fixture response")
 	}
 	return nil
+}
+
+// withDefaults completes a fixture's access levels with each row's default,
+// so fixtures name only the rows they exercise.
+func withDefaults(m manifest.Manifest, access map[string]string) map[string]string {
+	levels := map[string]string{}
+	for _, row := range m.Access {
+		levels[row.Name] = row.Default
+	}
+	for name, level := range access {
+		levels[name] = level
+	}
+	return levels
 }
 
 // Check requires runnable behavioral evidence for each method and variant, with configured Lua help.
@@ -103,7 +118,11 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		for key, value := range meta.Config {
 			scenario.Config[key] = value
 		}
-		resolved, err := m.Resolve(scenario.Publisher, scenario.Config, scenario.AuthConfig, scenario.AuthMethod)
+		access := withDefaults(m, scenario.Access)
+		for key, value := range meta.Access {
+			access[key] = value
+		}
+		resolved, err := m.Resolve(manifest.Inputs{Publisher: scenario.Publisher, Access: access, Config: scenario.Config, Auth: scenario.AuthConfig, Method: scenario.AuthMethod})
 		if err == nil && m.Proxy[resolved.ProxyIndices[0]].Action.Connection != nil {
 			_, err = m.Proxy[resolved.ProxyIndices[0]].ResolveDatabase(resolved.Context)
 		}
@@ -116,10 +135,7 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules, fix
 		if err != nil {
 			return fmt.Errorf("fixture %s settings: %w", name, err)
 		}
-		if _, ok := resolved.PublicConfig["access"]; !ok {
-			resolved.PublicConfig["access"] = "read-only"
-		}
-		input := map[string]any{"files": m.Files, "modules": modules, "config": resolved.PublicConfig, "protocol": m.Proxy[resolved.ProxyIndices[0]].Match.Protocol, "args": []any{}, "structured_help": true}
+		input := map[string]any{"files": m.Files, "modules": modules, "access": resolved.Context.Access, "config": resolved.PublicConfig, "protocol": m.Proxy[resolved.ProxyIndices[0]].Match.Protocol, "args": []any{}, "structured_help": true}
 		for fact := range scenario.Facts {
 			if _, declared := m.Auth[scenario.AuthMethod].TokenResponse.Facts[fact]; !declared {
 				return fmt.Errorf("fixture %s fact %s is not declared by auth method %q", name, fact, scenario.AuthMethod)

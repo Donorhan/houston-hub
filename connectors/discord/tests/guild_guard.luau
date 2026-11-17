@@ -1,7 +1,7 @@
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret", bot_token = "fixture-bot-token"},
 		config = {}, auth_method = "oauth", auth_config = {}, granted_scopes = {"bot"}, facts = {guild_id = "290926798626357999"}},
-	config = {access = "read-write"},
+	access = {data = "write"},
 	configure = function()
 		requests, guard = {}, nil
 		http = {request = function(req)

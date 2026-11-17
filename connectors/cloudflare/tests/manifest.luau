@@ -8,8 +8,8 @@ return {
 			local record = zone .. "/dns_records/372e67954025e0ba6aaa6d586b9e0b59"
 			local script = account .. "/workers/scripts/api"
 			local pages = account .. "/pages/projects/site"
-			for _, access in { "read-only", "read-write" } do
-				local r, err = m.resolve(nil, { access = access }, { token = "cfut_fixture" }, "token")
+			for _, access in { "read", "write" } do
+				local r, err = m.resolve(nil, {}, { token = "cfut_fixture" }, "token", { data = access })
 				assert(not err, tostring(err))
 				m.routes(r, "Bearer cfut_fixture", true, {
 					"GET " .. api .. "/accounts?page=2&per_page=50",
@@ -31,7 +31,7 @@ return {
 					"GET " .. account .. "/r2/buckets?cursor=YXNzZXRz",
 					"GET " .. account .. "/r2/buckets/assets",
 				})
-				m.routes(r, "Bearer cfut_fixture", (access == "read-write"), {
+				m.routes(r, "Bearer cfut_fixture", (access == "write"), {
 					"POST " .. zone .. "/dns_records",
 					"PATCH " .. record,
 					"DELETE " .. record,

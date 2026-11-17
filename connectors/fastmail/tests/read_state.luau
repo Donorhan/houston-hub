@@ -1,6 +1,6 @@
 return {
     scenario = {auth_method = "token", auth_config = {token = "fixture-private-password !@#"}, config = {}, publisher = {}},
-    config = {access = "read-write"},
+    access = {data = "write"},
     configure = function()
         requests, responses = {}, {}
         local MAIL = "urn:ietf:params:jmap:mail"

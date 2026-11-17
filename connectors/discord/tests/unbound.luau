@@ -1,7 +1,7 @@
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret", bot_token = "fixture-bot-token"},
 		config = {}, auth_method = "oauth", auth_config = {}, granted_scopes = {"bot"}},
-	config = {access = "read-write"},
+	access = {data = "write"},
 	configure = function()
 		http = {request = function(req) error("unexpected request: " .. req.url) end}
 	end,

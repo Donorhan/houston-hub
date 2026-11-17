@@ -1,8 +1,8 @@
 return {
 	contract = function(m)
 		local api = "https://graph.microsoft.com/v1.0/me"
-		for access, scopes in {["read-only"] = {"Calendars.Read"}, ["read-write"] = {"Calendars.ReadWrite"}} do
-			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {access = access}, nil, "oauth")
+		for access, scopes in {read = {"Calendars.Read"}, write = {"Calendars.ReadWrite"}} do
+			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {}, nil, "oauth", {data = access})
 			assert(r and not err, tostring(err))
 			assert(m.equal(r.Scopes, m.concat({"offline_access", "User.Read"}, scopes)), "requested OAuth scopes for " .. access)
 			r.Context.Auth.oauth.access_token = "fixture-token"
@@ -23,8 +23,8 @@ return {
 				"POST " .. api .. "/calendars/C1/events/E1/accept", "POST " .. api .. "/calendars/C1/events/E1/tentativelyAccept",
 				"POST " .. api .. "/calendars/C1/events/E1/decline", "POST " .. api .. "/calendars/C1/events/E1/cancel",
 			}
-			m.routes(r, "Bearer fixture-token", access == "read-write", writes)
-			if access == "read-write" then m.rejectOverrides(r, writes) end
+			m.routes(r, "Bearer fixture-token", access == "write", writes)
+			if access == "write" then m.rejectOverrides(r, writes) end
 			-- The token stays off Microsoft's token endpoint, batches that could wrap writes, other users,
 			-- APIs and mailboxes, lookalike hosts and calendar routes the connector never calls: event
 			-- lists outside a time range, permanent deletes, calendar changes and sharing, forwards,

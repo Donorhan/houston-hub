@@ -123,7 +123,7 @@ local function deletePost(id: string): {id: string}
 end
 
 local exports: {[string]: any} = {getProfile = function(): Options return profile("getProfile") end}
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	exports.createPost = createPost
 	exports.deletePost = deletePost
 end
@@ -154,7 +154,7 @@ exports.help = function(): string
 		if name ~= "help" then table.insert(names, name) end
 	end
 	table.sort(names)
-	local sections = {"LinkedIn: the connected member's profile and posts. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Posting requires Read and write access. LinkedIn does not let apps read feeds, existing posts, connections or messages."}
+	local sections = {"LinkedIn: the connected member's profile and posts. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Posting requires write access. LinkedIn does not let apps read feeds, existing posts, connections or messages."}
 	for _, name in names do
 		local section = operationHelp[name]
 		assert(section, "missing help for configured function " .. name)

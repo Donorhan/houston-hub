@@ -744,11 +744,11 @@ function exports.listDockerImages(args: Options): Options
 	return request("listDockerImages", "GET", ARTIFACTS .. "/projects/{project}/locations/{location}/repositories/{repository}/dockerImages", args, {query = {"orderBy", "pageSize", "pageToken"}, list = "dockerImages"})
 end
 
-if config.access ~= "read-write" then
-	help.sections = {builds = "Cloud Build's API needs read-write access. To see why a build failed, read its logs: listLogEntries with filter 'logName=\"projects/p/logs/cloudbuild\" AND timestamp>=\"...\"', optionally with resource.labels.build_id=\"<id>\"."}
+if not houston.allows("data:write") then
+	help.sections = {builds = "Cloud Build's API needs write access. To see why a build failed, read its logs: listLogEntries with filter 'logName=\"projects/p/logs/cloudbuild\" AND timestamp>=\"...\"', optionally with resource.labels.build_id=\"<id>\"."}
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	help.text ..= [[
 
 Writes return Google's long-running operation or resource unchanged (secrets redacted). Cloud Run

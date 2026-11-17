@@ -7,7 +7,7 @@ return {
 			else
 				input = { token = method .. "-secret" }
 			end
-			local r, err = m.resolve(publisher, { access = access }, input, method)
+			local r, err = m.resolve(publisher, {}, input, method, { data = access })
 			assert(not err, tostring(err))
 			if method == "oauth" then
 				do
@@ -22,8 +22,8 @@ return {
 				local err = m.credentials(r.Context)
 				assert(not err, tostring(err))
 			end
-			if not (m.equal(r.PublicConfig, { access = access })) then
-				m.fail("unexpected public settings: %s", r.PublicConfig)
+			if not (m.equal(r.PublicConfig, {}) and m.equal(r.Access, { data = access })) then
+				m.fail("unexpected public settings: %s %s", r.PublicConfig, r.Access)
 			end
 			return r
 		end
@@ -93,15 +93,15 @@ return {
 						"OAuth client secret publisher field must be visible before credentials are entered"
 					)
 				end
-				if (m.count(draft.ConfigFields) ~= 1) or (draft.ConfigFields[1].name ~= "access") then
-					m.fail("connection setup should ask only for access: %s", draft.ConfigFields)
+				if (m.count(draft.ConfigFields) ~= 0) or not m.equal(draft.Access, { data = "read" }) then
+					m.fail("connection setup should ask only for access: %s %s", draft.ConfigFields, draft.Access)
 				end
 				local manual, err = m.resolve(publisher, nil, { token = "manual-token" }, "token")
 				if (err ~= nil) or (m.credentials(manual.Context) ~= nil) then
 					m.fail("token connection depends on publisher OAuth settings: %s", err)
 				end
-				if manual.PublicConfig["access"] ~= "read-only" then
-					m.fail("new connection did not default to read-only")
+				if manual.Access.data ~= "read" then
+					m.fail("new connection did not default to read")
 				end
 			end
 			for _, method in { "token", "admin" } do
@@ -153,7 +153,7 @@ return {
 				{ "PATCH", "/v1/agents/agent-1/credit_limit" },
 			}
 			for _, method in { "token", "oauth" } do
-				for _, access in { "read-only", "read-write" } do
+				for _, access in { "read", "write" } do
 					do
 						local r = notionConnection(method, access)
 						r.Context.Auth.admin = { token = "inactive-admin" }
@@ -161,7 +161,7 @@ return {
 							r.Context.Auth.token = { token = "inactive-token" }
 						end
 						for _, route in m.concat(m.concat({}, reads), writes) do
-							local allowed = (access == "read-write")
+							local allowed = (access == "write")
 							for _, read in reads do
 								allowed = (allowed or (route == read))
 							end
@@ -187,7 +187,7 @@ return {
 		end
 		-- TestNotionAdminRouteSeparation
 		do
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local r = notionConnection("admin", access)
 				r.Context.Auth.token = { token = "inactive-token" }
 				for _, route in
@@ -207,7 +207,7 @@ return {
 						{ "DELETE", "/admin/v1/spaces/space-1/personal_access_tokens/bot-1" },
 					}
 				do
-					assertNotionRoute(r, route, (access == "read-write"), "admin-secret", "2026-06-01")
+					assertNotionRoute(r, route, (access == "write"), "admin-secret", "2026-06-01")
 				end
 				for _, route in
 					{
@@ -225,7 +225,7 @@ return {
 		-- TestNotionDownloadBoundaries
 		do
 			for _, method in { "token", "oauth", "admin" } do
-				local r = notionConnection(method, "read-only")
+				local r = notionConnection(method, "read")
 				local rules = r.Proxy
 				for _, url in
 					{

@@ -7,7 +7,7 @@
 3. Enter the **Organization** slug from `<slug>.sentry.io`, paste **Auth token**,
    choose the matching access level and save.
 
-| Permission | Read-only | Read and write |
+| Permission | Read | Write |
 | --- | --- | --- |
 | Organization | `org:read` | `org:read` |
 | Project | `project:read` | `project:read` |

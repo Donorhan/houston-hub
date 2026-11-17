@@ -27,7 +27,7 @@ local specs: {[string]: {fields: string, kind: string}} = {
 local function ordinary(value: any, root: boolean?): string
 	assert(type(value) == "string", "Dropbox path must be a string")
 	if value == "" and root then return value end
-	assert(string.sub(value, 1, 1) == "/" and value ~= "/" and string.sub(value, -1) ~= "/", "Custom access requires an absolute Dropbox path; use '' for the root")
+	assert(string.sub(value, 1, 1) == "/" and value ~= "/" and string.sub(value, -1) ~= "/", "Folder limits require an absolute Dropbox path; use '' for the root")
 	assert(utf8.len(value) ~= nil and not string.find(value, "[%z\1-\31\127\\]"), "Dropbox path contains invalid characters")
 	assert(not string.find(value, "//", 1, true), "Dropbox path contains an empty component")
 	for part in string.gmatch(value, "[^/]+") do
@@ -48,7 +48,7 @@ local function fields(value: any, allowed: string)
 	assert(type(value) == "table", "opts must be an object")
 	local permitted: {[string]: boolean} = {}
 	for key in string.gmatch(allowed, "%S+") do permitted[key] = true end
-	for key in value do assert(permitted[key] == true, "This option is unavailable with custom folder access: " .. tostring(key)) end
+	for key in value do assert(permitted[key] == true, "This option is unavailable with folder limits: " .. tostring(key)) end
 end
 
 return function(raw: string, metadata: (string) -> Object?): any
@@ -137,7 +137,7 @@ return function(raw: string, metadata: (string) -> Object?): any
 	local policy: any = {writable = writable, supports = function(name: string): boolean return specs[name] ~= nil end}
 	local function prepare(name: string, value: any): (Object, Object)
 		local spec = specs[name]
-		assert(spec, "Operation is unavailable with custom folder access")
+		assert(spec, "Operation is unavailable with folder limits")
 		fields(value, spec.fields)
 		local args = table.clone(value)
 		local context: Object = {}
@@ -149,7 +149,7 @@ return function(raw: string, metadata: (string) -> Object?): any
 			args.cursor = token.cursor
 			return args, context
 		end
-		assert(args.autorename == nil or args.autorename == false, "Autorename is unavailable with custom folder access; choose an explicit destination")
+		assert(args.autorename == nil or args.autorename == false, "Autorename is unavailable with folder limits; choose an explicit destination")
 		if spec.kind == "search" then
 			fields(args.options, "path max_results order_by file_status filename_only file_extensions file_categories")
 			args.options = table.clone(args.options)
@@ -216,7 +216,7 @@ return function(raw: string, metadata: (string) -> Object?): any
 		return result
 	end
 	policy.help = function(): string
-		local lines = {"Custom folder access: unlisted paths are denied; the most specific configured folder wins."}
+		local lines = {"Limited to folders: unlisted paths are denied; the most specific configured folder wins."}
 		for _, grant in configured do
 			table.insert(lines, (if grant.path == "" then "/" else grant.path) .. ": " .. grant.access)
 		end

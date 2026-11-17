@@ -15,7 +15,7 @@ func ruleManifest(rules string) string {
 	if strings.Contains(rules, "config.token") {
 		config += `,"token":{"type":"secret","label":"Token","required":true}`
 	}
-	return fmt.Sprintf(`{"schema_version":1,"name":"Ordered rules","description":"Shared transport configuration","files":["main.luau"],"config":{%s},"proxy":%s}`, config, rules)
+	return fmt.Sprintf(`{"schema_version":2,"name":"Ordered rules","description":"Shared transport configuration","files":["main.luau"],"config":{%s},"proxy":%s}`, config, rules)
 }
 
 func parseRules(t *testing.T, rules string) *Manifest {
@@ -41,7 +41,7 @@ func TestRulesConditionsAndSnapshot(t *testing.T) {
 		t.Fatalf("snapshot changed rules: %v", err)
 	}
 	for _, enabled := range []bool{true, false} {
-		r, err := snapshot.Resolve(nil, map[string]any{"token": "bound-secret", "enabled": enabled}, nil, "")
+		r, err := snapshot.Resolve(Inputs{Config: map[string]any{"token": "bound-secret", "enabled": enabled}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -134,7 +134,7 @@ func TestRulesOptionalSecretAndFallback(t *testing.T) {
 				ref, selected = "auth.manual.token", "manual"
 				fields = `"auth":{"manual":{"type":"manual","label":"Manual","config":{"token":{"type":"secret","label":"Optional token"}}}}`
 			}
-			data := fmt.Sprintf(`{"schema_version":1,"name":"Optional credential","description":"Rule fallback","files":["main.luau"],%s,"proxy":[
+			data := fmt.Sprintf(`{"schema_version":2,"name":"Optional credential","description":"Rule fallback","files":["main.luau"],%s,"proxy":[
  {"if":"{{ isDefined %s }}","match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"remove":["Authorization"],"set":{"Authorization":"Bearer {{%s}}","X-Selected":"credential"}}}},
  {"match":{"protocol":"http","host":["api.example.com"]},"action":{"headers":{"remove":["Authorization"],"set":{"X-Selected":"fallback"}}}}
  ]}`, fields, ref, ref)
@@ -155,7 +155,7 @@ func TestRulesOptionalSecretAndFallback(t *testing.T) {
 						auth = values
 					}
 				}
-				r, err := m.Resolve(publisher, config, auth, selected)
+				r, err := m.Resolve(Inputs{Publisher: publisher, Config: config, Auth: auth, Method: selected})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -182,12 +182,12 @@ func TestRulesOptionalSecretAndFallback(t *testing.T) {
 }
 
 func TestRulesOAuthSelectionUsesMethodMarker(t *testing.T) {
-	data := `{"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.client_id}}","label":"OAuth","pkce":"S256","token_url":"https://example.com/token","type":"oauth2"}},"config":{"client_id":{"label":"Client","required":true,"type":"string"}},"description":"Stable selection","files":["main.luau"],"name":"OAuth rules","proxy":[{"action":{"headers":{"set":{"Authorization":"Bearer {{auth.oauth.access_token}}"}}},"if":"{{ isDefined auth.oauth }}","match":{"host":["api.example.com"],"protocol":"http"}}],"schema_version":1}`
+	data := `{"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.client_id}}","label":"OAuth","pkce":"S256","token_url":"https://example.com/token","type":"oauth2"}},"config":{"client_id":{"label":"Client","required":true,"type":"string"}},"description":"Stable selection","files":["main.luau"],"name":"OAuth rules","proxy":[{"action":{"headers":{"set":{"Authorization":"Bearer {{auth.oauth.access_token}}"}}},"if":"{{ isDefined auth.oauth }}","match":{"host":["api.example.com"],"protocol":"http"}}],"schema_version":2}`
 	m, err := Parse([]byte(data))
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := m.Resolve(nil, map[string]any{"client_id": "client"}, nil, "oauth")
+	r, err := m.Resolve(Inputs{Config: map[string]any{"client_id": "client"}, Method: "oauth"})
 	if err != nil || !reflect.DeepEqual(r.ProxyIndices, []int{0}) {
 		t.Fatalf("OAuth rule unavailable before token acquisition: %v %v", r, err)
 	}
@@ -263,14 +263,14 @@ func TestHostPatternValidation(t *testing.T) {
 }
 
 func TestTemplatedHostIsOneConnectionOrigin(t *testing.T) {
-	const store = `{"schema_version":1,"name":"Store","files":["main.luau"],
+	const store = `{"schema_version":2,"name":"Store","files":["main.luau"],
 	 "config":{"store":{"type":"string","label":"Store","required":true},"key":{"type":"secret","label":"Key","required":true}},
 	 "proxy":[{"match":{"protocol":"http","host":["{{config.store}}","api.example.com"]},"action":{"basic_auth":{"username":"user","password":"{{config.key}}"}}}]}`
 	m, err := Parse([]byte(store))
 	if err != nil {
 		t.Fatal(err)
 	}
-	r, err := m.Resolve(nil, map[string]any{"store": "Shop.Example.org", "key": "secret"}, nil, "")
+	r, err := m.Resolve(Inputs{Config: map[string]any{"store": "Shop.Example.org", "key": "secret"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -295,7 +295,7 @@ func TestTemplatedHostIsOneConnectionOrigin(t *testing.T) {
 		t.Error("unrendered rules accepted a request")
 	}
 	for _, store := range []string{"*.example.org", "https://shop.example.org", "shop.example.org/wp", "user@shop.example.org", "shop..example.org", ""} {
-		if _, err := m.Resolve(nil, map[string]any{"store": store, "key": "secret"}, nil, ""); err == nil {
+		if _, err := m.Resolve(Inputs{Config: map[string]any{"store": store, "key": "secret"}}); err == nil {
 			t.Errorf("resolved host %q", store)
 		}
 	}

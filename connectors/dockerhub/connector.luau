@@ -1,6 +1,6 @@
 -- Docker Hub API v2 (https://docs.docker.com/reference/api/hub/latest/), read anonymously. Arguments and results keep Docker Hub's native field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?,
+type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, access: string?, body: (boolean | string)?,
 	reach: number?, doc: string, about: string}
 
 local PROVIDER = "Docker Hub"
@@ -52,12 +52,6 @@ local function queryParts(value: any, field: string): {string}
 	return parts
 end
 
--- Only GET reads unless write says otherwise.
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
-
 -- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
@@ -73,7 +67,7 @@ end
 -- a top-level JSON array is accepted too, and the second result tells which one came back.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
+	if endpoint.method ~= "GET" and endpoint.access and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
 	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
 	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
@@ -108,7 +102,7 @@ end
 local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if not writes(endpoint) or config.access == "read-write" then
+		if not endpoint.access or houston.allows(endpoint.access) then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		end
 	end

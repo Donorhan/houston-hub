@@ -1,6 +1,6 @@
 local C = "dad17c50ff5d44e7a5b772fe636291a0"
 return {
-	scenario = {publisher = {}, config = {access = "read-write"}, auth_method = "token", auth_config = {token = "fixture-private-assessfirst-token"}},
+	scenario = {publisher = {}, access = {data = "write"}, config = {}, auth_method = "token", auth_config = {token = "fixture-private-assessfirst-token"}},
 	configure = function()
 		calls = 0
 		status = 200

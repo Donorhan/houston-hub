@@ -11,7 +11,7 @@ local DOMAIN = "store domain"
 
 -- WooCommerce resources share one CRUD shape; path placeholders are required parent
 -- IDs. Sensitive resources can return payment-gateway credentials, webhook secrets or
--- password settings, so they need read-write access even to read.
+-- password settings, so they need write access even to read.
 local ALL = {"list", "get", "create", "update", "delete", "batch"}
 local READ = {"list", "get"}
 local RESOURCES = {
@@ -233,12 +233,12 @@ local function signature(endpoint: Endpoint): string
 	return "({" .. table.concat(fields, ", ") .. "})"
 end
 
--- Reads, plus writes and sensitive reads on read-write connections, and help listing them
+-- Reads, plus writes and sensitive reads with write access, and help listing them
 -- after intro.
 local function operations(endpoints: {[string]: Endpoint}, call: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if (endpoint.method == "GET" and not endpoint.sensitive) or config.access == "read-write" then
+		if (endpoint.method == "GET" and not endpoint.sensitive) or houston.allows("data:write") then
 			exports[name] = function(args: Options?): any return call(name, endpoint, args) end
 		end
 	end

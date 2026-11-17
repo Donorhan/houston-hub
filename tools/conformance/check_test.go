@@ -30,7 +30,7 @@ func fixtureHost(t *testing.T) string {
 	return absolute
 }
 func TestPublicationProjectsConfigAndRequiresEveryVariant(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"config":{"enabled":{"default":false,"label":"Enabled","type":"boolean"},"private":{"label":"Private","required":true,"type":"secret"}},"description":"Publication projection","files":["main.lua"],"name":"Fixture","proxy":[{"action":{"headers":{"set":{"Authorization":"{{config.private}}"}}},"if":"{{ is config.enabled false }}","match":{"host":["one.example.com"],"protocol":"http"}},{"action":{"headers":{"set":{"Authorization":"{{config.private}}"}}},"if":"{{ is config.enabled true }}","match":{"host":["two.example.com"],"protocol":"http"}}],"schema_version":1}`))
+	m, err := manifest.Parse([]byte(`{"config":{"enabled":{"default":false,"label":"Enabled","type":"boolean"},"private":{"label":"Private","required":true,"type":"secret"}},"description":"Publication projection","files":["main.lua"],"name":"Fixture","proxy":[{"action":{"headers":{"set":{"Authorization":"{{config.private}}"}}},"if":"{{ is config.enabled false }}","match":{"host":["one.example.com"],"protocol":"http"}},{"action":{"headers":{"set":{"Authorization":"{{config.private}}"}}},"if":"{{ is config.enabled true }}","match":{"host":["two.example.com"],"protocol":"http"}}],"schema_version":2}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestPublicationRequiresBehaviorFixtures(t *testing.T) {
 }
 
 func TestPublicationFixturesUseNativeIOOperations(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"I/O fixture","proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":1}`))
+	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"I/O fixture","proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":2}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +100,7 @@ func TestPublicationFixturesUseNativeIOOperations(t *testing.T) {
 }
 
 func TestPublicationProjectsKnownAuthRestrictions(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.client_id}}","label":"OAuth","pkce":"S256","scopes":[{"values":["read","write"]}],"token_url":"https://example.com/token","type":"oauth2"}},"config":{"client_id":{"default":"public-id","label":"Client","type":"string"}},"files":["main.lua"],"name":"OAuth fixture","proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":1}`))
+	m, err := manifest.Parse([]byte(`{"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.client_id}}","label":"OAuth","pkce":"S256","scopes":[{"values":["read","write"]}],"token_url":"https://example.com/token","type":"oauth2"}},"config":{"client_id":{"default":"public-id","label":"Client","type":"string"}},"files":["main.lua"],"name":"OAuth fixture","proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":2}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestPublicationProjectsKnownAuthRestrictions(t *testing.T) {
 }
 
 func TestPublicationProjectsBoundFacts(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.client_id}}","label":"OAuth","pkce":"S256","token_response":{"facts":{"team_id":"/team/id"}},"token_url":"https://example.com/token","type":"oauth2"}},"config":{"client_id":{"default":"public-id","label":"Client","type":"string"}},"files":["main.lua"],"name":"Facts fixture","proxy":[{"action":{},"match":{"host":["example.com"],"path":["/teams/{{auth.oauth.team_id}}"],"protocol":"http"}}],"schema_version":1}`))
+	m, err := manifest.Parse([]byte(`{"auth":{"oauth":{"authorize_url":"https://example.com/auth","client_auth":"none","client_id":"{{config.client_id}}","label":"OAuth","pkce":"S256","token_response":{"facts":{"team_id":"/team/id"}},"token_url":"https://example.com/token","type":"oauth2"}},"config":{"client_id":{"default":"public-id","label":"Client","type":"string"}},"files":["main.lua"],"name":"Facts fixture","proxy":[{"action":{},"match":{"host":["example.com"],"path":["/teams/{{auth.oauth.team_id}}"],"protocol":"http"}}],"schema_version":2}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,7 @@ func TestPublicationProjectsBoundFacts(t *testing.T) {
 }
 
 func TestPublicationRequiresLuaHelp(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"Fixture","proxy":[{"action":{},"match":{"host":["mail.example.com"],"protocol":"http"}}],"schema_version":1}`))
+	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"Fixture","proxy":[{"action":{},"match":{"host":["mail.example.com"],"protocol":"http"}}],"schema_version":2}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestPublicationRequiresLuaHelp(t *testing.T) {
 }
 
 func TestPublicationComparesCompleteConfiguredHelp(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"Namespace fixture","proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":1}`))
+	m, err := manifest.Parse([]byte(`{"files":["main.lua"],"name":"Namespace fixture","proxy":[{"action":{},"match":{"host":["example.com"],"protocol":"http"}}],"schema_version":2}`))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,13 +189,13 @@ func TestPublicationComparesCompleteConfiguredHelp(t *testing.T) {
 }
 
 func TestConfiguredLuaHelpIsOfflineAndMatchesExports(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"schema_version":1,"name":"Help fixture","files":["main.lua"],"config":{"access":{"type":"string","label":"Access","default":"read-only"}},"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{}}]}`))
+	m, err := manifest.Parse([]byte(`{"schema_version":2,"name":"Help fixture","files":["main.lua"],"access":[{"name":"data","label":"Access","levels":[{"value":"read","label":"Read"},{"value":"write","label":"Write"}],"default":"read"}],"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{}}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	source := `local c={read=function() return true end}; if config.access=="read-write" then c.write=function() return true end end; c.help=function() local names={}; for name in c do if name~="help" then names[#names+1]=name.."()" end end; table.sort(names); return table.concat(names," ") end; return c`
-	for _, access := range []string{"read-only", "read-write"} {
-		resolved, err := m.Resolve(nil, map[string]any{"access": access}, nil, "")
+	source := `local c={read=function() return true end}; if access.data=="write" then c.write=function() return true end end; c.help=function() local names={}; for name in c do if name~="help" then names[#names+1]=name.."()" end end; table.sort(names); return table.concat(names," ") end; return c`
+	for _, access := range []string{"read", "write"} {
+		resolved, err := m.Resolve(manifest.Inputs{Access: map[string]string{"data": access}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -205,12 +205,12 @@ func TestConfiguredLuaHelpIsOfflineAndMatchesExports(t *testing.T) {
 			Help    string   `json:"help"`
 			Returns []any    `json:"returns"`
 		}
-		input := map[string]any{"files": m.Files, "modules": map[string]string{"main.lua": source}, "config": resolved.PublicConfig, "protocol": "http", "args": []any{}}
+		input := map[string]any{"files": m.Files, "modules": map[string]string{"main.lua": source}, "access": resolved.Context.Access, "config": resolved.PublicConfig, "protocol": "http", "args": []any{}}
 		if err = call(context.Background(), fixtureHost(t), "connector-host", input, &result); err != nil {
 			t.Fatal(err)
 		}
 		want := "read()"
-		if access == "read-write" {
+		if access == "write" {
 			want += " write()"
 		}
 		if result.Help != want || strings.Contains(strings.Join(result.Exports, " "), "help") {
@@ -225,7 +225,7 @@ func TestConfiguredLuaHelpIsOfflineAndMatchesExports(t *testing.T) {
 }
 
 func TestFixturesResolveDatabaseConnectionsAndExpectedSettingsErrors(t *testing.T) {
-	m, err := manifest.Parse([]byte(`{"schema_version":1,"name":"Database","files":["main.lua"],"config":{"port":{"type":"integer","label":"Port","default":5432},"password":{"type":"secret","label":"Password","required":true}},"proxy":[{"match":{"protocol":"postgres"},"action":{"connection":{"host":"db.example.com","port":"{{config.port}}","database":"app","user":"reader","password":"{{config.password}}"}}}]}`))
+	m, err := manifest.Parse([]byte(`{"schema_version":2,"name":"Database","files":["main.lua"],"config":{"port":{"type":"integer","label":"Port","default":5432},"password":{"type":"secret","label":"Password","required":true}},"proxy":[{"match":{"protocol":"postgres"},"action":{"connection":{"host":"db.example.com","port":"{{config.port}}","database":"app","user":"reader","password":"{{config.password}}"}}}]}`))
 	if err != nil {
 		t.Fatal(err)
 	}

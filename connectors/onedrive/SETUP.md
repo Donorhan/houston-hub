@@ -1,8 +1,8 @@
 # Connect your Microsoft account
 
-1. Choose the access level:
-   - **Read-only** to let agents read without changing anything.
-   - **Read and write** to also let agents upload, organize, share and delete files.
+1. Choose the level for **Access**:
+   - **Read** to let agents read without changing anything.
+   - **Write** to also let agents upload, organize, share and delete files.
 2. Select **Continue with Microsoft**, sign in with your personal, work or
    school account, and select **Accept** on the permissions Microsoft lists.
 

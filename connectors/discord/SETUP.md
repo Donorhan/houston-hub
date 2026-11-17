@@ -3,7 +3,7 @@
 You need **Manage Server** permission. Houston installs its own bot; no app setup
 is required.
 
-1. Choose **Read-only** or **Read and write** in Houston.
+1. Choose **Read** or **Write** for **Access** in Houston.
 2. Select **Continue with Discord**, sign in and choose the server.
 3. Review permissions and select **Authorize**.
 
@@ -14,7 +14,7 @@ is required.
 ## Advanced
 
 Discord grants the same bot permissions at either access level; Houston blocks
-writes on read-only connections. Adjust the bot's role/channel permissions to
+writes on connections with **Read** access. Adjust the bot's role/channel permissions to
 restrict reading, posting, threads or reactions. Missing messages may mean the bot
 lacks **View Channels** or **Read Message History**; contact Houston support if
 message text is empty despite those permissions.

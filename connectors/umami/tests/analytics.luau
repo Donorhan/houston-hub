@@ -1,5 +1,5 @@
 return {
- scenario={config={access="read-only"},auth_method="token",auth_config={key="fixture-key"}},
+ scenario={config={},auth_method="token",auth_config={key="fixture-key"}},
  configure=function()
   requests={}
   responseValue={data={},count=0,page=1,pageSize=20}

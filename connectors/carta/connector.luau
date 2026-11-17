@@ -1,6 +1,6 @@
 -- Carta API Platform v1alpha1. Arguments and results keep Carta's native camelCase field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?, upload: string?, doc: string, about: string}
+type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, access: string?, body: (boolean | string)?, upload: string?, doc: string, about: string}
 
 local PROVIDER = "Carta"
 local API = if auth.method == "playground" then "https://api.playground.carta.team" else "https://api.carta.com"
@@ -12,14 +12,14 @@ local AS_OF = {"asOfDate", "pageSize", "pageToken"}
 
 -- Operations of Carta's API reference, checked on 2026-10-19. Path {fields} are required;
 -- listed query fields are taken from the options and the other fields form the JSON body of
--- POST requests. Reads that need a readwrite_ scope or return a credential are marked write = true.
+-- POST requests. Writes, and reads that need a readwrite_ scope or return a credential, need access = "data:write".
 local endpoints: {[string]: Endpoint} = {
 	getCurrentUser = {method = "GET", path = "/v1alpha1/user", doc = "user-get-current-user", about = "{user={id, firstName, lastName, email}}."},
 
 	listIssuers = {method = "GET", path = "/v1alpha1/issuers", query = PAGE, doc = "issuers-list-issuers", about = "Companies whose cap tables you can access, {issuers, nextPageToken}."},
 	getIssuer = {method = "GET", path = "/v1alpha1/issuers/{id}", doc = "issuers-get-issuer", about = "A company."},
 	listPointsOfContact = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/pointsOfContact", doc = "issuers-list-points-of-contact", about = "The company's contacts."},
-	getStockSplitChanges = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/securities:stockSplitChanges", required = {"securities", "since"}, write = false,
+	getStockSplitChanges = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/securities:stockSplitChanges", required = {"securities", "since"},
 		doc = "issuers-get-stock-split-asset-changes", about = "Body {securities={{securityType (lowercase: option_grant or certificate), securityId}}, since={value=date-time}}. Whether a stock split changed those securities since then: {affectedAssets, asOf, splitOccurredSince, ...}."},
 	getIssuerCapitalizationTable = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/capitalizationTable", query = {"asOfDate"}, doc = "issuers-get-capitalization-table",
 		about = "Cap table summary by share class."},
@@ -46,19 +46,19 @@ local endpoints: {[string]: Endpoint} = {
 	listRestrictedStockUnits = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/restrictedStockUnits", query = MODIFIED, doc = "issuers-list-restricted-stock-units", about = ""},
 	getRestrictedStockUnit = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/restrictedStockUnits/{id}", doc = "issuers-get-restricted-stock-unit", about = ""},
 	listOptionExercises = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/optionExercises", query = PAGE, doc = "issuers-list-option-exercises", about = "pageSize up to 100."},
-	updateExerciseMoneyMovement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/optionExercises/{exerciseId}:updateMoneyMovement", doc = "issuers-update-money-movement",
+	updateExerciseMoneyMovement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/optionExercises/{exerciseId}:updateMoneyMovement", access = "data:write", doc = "issuers-update-money-movement",
 		about = "Body {moneyMovement={completionDate={value=date}}}: when the exercise funds were received."},
-	updateExerciseTaxWithholding = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/optionExercises/{exerciseId}:updateTaxWithholding", doc = "issuers-update-tax-withholding",
+	updateExerciseTaxWithholding = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/optionExercises/{exerciseId}:updateTaxWithholding", access = "data:write", doc = "issuers-update-tax-withholding",
 		about = "Body {taxWithholdings={{name, rate={value}, taxes=money, jurisdiction={country={value}, countrySubdivision?={value}, city?}}}}."},
-	createDraftOptionGrant = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/draftOptionGrantSets/{draftOptionGrantSetId}/draftOptionGrants", required = {"draftOptionGrant"},
+	createDraftOptionGrant = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/draftOptionGrantSets/{draftOptionGrantSetId}/draftOptionGrants", access = "data:write", required = {"draftOptionGrant"},
 		doc = "issuers-draftsecurities-create-draft-option-grant", about = "Body {draftOptionGrant}; see the reference for its fields (dates are {year, month, day}). A grant awaiting board approval; vesting templates come from listVestingScheduleTemplates."},
 	getDraftOptionGrant = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/draftOptionGrantSets/{draftOptionGrantSetId}/draftOptionGrants/{draftOptionGrantId}",
 		doc = "issuers-draftsecurities-get-draft-option-grant", about = ""},
-	initiateSecondarySettlement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions", required = {"externalReferenceId", "rightOfFirstRefusalOutcome", "pricePerShare", "securities"},
+	initiateSecondarySettlement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions", access = "data:write", required = {"externalReferenceId", "rightOfFirstRefusalOutcome", "pricePerShare", "securities"},
 		doc = "issuers-initiate-settlement", about = "Body {externalReferenceId, rightOfFirstRefusalOutcome, pricePerShare=money, securities={{securityType (option_grant or certificate), securityId, stockOptionType? (ISO or NSO), quantity={value}}}, buyerInformation?}; buyerInformation is required for WAIVED and EXERCISED_BY_STAKEHOLDER. Soft-locks the securities; keep secondaryTransactionId and follow transactionState."},
-	getSecondaryTransaction = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}", write = true,
+	getSecondaryTransaction = {method = "GET", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}", access = "data:write",
 		doc = "issuers-get-secondary-transaction", about = "State and per-security settlement outcome, including tax withholding."},
-	finalizeSecondarySettlement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}:finalize",
+	finalizeSecondarySettlement = {method = "POST", path = "/v1alpha1/issuers/{issuerId}/secondaryTransactions/{secondaryTransactionId}:finalize", access = "data:write",
 		doc = "issuers-finalize-settlement", about = "Body {securities?={{securityId, stockOptionType?, taxLineItems?}}}. Confirms all money movement (irreversible) is complete; the issuer still approves before the cap table changes."},
 
 	listCorporations = {method = "GET", path = "/v1alpha1/corporations", query = PAGE, doc = "corporations-list-corporations", about = "Corporations for Carta Total Compensation."},
@@ -68,14 +68,14 @@ local endpoints: {[string]: Endpoint} = {
 		query = {"postMoneyValuationBucket", "geoAdjustmentLocation", "jobArea", "compensationType", "jobSpecialization", "jobLevel", "pageSize", "pageToken"},
 		required = {"postMoneyValuationBucket", "geoAdjustmentLocation", "jobArea"}, doc = "compensation-get-compensation-benchmarks", about = "pageSize default and maximum 100."},
 
-	createDraftIssuer = {method = "POST", path = "/v1alpha1/draftIssuers", doc = "draft-issuers-create-draft-issuer",
+	createDraftIssuer = {method = "POST", path = "/v1alpha1/draftIssuers", access = "data:write", doc = "draft-issuers-create-draft-issuer",
 		about = "Body {draftIssuer}; see the reference for its fields. Starts a company on Carta Launch; the result's registrationUrl is a one-time link for its primary contact."},
-	getDraftIssuer = {method = "GET", path = "/v1alpha1/draftIssuers/{id}", write = true, doc = "draft-issuers-get-draft-issuer",
+	getDraftIssuer = {method = "GET", path = "/v1alpha1/draftIssuers/{id}", access = "data:write", doc = "draft-issuers-get-draft-issuer",
 		about = "Includes the primary contact's one-time registrationUrl; treat it as a secret."},
-	uploadOpenCapTable = {method = "POST", path = "/v1alpha1/openCapTables", extra = {"path"}, required = {"path"}, body = false, upload = "application/zip", doc = "open-cap-tables-upload-open-cap-table",
+	uploadOpenCapTable = {method = "POST", path = "/v1alpha1/openCapTables", access = "data:write", extra = {"path"}, required = {"path"}, body = false, upload = "application/zip", doc = "open-cap-tables-upload-open-cap-table",
 		about = "Sends the OCF ZIP archive at session file path as the raw body. Carta stores submissions during its beta; getOpenCapTable reports state."},
 	getOpenCapTable = {method = "GET", path = "/v1alpha1/openCapTables/{id}", doc = "open-cap-tables-get-open-cap-table", about = "Processing status of an OCF upload."},
-	uploadFile = {method = "POST", path = "/v1alpha1/files:upload", required = {"file"}, doc = "files-upload-file",
+	uploadFile = {method = "POST", path = "/v1alpha1/files:upload", access = "data:write", required = {"file"}, doc = "files-upload-file",
 		about = "Body {file={filePayload (base64, at most 3.5 MiB), uploadDetails={name, description?, tags?}}}."},
 
 	listFirms = {method = "GET", path = "/v1alpha1/investors/firms", query = PAGE, doc = "investors-list-firms", about = "Investment firms you can access."},
@@ -106,21 +106,21 @@ local endpoints: {[string]: Endpoint} = {
 		doc = "investors-list-partner-contacts", about = "pageSize default 50, up to 100."},
 	listFundInterests = {method = "GET", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/interests", query = PAGE, doc = "investors-list-fund-interests",
 		about = "Partner interests; their id is the interestId the accounting writes take. pageSize default 50, up to 100."},
-	createCapitalCall = {method = "POST", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls",
+	createCapitalCall = {method = "POST", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls", access = "data:write",
 		required = {"externalReferenceId", "sourceSystem", "dueDate", "amount", "postAsDraft"}, doc = "investors-create-capital-call",
 		about = "Body {externalReferenceId, sourceSystem, dueDate={value=date}, amount={value=decimal}, postAsDraft, interestIds?, purpose?, paymentDetailsId?}. Allocates the amount across the fund's interests (all when interestIds is empty). postAsDraft=false releases the call, posts its journal and may email partners; prefer true."},
-	getCapitalCall = {method = "GET", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls/{capitalCallId}", write = true,
+	getCapitalCall = {method = "GET", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls/{capitalCallId}", access = "data:write",
 		doc = "investors-get-capital-call", about = "Status and allocation."},
-	adjustCapitalCall = {method = "POST", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls/{capitalCallId}:adjust",
+	adjustCapitalCall = {method = "POST", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/capitalCalls/{capitalCallId}:adjust", access = "data:write",
 		required = {"externalReferenceId", "sourceSystem", "amount"}, doc = "investors-adjust-capital-call",
 		about = "Body {externalReferenceId, sourceSystem, amount={value=decimal}, note?}. Changes the total of an unreleased call and reallocates it."},
-	createCarriedInterestAllocation = {method = "POST", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/carriedInterestAllocations",
+	createCarriedInterestAllocation = {method = "POST", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/carriedInterestAllocations", access = "data:write",
 		required = {"externalReferenceId", "sourceSystem", "effectiveDate", "deltas"}, doc = "investors-create-carried-interest-allocation",
 		about = "Body {externalReferenceId, sourceSystem, effectiveDate={value=date}, deltas={{interestId, amount={value=decimal}}}, notes?}; deltas net to zero with at most 2 decimals. Books carried interest calculated outside Carta."},
-	createManagementFee = {method = "POST", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/managementFees",
+	createManagementFee = {method = "POST", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/managementFees", access = "data:write",
 		required = {"externalReferenceId", "sourceSystem", "periodStart", "periodEnd", "effectiveDate", "amount", "interestAmounts"}, doc = "investors-create-management-fee",
 		about = "Body {externalReferenceId, sourceSystem, periodStart, periodEnd, effectiveDate (each {value=date}), amount=money, interestAmounts={{interestId, amount={value=decimal}}}}; interestAmounts sum to amount. Posts the fee journal."},
-	getManagementFee = {method = "GET", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/managementFees/{managementFeeId}", write = true,
+	getManagementFee = {method = "GET", path = "/v1alpha1/investors/firms/{firmId}/funds/{fundId}/managementFees/{managementFeeId}", access = "data:write",
 		doc = "investors-get-management-fee", about = "A fee booked by createManagementFee, with its journal state."},
 
 	listPortfolios = {method = "GET", path = "/v1alpha1/portfolios", query = PAGE, doc = "portfolios-issuers-list-portfolios", about = "Your shareholder portfolios."},
@@ -181,12 +181,6 @@ local function queryParts(value: any, field: string): {string}
 	return parts
 end
 
--- Only GET reads unless write says otherwise.
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
-
 -- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
@@ -202,7 +196,7 @@ end
 -- a top-level JSON array is accepted too, and the second result tells which one came back.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
+	if endpoint.method ~= "GET" and endpoint.access and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
 	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
 	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
@@ -237,7 +231,7 @@ end
 local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if not writes(endpoint) or config.access == "read-write" then
+		if not endpoint.access or houston.allows(endpoint.access) then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		end
 	end

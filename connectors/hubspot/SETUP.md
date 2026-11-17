@@ -1,12 +1,16 @@
 # Connect HubSpot
 
-1. Choose **Read-only** or **Read and write** and select **Authorize connection**.
+1. Choose **None**, **Read** or **Write** for **Contacts**, **Companies**, **Deals**,
+   **Tickets** and **Activities**, and select **Authorize connection**.
 2. In HubSpot, choose the account to connect, review the permissions Houston asks for
    and select **Connect app**.
 
 > Connecting installs Houston's app in the HubSpot account, which needs a Super Admin
-> or a user with the **HubSpot Marketplace access** permission. Switching a connection
-> to **Read and write** asks HubSpot for the extra permissions again.
+> or a user with the **HubSpot Marketplace access** permission. Raising a level asks
+> HubSpot for the extra permissions again.
+
+HubSpot has no separate permissions for activities (notes, tasks, calls, meetings and
+logged emails), so Houston enforces the **Activities** level.
 
 ## Advanced
 
@@ -24,14 +28,15 @@ in HubSpot:
 
 Scopes to tick:
 
-- For reading: `crm.objects.contacts.read`, `crm.objects.companies.read`,
-  `crm.objects.deals.read`, `crm.objects.tickets.read`, `crm.objects.owners.read`,
-  `crm.schemas.contacts.read`, `crm.schemas.companies.read`, `crm.schemas.deals.read`,
-  `crm.schemas.tickets.read` and `sales-email-read`.
-- For **Read and write**, also: `crm.objects.contacts.write`, `crm.objects.companies.write`,
-  `crm.objects.deals.write` and `crm.objects.tickets.write`.
+| Access | Read | Write |
+| --- | --- | --- |
+| Always | `crm.objects.owners.read`, `sales-email-read` | |
+| Contacts | `crm.objects.contacts.read`, `crm.schemas.contacts.read` | also `crm.objects.contacts.write` |
+| Companies | `crm.objects.companies.read`, `crm.schemas.companies.read` | also `crm.objects.companies.write` |
+| Deals | `crm.objects.deals.read`, `crm.schemas.deals.read` | also `crm.objects.deals.write` |
+| Tickets | `crm.objects.tickets.read`, `crm.schemas.tickets.read` | also `crm.objects.tickets.write` |
 
-Houston still enforces **Read-only** when the key allows writes.
+Houston still enforces each level you choose when the key allows more.
 
 ### Existing private app
 

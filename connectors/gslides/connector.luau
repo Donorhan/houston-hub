@@ -3,7 +3,7 @@ local API = "https://slides.googleapis.com/v1"
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
+type Endpoint = {method: string, path: string, access: string?, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
@@ -119,16 +119,16 @@ end
 local exports: {[string]: any} = {}
 local help: {[string]: string} = {}
 
--- Exposes an operation when it only reads or the connection allows writes.
-local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
-	if isRead or config.access == "read-write" then
+-- Exposes an operation when the connection allows the access it needs, if any.
+local function export(name: string, access: string?, fn: (any) -> any, doc: string)
+	if access == nil or houston.allows(access) then
 		exports[name], help[name] = fn, doc
 	end
 end
 
 local function exportEndpoints(endpoints: {[string]: Endpoint})
 	for name, endpoint in endpoints do
-		export(name, endpoint.read, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
+		export(name, endpoint.access, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
 	end
 end
 
@@ -147,15 +147,15 @@ end
 
 local PAGE = "{objectId, pageType, revisionId?, pageElements=[{objectId, size, transform, title?, description?, shape?={shapeType, text?={textElements=[{startIndex?, endIndex, textRun?={content, style}, autoText?, paragraphMarker?}]}, placeholder?={type, index?}}, table?={rows, columns, tableRows=[{tableCells=[{text?}]}]}, image?, video?, line?, sheetsChart?, wordArt?, elementGroup?={children}}], slideProperties?={layoutObjectId, isSkipped?, notesPage}}"
 local endpoints: {[string]: Endpoint} = {
-	getPresentation = {method = "GET", path = "/presentations/{presentationId}", read = true, query = {"commentsViewMode", "fields"},
+	getPresentation = {method = "GET", path = "/presentations/{presentationId}", query = {"commentsViewMode", "fields"},
 		help = "getPresentation({presentationId, commentsViewMode?, fields?}) -> {presentationId, title, revisionId?, locale, pageSize={width, height}, slides=[" .. PAGE .. "], layouts=[{objectId, layoutProperties={displayName}}], masters, notesMaster}. slides are in presentation order, and absent for an empty deck; pageElements are in stacking order, back to front. Fields equal to 0 are omitted, such as a translateX at the left edge. revisionId is present only for editors and valid for 24 hours. Every layout and master comes too, and responses over 8 MiB fail: fields='presentationId,title,revisionId,slides.objectId' lists the slide IDs only. commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' adds comments=[{commentId, anchorId, headPost={postId, author, content, createTime}, replies, status, plainTextQuote}] and each slide's commentAnchors, or fails with HTTP 403 for users who cannot see comments."},
-	getPage = {method = "GET", path = "/presentations/{presentationId}/pages/{pageObjectId}", read = true, query = {"commentsViewMode", "fields"},
+	getPage = {method = "GET", path = "/presentations/{presentationId}/pages/{pageObjectId}", query = {"commentsViewMode", "fields"},
 		help = "getPage({presentationId, pageObjectId, commentsViewMode?, fields?}) -> " .. PAGE .. ". One slide, layout, master or notes page; with commentsViewMode, also its comments and commentAnchors."},
-	getThumbnail = {method = "GET", path = "/presentations/{presentationId}/pages/{pageObjectId}/thumbnail", read = true, query = {"thumbnailProperties.thumbnailSize"},
+	getThumbnail = {method = "GET", path = "/presentations/{presentationId}/pages/{pageObjectId}/thumbnail", query = {"thumbnailProperties.thumbnailSize"},
 		help = "getThumbnail({presentationId, pageObjectId, thumbnailSize?}) -> {width, height, contentUrl}. Renders the page as a PNG; thumbnailSize is SMALL (200 px wide), MEDIUM (800), LARGE (1600) or WIDTH2000_PX, else Google's choice. contentUrl is the image link: a plain GET without credentials fetches it for 30 minutes. Google allows only about 60 thumbnails per minute per user."},
-	createPresentation = {method = "POST", path = "/presentations", read = false, body = true,
+	createPresentation = {method = "POST", path = "/presentations", access = "data:write", body = true,
 		help = "createPresentation({title?}) -> the new presentation, with presentationId, revisionId and one title slide whose placeholders are CENTERED_TITLE and SUBTITLE. Creates it in the root of My Drive with an ID Google chooses; Google ignores fields other than title and presentationId, which this connector leaves to Google, so add content with batchUpdate."},
-	batchUpdate = {method = "POST", path = "/presentations/{presentationId}:batchUpdate", read = false, body = true, required = {requests = "array"},
+	batchUpdate = {method = "POST", path = "/presentations/{presentationId}:batchUpdate", access = "data:write", body = true, required = {requests = "array"},
 		help = "batchUpdate({presentationId, requests, writeControl?}) -> {presentationId, replies, writeControl, commentUpdateState?}. Applies requests in order, all or nothing; replies match requests one to one, e.g. {createSlide={objectId}} or {insertComment={commentThread={commentId}}}. Kinds include createSlide={objectId?, insertionIndex?, slideLayoutReference?={predefinedLayout='TITLE_AND_BODY'|'TITLE_ONLY'|'BLANK'|'SECTION_HEADER'...} or {layoutId}, placeholderIdMappings?={{layoutPlaceholder={type='TITLE'|'BODY'|'CENTERED_TITLE'|'SUBTITLE', index?}, objectId}}}; a predefinedLayout fails with HTTP 400 when the deck's master lacks it, as in many themed decks: pass layoutId from getPresentation's layouts instead. Also duplicateObject={objectId}, deleteObject={objectId}, updateSlidesPosition={slideObjectIds, insertionIndex}, updateSlideProperties={objectId, slideProperties={isSkipped}, fields='isSkipped'}, replaceAllText={containsText={text, matchCase?, searchByRegex?}, replaceText, pageObjectIds?}, insertText={objectId, text, insertionIndex?, cellLocation?={rowIndex, columnIndex}}, deleteText={objectId, textRange={type='ALL'} or {type='FIXED_RANGE', startIndex, endIndex}}, updateTextStyle={objectId, textRange, style={bold?, fontSize?={magnitude, unit='PT'}, link?={url}, ...}, fields='bold'}, updateParagraphStyle={objectId, textRange, style={alignment='CENTER'}, fields='alignment'}, createParagraphBullets={objectId, textRange, bulletPreset='BULLET_DISC_CIRCLE_SQUARE'|'NUMBERED_DIGIT_ALPHA_ROMAN'}, createShape={objectId?, shapeType='TEXT_BOX'|'RECTANGLE'..., elementProperties={pageObjectId, size, transform}}, createImage={url, elementProperties} (a public PNG, JPEG or GIF under 50 MB), createTable={rows, columns, elementProperties}, replaceAllShapesWithImage, updateShapeProperties, updatePageProperties, updatePageElementTransform, groupObjects, insertComment={content, objectId or shapeTextAnchor or tableCellTextAnchor or tableAnchor, assigneeEmailAddress?}, addCommentReply={commentId, post={content?, commentAction?='RESOLVE'|'REOPEN'}}, updateCommentPost, deleteComment and deleteCommentReply (your own posts only). createSheetsChart, replaceAllShapesWithSheetsChart and refreshSheetsChart need Sheets access this connector does not request. Text indexes count UTF-16 code units within one shape or table cell, not the UTF-8 bytes # counts: é is 1 unit and an emoji 2. Take them from getPage's textElements, never from offsets in getPresentationText. insertText without insertionIndex inserts at the start: prefer replaceAllText for edits, and deleteText with textRange={type='ALL'} then insertText to replace a shape's text. A shape's final newline cannot be deleted. Sizes and positions use EMU: 914400 per inch, 12700 per point, e.g. size={width={magnitude=3000000, unit='EMU'}, height={magnitude=500000, unit='EMU'}}, transform={scaleX=1, scaleY=1, translateX=311700, translateY=1000000, unit='EMU'}; pageSize from getPresentation gives the slide's size. Give new objects your own objectId, 5 to 50 letters, digits, _, - or : starting with a letter, digit or _, to edit them later in the same batch. Speaker notes are the shape whose ID is slideProperties.notesPage.notesProperties.speakerNotesObjectId: write them with insertText on that ID, which creates the shape if needed. A new slide's notes ID is known only after a getPage, so write its notes in a second batch. Comments can fail while other edits are saved: when a batch writes comments, check that commentUpdateState is ALL_SAVED, not ALL_FAILED_UNKNOWN_REASON; other batches report NO_UPDATES_REQUESTED or omit it. writeControl={requiredRevisionId=deck.revisionId} fails with HTTP 400 if the presentation changed since that read. Example: requests={{createSlide={objectId='q3_summary', slideLayoutReference={predefinedLayout='TITLE_AND_BODY'}, placeholderIdMappings={{layoutPlaceholder={type='TITLE'}, objectId='q3_summary_title'}, {layoutPlaceholder={type='BODY'}, objectId='q3_summary_body'}}}}, {insertText={objectId='q3_summary_title', text='Q3 results'}}, {insertText={objectId='q3_summary_body', text='Revenue up 12%\\nTwo new customers'}}}."},
 }
 
@@ -169,12 +169,12 @@ local function withPresentation(name: string, endpoint: Endpoint, args: Options)
 end
 for name, endpoint in endpoints do
 	if name ~= "getThumbnail" then
-		export(name, endpoint.read, function(input: any): any return withPresentation(name, endpoint, options(input)) end, endpoint.help)
+		export(name, endpoint.access, function(input: any): any return withPresentation(name, endpoint, options(input)) end, endpoint.help)
 	end
 end
 -- Only PNG exists, so thumbnails take just a size, under a plain name.
 local SIZES = table.freeze({SMALL = true, MEDIUM = true, LARGE = true, WIDTH2000_PX = true})
-export("getThumbnail", true, function(input: any): any
+export("getThumbnail", nil, function(input: any): any
 	local args = options(input)
 	assert(args["thumbnailProperties.thumbnailSize"] == nil, "getThumbnail received an unknown option")
 	assert(args.thumbnailSize == nil or SIZES[args.thumbnailSize], "thumbnailSize must be SMALL, MEDIUM, LARGE or WIDTH2000_PX")
@@ -229,7 +229,7 @@ local RUNS = "text.textElements(textRun.content,autoText.content)"
 local ELEMENT = "shape." .. RUNS .. ",table.tableRows.tableCells." .. RUNS .. ",wordArt.renderedText"
 local TEXT_FIELDS = "presentationId,title,revisionId,slides(objectId,pageElements(" .. ELEMENT .. ",elementGroup.children(" .. ELEMENT .. ",elementGroup.children(" .. ELEMENT
 	.. ",elementGroup))),slideProperties(isSkipped,notesPage(notesProperties.speakerNotesObjectId,pageElements(objectId,shape." .. RUNS .. "))))"
-export("getPresentationText", true, function(input: any): Options
+export("getPresentationText", nil, function(input: any): Options
 	local args = options(input)
 	assert(args.fields == nil and args.commentsViewMode == nil, "getPresentationText received an unknown option")
 	args.fields = TEXT_FIELDS
@@ -250,7 +250,7 @@ local overview = {
 	"Every contentUrl, of thumbnails and images alike, opens without sign-in as the connected account for 30 minutes: show it only to people who may see the presentation, and never print, log or store it.",
 	"No hidden paging or retries. Errors report the HTTP status and Google's message. Google allows about 600 reads, 60 thumbnails and 60 writes per minute per user, and 3000, 300 and 600 per minute across all Houston users; HTTP 429 errors are retryable after a pause.",
 }
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	table.insert(overview, "Writes change slides, their content and comments. An empty Luau table encodes as a JSON object: write an empty array as json.decode('[]'). Presentations cannot be deleted, renamed, moved or shared here: use the Google Drive connector. A failed or timed-out write may already have succeeded: check with getPresentation, adding commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' after comment writes, before repeating it, give new slides and elements your own objectId so a repeat fails with HTTP 400 instead of adding them twice, or pass writeControl={requiredRevisionId=deck.revisionId}, with deck read by getPresentation.")
 end
 exports.help = helpWith(overview)

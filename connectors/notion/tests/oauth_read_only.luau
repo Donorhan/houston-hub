@@ -1,6 +1,6 @@
 return {
  scenario={publisher={client_id="fixture-client",client_secret="fixture-private-secret"},auth_method="oauth",auth_config={}},
- config={access="read-only"},
+ access={data="read"},
  configure=function()
   calls=0
   http={request=function(req)

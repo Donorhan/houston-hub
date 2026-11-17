@@ -5,7 +5,7 @@ description: Send email through Resend, check deliveries, answer inbox threads, 
 # Resend
 
 Let agents review deliveries, received mail, inbox threads, contacts, broadcasts
-and templates. **Read and write** also permits sending and replying, managing
+and templates. **Write** access also permits sending and replying, managing
 contacts and subscriptions, and configuring domains, inboxes and automations.
 
 > Sends, replies, broadcasts and automations reach real people and count toward

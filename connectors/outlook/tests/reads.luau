@@ -1,6 +1,6 @@
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	config = {access = "read-only"},
+	access = {data = "read"},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
@@ -24,7 +24,7 @@ return {
 		local names = {}
 		for name in c do table.insert(names, name) end
 		table.sort(names)
-		assert(table.concat(names, ",") == "getAttachment,getMailFolder,getMessage,getProfile,listAttachments,listMailFolders,listMessages", "read-only got " .. table.concat(names, ","))
+		assert(table.concat(names, ",") == "getAttachment,getMailFolder,getMessage,getProfile,listAttachments,listMailFolders,listMessages", "read got " .. table.concat(names, ","))
 
 		responses = {{body = '{"id":"u1","mail":null,"userPrincipalName":"ana@outlook.com"}'}, {body = '{"id":"AAMkInbox","unreadItemCount":3}'}}
 		assert(c.getProfile().userPrincipalName == "ana@outlook.com")

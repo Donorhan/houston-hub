@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {access = "read-write"}, auth_method = "token", auth_config = {token = "sk_fixture"}},
+	scenario = {publisher = {}, access = {data = "write"}, config = {}, auth_method = "token", auth_config = {token = "sk_fixture"}},
 	configure = function()
 		requests = {}
 		status = 200
@@ -35,7 +35,7 @@ return {
 		for name in revenuecat do table.insert(names, name) end
 		table.sort(names)
 		assert(table.concat(names, ",") == "attachPackageProducts,createOffering,createPackage,deletePackage,detachPackageProducts,getApp,getCustomer,getEntitlement,getOffering,getOverviewMetrics,getPackage,getProduct,getPurchase,getSubscription,grantEntitlement,listApps,listCustomerActiveEntitlements,listCustomerPurchases,listCustomerSubscriptions,listCustomers,listEntitlementProducts,listEntitlements,listOfferings,listPackageProducts,listPackages,listProducts,listProjects,listSubscriptionEntitlements,revokeGrantedEntitlement,updateOffering,updatePackage",
-			"wrong read-write surface: " .. table.concat(names, ","))
+			"wrong write surface: " .. table.concat(names, ","))
 
 		status, payload = 201, '{"object":"customer","id":"user-1","active_entitlements":{"object":"list","items":[{"object":"customer.active_entitlement","entitlement_id":"entl1","expires_at":1793143768000}],"next_page":null,"url":"/v2/x"}}'
 		local granted = revenuecat.grantEntitlement({project_id = "proj1ab2c3d4", customer_id = "user-1", entitlement_id = "entl1", expires_at = 1793143768000})

@@ -2,8 +2,8 @@ return {
 	contract = function(m)
 		local graph = "https://graph.microsoft.com/v1.0"
 		local api = graph .. "/me/drive"
-		for access, scope in {["read-only"] = "Files.Read", ["read-write"] = "Files.ReadWrite"} do
-			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {access = access}, nil, "oauth")
+		for access, scope in {read = "Files.Read", write = "Files.ReadWrite"} do
+			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {}, nil, "oauth", {data = access})
 			assert(r and not err, tostring(err))
 			assert(m.equal(r.Scopes, {"offline_access", "User.Read", scope}), "requested OAuth scopes for " .. access)
 			r.Context.Auth.oauth.access_token = "fixture-token"
@@ -32,8 +32,8 @@ return {
 				"PUT " .. api .. "/root:/report.pdf:/content?@microsoft.graph.conflictBehavior=rename",
 				"PUT " .. api .. "/items/D4648F06C91D9D3D%21101:/Q3%20plan.pdf:/content?@microsoft.graph.conflictBehavior=replace",
 			}
-			m.routes(r, "Bearer fixture-token", access == "read-write", writes)
-			if access == "read-write" then m.rejectOverrides(r, writes) end
+			m.routes(r, "Bearer fixture-token", access == "write", writes)
+			if access == "write" then m.rejectOverrides(r, writes) end
 			-- The token stays off Microsoft's token endpoint, batches, other APIs, sharing-link redemption,
 			-- lookalike hosts and routes the connector never calls: upload sessions, permanent deletes,
 			-- other drives' items, mail and thumbnails. The proxy cannot filter queries, so the connector

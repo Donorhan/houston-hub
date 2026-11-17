@@ -3,8 +3,8 @@ return {
 		-- TestIncidentioAccessRoutes
 		do
 			local api = "https://api.incident.io"
-			for _, access in { "read-only", "read-write" } do
-				local r, err = m.resolve(nil, { access = access }, { token = "inc_fixture" }, "token")
+			for _, access in { "read", "write" } do
+				local r, err = m.resolve(nil, {}, { token = "inc_fixture" }, "token", { data = access })
 				assert(not err, tostring(err))
 				m.routes(r, "Bearer inc_fixture", true, {
 					"GET " .. api .. "/v1/identity",
@@ -34,7 +34,7 @@ return {
 					"GET " .. api .. "/v3/catalog_entries?catalog_type_id=01HZCT",
 					"GET " .. api .. "/v3/catalog_entries/01HZCE?expand=true",
 				})
-				m.routes(r, "Bearer inc_fixture", (access == "read-write"), {
+				m.routes(r, "Bearer inc_fixture", (access == "write"), {
 					"POST " .. api .. "/v2/incidents",
 					"POST " .. api .. "/v2/incidents/01HZINC/actions/edit",
 					"POST " .. api .. "/v2/incident_updates",

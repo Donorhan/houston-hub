@@ -42,22 +42,26 @@ return {
 			end
 		end
 		m.sortedEqual(want, got)
-		local hosts = {
-			"codeload.github.com",
-			"release-assets.githubusercontent.com",
-			"objects.githubusercontent.com",
-			"objects-origin.githubusercontent.com",
-			"github-releases.githubusercontent.com",
-			"gist.githubusercontent.com",
-			"*.actions.githubusercontent.com",
-			"*.blob.core.windows.net",
+		-- Each download host travels without credentials and only with the row it serves.
+		local downloads = {
+			[m.accessGate("code:read")] = {
+				"codeload.github.com",
+				"release-assets.githubusercontent.com",
+				"objects.githubusercontent.com",
+				"objects-origin.githubusercontent.com",
+				"github-releases.githubusercontent.com",
+			},
+			[m.accessGate("gists:read")] = { "gist.githubusercontent.com" },
+			[m.accessGate("actions:read")] = { "*.actions.githubusercontent.com", "*.blob.core.windows.net" },
 		}
-		assert(
-			#free == 1
-				and m.equal(free[1].match.host, hosts)
-				and m.equal(free[1].match.method, { "GET" })
-				and m.equal(free[1].action.headers.remove, { "Authorization" }),
-			"download rule credentials or hosts changed"
-		)
+		assert(#free == m.count(downloads), "download rules changed")
+		for _, rule in free do
+			assert(
+				m.equal(rule.match.host, downloads[rule["if"]])
+					and m.equal(rule.match.method, { "GET" })
+					and m.equal(rule.action.headers.remove, { "Authorization" }),
+				"download rule credentials, hosts or access changed"
+			)
+		end
 	end,
 }

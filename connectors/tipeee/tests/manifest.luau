@@ -2,13 +2,14 @@ return {
 	contract = function(m)
 		-- TestTipeeeCreatorRoutesAndQueryCredentials
 		do
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				do
 					local r, err = m.resolve(
 						nil,
-						{ access = access },
+						{},
 						{ token = "synthetic +&token" },
-						"token"
+						"token",
+						{ data = access }
 					)
 					assert(not err, tostring(err))
 					local cases = {
@@ -56,7 +57,7 @@ return {
 					}
 					for _, c in cases do
 						local recipe, err = m.recipe(r, c.method, "https://api.tipeee.com" .. c.path, nil)
-						local allowed = (not c.write or (access == "read-write"))
+						local allowed = (not c.write or (access == "write"))
 						if (err == nil) ~= allowed then
 							m.fail("%s %s: %s", c.method, c.path, err)
 						end

@@ -1,6 +1,6 @@
 -- Vercel REST API. Arguments and results keep Vercel's native camelCase field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?,
+type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, access: string?, body: (boolean | string)?,
 	fields: {string}?, team: boolean?, shape: string?, doc: string, about: string}
 
 local PROVIDER = "Vercel"
@@ -49,27 +49,27 @@ local endpoints: {[string]: Endpoint} = {
 	getDomainConfig = {method = "GET", path = "/v6/domains/{domain}/config", query = {"projectIdOrName", "strict"}, doc = "domains/get-a-domain-s-configuration",
 		about = "Whether a domain's DNS points at Vercel: misconfigured, configuredBy and the recommended records."},
 
-	redeploy = {method = "POST", path = "/v13/deployments", query = {"forceNew"}, required = {"name", "deploymentId"},
+	redeploy = {method = "POST", path = "/v13/deployments", access = "data:write", query = {"forceNew"}, required = {"name", "deploymentId"},
 		fields = {"name", "deploymentId", "target", "withLatestCommit", "meta"}, shape = "deployment", doc = "deployments/create-a-new-deployment",
 		about = "Body {name (project name), deploymentId, target?, withLatestCommit?, meta?} and no other fields. Rebuilds deploymentId's source as a new deployment. target: production, staging or a custom environment id; without it, a preview. forceNew=1 deploys even when an identical deployment exists."},
-	promoteDeployment = {method = "POST", path = "/v10/projects/{projectId}/promote/{deploymentId}", body = false, doc = "projects/point-production-traffic-to-a-given-deployment",
+	promoteDeployment = {method = "POST", path = "/v10/projects/{projectId}/promote/{deploymentId}", access = "data:write", body = false, doc = "projects/point-production-traffic-to-a-given-deployment",
 		about = "Serves production traffic from a deployment without rebuilding; follow progress with listPromoteAliases."},
-	rollbackDeployment = {method = "POST", path = "/v1/projects/{projectId}/rollback/{deploymentId}", query = {"description"}, body = false,
+	rollbackDeployment = {method = "POST", path = "/v1/projects/{projectId}/rollback/{deploymentId}", access = "data:write", query = {"description"}, body = false,
 		doc = "projects/point-production-traffic-to-a-previous-production-deployment-by-id",
 		about = "Points production back to an earlier production deployment and pauses automatic promotion until a later promote."},
-	cancelDeployment = {method = "PATCH", path = "/v12/deployments/{id}/cancel", body = false, shape = "deployment", doc = "deployments/cancel-a-deployment",
+	cancelDeployment = {method = "PATCH", path = "/v12/deployments/{id}/cancel", access = "data:write", body = false, shape = "deployment", doc = "deployments/cancel-a-deployment",
 		about = "Cancels a queued or building deployment."},
 
-	listEnvVars = {method = "GET", path = "/v10/projects/{idOrName}/env", write = true,
+	listEnvVars = {method = "GET", path = "/v10/projects/{idOrName}/env", access = "data:write",
 		query = {"decrypt", "gitBranch", "source", "customEnvironmentId", "customEnvironmentSlug"}, doc = "projects/retrieve-the-environment-variables-of-a-project-by-id-or-name",
 		about = "A project's environment variables, {envs}: {id, key, type, target, gitBranch?, value?}. Values of plain variables are included; decrypt='true' also decrypts encrypted ones. Sensitive values are never returned."},
-	getEnvVar = {method = "GET", path = "/v1/projects/{idOrName}/env/{id}", write = true,
+	getEnvVar = {method = "GET", path = "/v1/projects/{idOrName}/env/{id}", access = "data:write",
 		doc = "projects/retrieve-the-decrypted-value-of-an-environment-variable-of-a-project-by-id", about = "One variable with its decrypted value."},
-	createEnvVar = {method = "POST", path = "/v10/projects/{idOrName}/env", query = {"upsert"}, doc = "projects/create-one-or-more-environment-variables",
+	createEnvVar = {method = "POST", path = "/v10/projects/{idOrName}/env", access = "data:write", query = {"upsert"}, doc = "projects/create-one-or-more-environment-variables",
 		about = "Body {key, value, type, target, gitBranch?, comment?, customEnvironmentIds?}. type: plain, encrypted or sensitive; target: an array of production, preview and development. upsert='true' replaces an existing key. Redeploy for running deployments to see changes."},
-	updateEnvVar = {method = "PATCH", path = "/v9/projects/{idOrName}/env/{id}", doc = "projects/edit-an-environment-variable",
+	updateEnvVar = {method = "PATCH", path = "/v9/projects/{idOrName}/env/{id}", access = "data:write", doc = "projects/edit-an-environment-variable",
 		about = "Body: the createEnvVar fields to change."},
-	deleteEnvVar = {method = "DELETE", path = "/v9/projects/{idOrName}/env/{id}", query = {"customEnvironmentId"}, doc = "projects/remove-an-environment-variable",
+	deleteEnvVar = {method = "DELETE", path = "/v9/projects/{idOrName}/env/{id}", access = "data:write", query = {"customEnvironmentId"}, doc = "projects/remove-an-environment-variable",
 		about = "Deletes a variable."},
 }
 
@@ -104,12 +104,6 @@ local function queryParts(value: any, field: string): {string}
 	return parts
 end
 
--- Only GET reads unless write says otherwise.
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
-
 -- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
@@ -125,7 +119,7 @@ end
 -- a top-level JSON array is accepted too, and the second result tells which one came back.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
+	if endpoint.method ~= "GET" and endpoint.access and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
 	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
 	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
@@ -160,7 +154,7 @@ end
 local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if not writes(endpoint) or config.access == "read-write" then
+		if not endpoint.access or houston.allows(endpoint.access) then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		end
 	end
@@ -418,7 +412,7 @@ local intro = {
 	"Examples: local page = vercel.listDeployments({projectId='my-app', target='production', limit=10}); local d = page.deployments[1]; vercel.getDeployment({idOrUrl=d.uid}); vercel.listBuildLogs({idOrUrl=d.uid, limit=500, direction='backward'}); vercel.listRuntimeLogs({projectId=d.projectId, deploymentId=d.uid, limit=200}).",
 	"The token's own permissions and the team's plan still apply. Rate limits are per endpoint group, such as 100 runtime log reads a minute; Houston retries an HTTP 429 twice, then reports when the limit resets. Errors report the HTTP status with Vercel's error code and message.",
 }
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	table.insert(intro, "Side effects: redeploy builds and, with target='production', serves the result; promoteDeployment and rollbackDeployment switch production traffic at once. Environment variable changes apply to new deployments only. Other failures are not retried: after a timeout or 5xx, list deployments or variables before repeating a write.")
 else
 	table.insert(intro, "This read-only connection omits writes and environment variables, whose values are secrets.")

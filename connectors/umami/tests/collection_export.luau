@@ -1,5 +1,5 @@
 return {
- scenario={config={deployment="self-hosted",host="analytics.example.com",access="read-write"},auth_method="token",auth_config={key="fixture-key"}},
+ scenario={access={collection="write"},config={deployment="self-hosted",host="analytics.example.com"},auth_method="token",auth_config={key="fixture-key"}},
  configure=function()
   fs=fixture.files()
   requests={}

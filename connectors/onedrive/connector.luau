@@ -396,7 +396,7 @@ function exports.downloadFile(input: any): Options
 	end)
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	help.functions.createFolder = {
 		description = "Creates a folder in parentId, or in the root folder, and returns its driveItem. conflictBehavior defaults to 'fail'.",
 		inputSchema = {

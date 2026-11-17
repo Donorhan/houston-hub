@@ -1,6 +1,6 @@
 -- RevenueCat REST API v2. Arguments and results keep RevenueCat's native snake_case field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?,
+type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, access: string?, body: (boolean | string)?,
 	fields: {string}?, shape: string?, doc: string, about: string}
 
 local PROVIDER = "RevenueCat"
@@ -63,28 +63,28 @@ local endpoints: {[string]: Endpoint} = {
 	getOverviewMetrics = {method = "GET", path = "/projects/{project_id}/metrics/overview", query = {"currency"}, doc = "charts-and-metrics#operation/get-overview-metrics",
 		about = "The dashboard overview, {currency, metrics: [{id, name, description, unit, period, value, last_updated_at}]}: the dashboard's cards, such as active trials and active subscriptions now (period P0D), and MRR, revenue, new customers and active customers over the last 28 days (P28D). Read each metric's id, name and period rather than assuming them; ids include active_trials, mrr and revenue. currency: USD (default), EUR, GBP, AUD, CAD, JPY, BRL, KRW, CNY, MXN, SEK, PLN, NZD or CHF."},
 
-	grantEntitlement = {method = "POST", path = "/projects/{project_id}/customers/{customer_id}/actions/grant_entitlement", required = {"entitlement_id", "expires_at"},
+	grantEntitlement = {method = "POST", path = "/projects/{project_id}/customers/{customer_id}/actions/grant_entitlement", access = "data:write", required = {"entitlement_id", "expires_at"},
 		fields = {"entitlement_id", "expires_at"}, doc = "customer#operation/grant-customer-entitlement",
 		about = "Grants a promotional entitlement until expires_at (ms since epoch, in the future) and returns the customer. RevenueCat ignores a grant expiring within two hours of an existing grant of that entitlement: to extend, grant again with a later expires_at; to shorten, revoke and grant again."},
-	revokeGrantedEntitlement = {method = "POST", path = "/projects/{project_id}/customers/{customer_id}/actions/revoke_granted_entitlement", required = {"entitlement_id"},
+	revokeGrantedEntitlement = {method = "POST", path = "/projects/{project_id}/customers/{customer_id}/actions/revoke_granted_entitlement", access = "data:write", required = {"entitlement_id"},
 		fields = {"entitlement_id"}, doc = "customer#operation/revoke-customer-granted-entitlement",
 		about = "Ends every promotional grant of the entitlement now and returns the customer. Store purchases are not affected."},
-	createOffering = {method = "POST", path = "/projects/{project_id}/offerings", required = {"lookup_key", "display_name"}, fields = {"lookup_key", "display_name", "metadata"},
+	createOffering = {method = "POST", path = "/projects/{project_id}/offerings", access = "data:write", required = {"lookup_key", "display_name"}, fields = {"lookup_key", "display_name", "metadata"},
 		doc = "offering#operation/create-offering", about = "Creates an offering, {lookup_key, display_name, metadata?}, and returns it; metadata is a JSON object your app reads."},
-	updateOffering = {method = "POST", path = "/projects/{project_id}/offerings/{offering_id}", fields = {"display_name", "is_current", "metadata"},
+	updateOffering = {method = "POST", path = "/projects/{project_id}/offerings/{offering_id}", access = "data:write", fields = {"display_name", "is_current", "metadata"},
 		doc = "offering#operation/update-offering",
 		about = "Changes display_name or metadata, or makes the offering the one apps show by default with is_current=true, and returns it. Apps pick up changes on their next fetch."},
-	createPackage = {method = "POST", path = "/projects/{project_id}/offerings/{offering_id}/packages", required = {"lookup_key", "display_name"},
+	createPackage = {method = "POST", path = "/projects/{project_id}/offerings/{offering_id}/packages", access = "data:write", required = {"lookup_key", "display_name"},
 		fields = {"lookup_key", "display_name", "position"}, doc = "package#operation/create-packages",
 		about = "Adds a package to an offering, {lookup_key, display_name, position?}, and returns it. lookup_key: a package type such as '$rc_monthly', '$rc_annual' or '$rc_lifetime', or a custom key. Attach products next."},
-	updatePackage = {method = "POST", path = "/projects/{project_id}/packages/{package_id}", fields = {"display_name", "position"}, doc = "package#operation/update-package",
+	updatePackage = {method = "POST", path = "/projects/{project_id}/packages/{package_id}", access = "data:write", fields = {"display_name", "position"}, doc = "package#operation/update-package",
 		about = "Changes a package's display_name or position (1 or more) and returns it."},
-	deletePackage = {method = "DELETE", path = "/projects/{project_id}/packages/{package_id}", doc = "package#operation/delete-package-from-offering",
+	deletePackage = {method = "DELETE", path = "/projects/{project_id}/packages/{package_id}", access = "data:write", doc = "package#operation/delete-package-from-offering",
 		about = "Deletes a package from its offering, {object, id, deleted_at}. It can't be undone."},
-	attachPackageProducts = {method = "POST", path = "/projects/{project_id}/packages/{package_id}/actions/attach_products", required = {"products"}, fields = {"products"},
+	attachPackageProducts = {method = "POST", path = "/projects/{project_id}/packages/{package_id}/actions/attach_products", access = "data:write", required = {"products"}, fields = {"products"},
 		doc = "package#operation/attach-products-to-package",
 		about = "Attaches up to 50 products, products=[{product_id, eligibility_criteria}], and returns the package; eligibility_criteria: all, or google_sdk_lt_6 or google_sdk_ge_6 for Play Store products."},
-	detachPackageProducts = {method = "POST", path = "/projects/{project_id}/packages/{package_id}/actions/detach_products", required = {"product_ids"}, fields = {"product_ids"},
+	detachPackageProducts = {method = "POST", path = "/projects/{project_id}/packages/{package_id}/actions/detach_products", access = "data:write", required = {"product_ids"}, fields = {"product_ids"},
 		doc = "package#operation/detach-products-from-package", about = "Detaches up to 50 products by id and returns the package."},
 }
 
@@ -119,12 +119,6 @@ local function queryParts(value: any, field: string): {string}
 	return parts
 end
 
--- Only GET reads unless write says otherwise.
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
-
 -- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
@@ -140,7 +134,7 @@ end
 -- a top-level JSON array is accepted too, and the second result tells which one came back.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
+	if endpoint.method ~= "GET" and endpoint.access and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
 	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
 	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
@@ -175,7 +169,7 @@ end
 local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if not writes(endpoint) or config.access == "read-write" then
+		if not endpoint.access or houston.allows(endpoint.access) then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		end
 	end
@@ -248,7 +242,7 @@ local function failStatus(name: string, endpoint: Endpoint, response: HttpRespon
 	-- A 429 or 423 (another request on the same object is still running) was refused. After a 5xx a
 	-- write may have been applied, and RevenueCat takes no idempotency key, so only reads retry it.
 	return houston.fail({operation = name, layer = "upstream", upstream_status = status,
-		retryable = status == 429 or status == 423 or (status >= 500 and not writes(endpoint)), message = message})
+		retryable = status == 429 or status == 423 or (status >= 500 and not endpoint.access), message = message})
 end
 
 local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
@@ -310,7 +304,7 @@ local intro = {
 	"Examples: local project = revenuecat.listProjects().items[1].id; revenuecat.getOverviewMetrics({project_id=project}).metrics; local found = revenuecat.listCustomers({project_id=project, search='ada@example.com'}).items[1]; revenuecat.listCustomerSubscriptions({project_id=project, customer_id=found.id}); revenuecat.listOfferings({project_id=project, expand={'items.package', 'items.package.product'}}).",
 	"The key's permissions still apply: an HTTP 403 means it lacks the permission for that kind of data. RevenueCat limits each key per minute and per domain: 480 requests for customers, subscriptions and purchases, 60 for projects, apps, products, entitlements, offerings and packages, and 25 for metrics. Houston retries an HTTP 429 twice, waiting as Retry-After asks when that is 5 seconds or less (1 and then 2 seconds without it); a longer wait or a third 429 fails with the delay to wait. Errors report the HTTP status, RevenueCat's error type, param and message.",
 }
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	table.insert(intro, "Side effects: entitlement grants and revocations change what the customer can use in your apps right away; offering and package changes reach every app on its next offerings fetch, and is_current=true changes what new paywalls show. Failed writes are not retried, and a 5xx is not reported as retryable: after a timeout or 5xx, read the customer, offering or package before repeating a write.")
 else
 	table.insert(intro, "This read-only connection omits writes.")

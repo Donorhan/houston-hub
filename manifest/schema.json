@@ -1,5 +1,39 @@
 {
   "$defs": {
+    "AccessRow": {
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "levels": {
+          "description": "Levels from least to most access; none, when present, comes first.",
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "maxItems": 4,
+          "minItems": 2,
+          "type": "array"
+        },
+        "name": {
+          "pattern": "^[a-z][a-z0-9_]{0,63}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "label",
+        "levels",
+        "default"
+      ],
+      "type": "object"
+    },
     "AuthAvailability": {
       "additionalProperties": false,
       "properties": {
@@ -81,7 +115,9 @@
               "api_key": false,
               "app": false,
               "auth_config_id": false,
-              "config": false
+              "config": false,
+              "setup_params": false,
+              "setup_url": false
             },
             "required": [
               "authorize_url",
@@ -116,6 +152,8 @@
               "scope_parameter": false,
               "scope_separator": false,
               "scopes": false,
+              "setup_params": false,
+              "setup_url": false,
               "shared": false,
               "token_encoding": false,
               "token_headers": false,
@@ -289,6 +327,17 @@
             "$ref": "#/$defs/ScopeGroup"
           },
           "type": "array"
+        },
+        "setup_params": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Manual methods only: query parameter to access row; the link carries each row's level except none.",
+          "type": "object"
+        },
+        "setup_url": {
+          "description": "Manual methods only: a literal HTTPS link where people create the credential.",
+          "type": "string"
         },
         "shared": {
           "$ref": "#/$defs/OAuthShared"
@@ -621,6 +670,14 @@
     "Manifest": {
       "additionalProperties": false,
       "properties": {
+        "access": {
+          "description": "The access matrix: rows the user sets to one level each, ordered by display. Predicates read them with {{ allows access.\u003crow\u003e \"\u003clevel\u003e\" }}; is access.\u003crow\u003e is allowed only on scope groups.",
+          "items": {
+            "$ref": "#/$defs/AccessRow"
+          },
+          "maxItems": 32,
+          "type": "array"
+        },
         "auth": {
           "additionalProperties": {
             "$ref": "#/$defs/AuthMethod"
@@ -687,7 +744,7 @@
           "type": "object"
         },
         "schema_version": {
-          "const": 1
+          "const": 2
         },
         "setup": {
           "type": "string"
@@ -1205,8 +1262,8 @@
       "type": "object"
     }
   },
-  "$id": "https://ok-houston.com/schemas/connector-manifest-v1.json",
+  "$id": "https://ok-houston.com/schemas/connector-manifest-v2.json",
   "$ref": "#/$defs/Manifest",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "Houston connector manifest v1"
+  "title": "Houston connector manifest v2"
 }

@@ -17,9 +17,25 @@ return {
 						"statFile",
 					},
 				},
+				-- Rows gate exports even when the token holds broader scopes.
+				{
+					scopes = { "account_info.read", "files.metadata.read", "files.content.read", "file_requests.read", "file_requests.write", "sharing.read" },
+					access = { files = "none", sharing = "none", file_requests = "write" },
+					exports = {
+						"createFileRequest",
+						"deleteFileRequest",
+						"getCurrentAccount",
+						"getFileRequest",
+						"getSpaceUsage",
+						"listFileRequests",
+						"listFileRequestsContinue",
+						"updateFileRequest",
+					},
+				},
 			}
 		do
-			local result, err = m.exports({ access = "read-write" }, "oauth", case.scopes)
+			local access = case.access or { files = "write", sharing = "write", file_requests = "write" }
+			local result, err = m.exports({}, "oauth", case.scopes, nil, access)
 			assert(result and not err, tostring(err))
 			if #case.exports == 0 then
 				assert(

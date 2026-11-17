@@ -1,5 +1,5 @@
 return {
-	scenario = {config = {access = "read-write"}, auth_method = "token", auth_config = {token = "fixture-wise-token"}},
+	scenario = {access = {data = "write"}, config = {}, auth_method = "token", auth_config = {token = "fixture-wise-token"}},
 	configure = function()
 		requests = {}
 		status = 200
@@ -19,7 +19,7 @@ return {
 		local names = {}
 		for name in c do if name ~= "help" then table.insert(names, name) end end
 		table.sort(names); table.sort(expected)
-		assert(table.concat(names, ",") == table.concat(expected, ","), "unexpected read-write exports: " .. table.concat(names, ","))
+		assert(table.concat(names, ",") == table.concat(expected, ","), "unexpected write exports: " .. table.concat(names, ","))
 
 		local function same(a, b)
 			if type(a) ~= "table" or type(b) ~= "table" then return a == b end

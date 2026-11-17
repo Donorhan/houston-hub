@@ -3,7 +3,7 @@ return {
 		publisher = {composio_auth_config_id = "ac_fixture", composio_api_key = "fixture-secret"},
 		config = {}, auth_method = "composio", auth_config = {},
 	},
-	config = {access = "read-only"},
+	access = {data = "read"},
 	configure = function()
 		http = {request = function(req)
 			assert(req.method == "GET" and req.url == "https://gmail.googleapis.com/gmail/v1/users/me/profile")

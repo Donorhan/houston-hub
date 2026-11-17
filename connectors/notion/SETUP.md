@@ -1,6 +1,6 @@
 # Connect Notion
 
-1. Choose **Read-only** or **Read and write** in Houston.
+1. Choose **Read** or **Write** for **Access** in Houston.
 2. Select **Continue with Notion**, choose your workspace and pages, and allow access.
 
 > Agents can access the selected pages and their subpages. Reauthorize to share
@@ -25,7 +25,7 @@ permissions. If content is missing, check the workspace, shared pages and capabi
 Add a separate **Enterprise organization bot (Admin API)** connection with an
 organization bot token and the required [Admin API scopes](https://developers.notion.com/reference/admin/scopes).
 It requires an eligible Enterprise organization; ordinary tokens cannot replace it.
-Read-only excludes administrative changes and export-job creation.
+**Read** access excludes administrative changes and export-job creation.
 
 To revoke provider access, remove Houston in Notion or revoke the token;
 deleting the Houston connection alone does not revoke it in Notion.

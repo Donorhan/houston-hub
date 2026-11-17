@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Inventory Database",
   "description": "Query the inventory MySQL database.",
   "files": [

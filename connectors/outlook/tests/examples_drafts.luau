@@ -1,4 +1,4 @@
--- Every documented example of a Read and draft connection runs as a real call against a
+-- Every documented example of a Draft connection runs as a real call against a
 -- permissive Graph mock.
 local function run(c)
 	local file = fs.open("report.pdf", "w")
@@ -13,7 +13,7 @@ local function run(c)
 end
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	config = {access = "custom"},
+	access = {data = "draft"},
 	configure = function()
 		calls = 0
 		fs = fixture.files()

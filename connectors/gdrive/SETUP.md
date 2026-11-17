@@ -1,11 +1,11 @@
 # Connect your Google account
 
-1. Choose the access level:
-   - **Read-only** to let agents search, read, download and export your files
-     in My Drive and shared drives, and see who they are shared with.
-   - **Read and write** to also let agents create folders and files, upload
-     files and new versions, rename, move and copy them, share them and remove
-     access, move them to the trash and delete them permanently.
+1. Choose the level for **Access**:
+   - **Read** to let agents search, read, download and export your files in My
+     Drive and shared drives, and see who they are shared with.
+   - **Write** to also let agents create folders and files, upload files and new
+     versions, rename, move and copy them, share them and remove access, move
+     them to the trash and delete them permanently.
 2. Select **Continue with Google**, choose your account, and approve the
    permissions Google lists. If Google shows a checkbox per permission, tick
    them all: Houston refuses a partial grant.

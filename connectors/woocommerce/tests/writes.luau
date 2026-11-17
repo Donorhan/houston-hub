@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {store_host = "shop.example.com", access = "read-write"}, auth_method = "keys",
+	scenario = {publisher = {}, access = {data = "write"}, config = {store_host = "shop.example.com"}, auth_method = "keys",
 		auth_config = {consumer_key = "ck_fixture", consumer_secret = "cs_fixture"}},
 	configure = function()
 		requests = {}
@@ -17,7 +17,7 @@ return {
 
 		local count = 0
 		for name in woo do if name ~= "help" then count += 1 end end
-		assert(count == 136, "wrong read-write surface: " .. count)
+		assert(count == 136, "wrong write surface: " .. count)
 
 		payload = '{"id":42,"status":"pending","customer_note":null}'
 		local order = woo.createOrder({status = "pending", line_items = {{product_id = 9, quantity = 2}},

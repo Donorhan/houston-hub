@@ -44,19 +44,19 @@ return {
 			local entries = m.endpoints()
 			local ids = { file_key = key, team_id = "123", project_id = "77", comment_id = "7", key = "abc" }
 			for _, method in { "token", "oauth" } do
-				for _, access in { "read-only", "read-write" } do
-					local config = { access = access }
+				for _, access in { "read", "write" } do
+					local config = {}
 					local input = { token = "figd_fixture" }
 					local header, value = "X-Figma-Token", "figd_fixture"
 					if method == "oauth" then
 						config["client_id"], config["client_secret"], input =
 							"fixture-client", "fixture-secret", nil
 					end
-					local r, err = m.resolve(nil, config, input, method)
+					local r, err = m.resolve(nil, config, input, method, { data = access })
 					assert(not err, tostring(err))
 					if method == "oauth" then
 						local scopes = readScopes
-						if access == "read-write" then
+						if access == "write" then
 							scopes = m.concat(table.clone(readScopes), { "file_comments:write" })
 						end
 						if not (m.equal(r.Scopes, scopes)) then
@@ -70,7 +70,7 @@ return {
 							r,
 							header,
 							value,
-							(not entry.write or (access == "read-write")),
+							(not entry.access or (access == "write")),
 							entry.method .. " " .. api .. (string.gsub(entry.path, "{([%w_]+)}", ids))
 						)
 					end

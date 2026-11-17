@@ -18,9 +18,9 @@ end
 local exports: {[string]: any} = {}
 local help: {[string]: string} = {}
 
--- Read and write connections expose every operation; Read and draft (custom) ones add only drafts to the reads.
-local WRITES = config.access == "read-write"
-local DRAFTS = WRITES or config.access == "custom"
+-- Write connections expose every operation; Draft ones add only drafts to the reads.
+local WRITES = houston.allows("data:write")
+local DRAFTS = houston.allows("data:draft")
 
 help.listMailFolders = "listMailFolders() -> {{id, name, parentId?, role?, totalEmails?, unreadEmails?}} sorted by id. id is the full folder name, such as 'INBOX' or 'Archive/2026'; role is inbox, sent, drafts, trash, junk, archive or all. Some servers list containers that hold no messages: use them as parents, not to search. Counts appear when the server reports them in its folder list."
 function exports.listMailFolders(...: any): any
@@ -166,7 +166,7 @@ function exports.help(): string
 	for name in help do table.insert(names, name) end
 	table.sort(names)
 	local lines = {
-		"IMAP mailbox of the connected account. Operations take one named options object and return plain data; read-only connections expose only the reads, and Read and draft connections add only the draft operations.",
+		"IMAP mailbox of the connected account. Operations take one named options object and return plain data; Read connections expose only the reads, and Draft connections add only the draft operations.",
 		"Message IDs are opaque strings tied to their folder: keep them as returned. They change when a message moves, and IDs from before a server reset fail clearly instead of matching another message.",
 		"Folders are folder ids from listMailFolders or roles (inbox, sent, drafts, trash, junk, archive, all); an exact folder name wins over a role.",
 		"Each call opens one connection to the mail server: call sequentially rather than in parallel. Errors carry the server's message. Nothing here sends mail: drafts are saved for the user to review and send.",

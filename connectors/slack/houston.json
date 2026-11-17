@@ -1,27 +1,94 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Slack",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
-      "label": "Access",
-      "options": [
-        {
-          "label": "Read-only",
-          "value": "read-only"
-        },
-        {
-          "label": "Read and write",
-          "value": "read-write"
-        }
+  "access": [
+    {
+      "name": "channels",
+      "label": "Public channels",
+      "description": "Public channels you are in: their messages, threads and members.",
+      "levels": [
+        {"value": "none", "label": "None"},
+        {"value": "read", "label": "Read"}
       ],
-      "type": "string"
+      "default": "read"
+    },
+    {
+      "name": "private_channels",
+      "label": "Private channels",
+      "description": "Private channels you are in: their messages, threads and members.",
+      "levels": [
+        {"value": "none", "label": "None"},
+        {"value": "read", "label": "Read"}
+      ],
+      "default": "read"
+    },
+    {
+      "name": "direct_messages",
+      "label": "Direct messages",
+      "description": "Direct and group direct messages; Write opens new ones.",
+      "levels": [
+        {"value": "none", "label": "None"},
+        {"value": "read", "label": "Read"},
+        {"value": "write", "label": "Write"}
+      ],
+      "default": "read"
+    },
+    {
+      "name": "search",
+      "label": "Search",
+      "description": "Message search and your mentions.",
+      "levels": [
+        {"value": "none", "label": "None"},
+        {"value": "read", "label": "Read"}
+      ],
+      "default": "read"
+    },
+    {
+      "name": "users",
+      "label": "Users",
+      "description": "Workspace members and their profiles.",
+      "levels": [
+        {"value": "none", "label": "None"},
+        {"value": "read", "label": "Read"}
+      ],
+      "default": "read"
+    },
+    {
+      "name": "files",
+      "label": "Files",
+      "description": "Download shared files; Write uploads and shares files.",
+      "levels": [
+        {"value": "none", "label": "None"},
+        {"value": "read", "label": "Read"},
+        {"value": "write", "label": "Write"}
+      ],
+      "default": "read"
+    },
+    {
+      "name": "reactions",
+      "label": "Reactions",
+      "description": "Add and remove your emoji reactions.",
+      "levels": [
+        {"value": "none", "label": "None"},
+        {"value": "write", "label": "Write"}
+      ],
+      "default": "none"
+    },
+    {
+      "name": "messages",
+      "label": "Messages",
+      "description": "Post, reply, edit and delete messages as you.",
+      "levels": [
+        {"value": "none", "label": "None"},
+        {"value": "write", "label": "Write"}
+      ],
+      "default": "none"
     }
-  },
+  ],
   "auth": {
     "oauth": {
       "type": "oauth2",
@@ -37,27 +104,68 @@
       "scope_separator": ",",
       "scopes": [
         {
+          "if": "{{ allows access.channels \"read\" }}",
           "values": [
             "channels:read",
-            "channels:history",
+            "channels:history"
+          ]
+        },
+        {
+          "if": "{{ allows access.private_channels \"read\" }}",
+          "values": [
             "groups:read",
-            "groups:history",
+            "groups:history"
+          ]
+        },
+        {
+          "if": "{{ allows access.direct_messages \"read\" }}",
+          "values": [
             "im:read",
             "im:history",
             "mpim:read",
-            "mpim:history",
-            "users:read",
-            "search:read",
+            "mpim:history"
+          ]
+        },
+        {
+          "if": "{{ allows access.users \"read\" }}",
+          "values": [
+            "users:read"
+          ]
+        },
+        {
+          "if": "{{ allows access.search \"read\" }}",
+          "values": [
+            "search:read"
+          ]
+        },
+        {
+          "if": "{{ allows access.files \"read\" }}",
+          "values": [
             "files:read"
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ allows access.messages \"write\" }}",
           "values": [
-            "chat:write",
-            "files:write",
+            "chat:write"
+          ]
+        },
+        {
+          "if": "{{ allows access.files \"write\" }}",
+          "values": [
+            "files:write"
+          ]
+        },
+        {
+          "if": "{{ allows access.direct_messages \"write\" }}",
+          "values": [
             "im:write",
-            "mpim:write",
+            "mpim:write"
+          ]
+        },
+        {
+          "if": "{{ allows access.reactions \"write\" }}",
+          "values": [
             "reactions:write"
           ]
         }
@@ -146,10 +254,73 @@
           "/api/conversations.history",
           "/api/conversations.replies",
           "/api/conversations.members",
-          "/api/search.messages",
+          "/api/chat.getPermalink"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.search \"read\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "slack.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/search.messages"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.users \"read\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "slack.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
           "/api/users.info",
-          "/api/users.list",
-          "/api/chat.getPermalink",
+          "/api/users.list"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.files \"read\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "slack.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
           "/api/files.info"
         ]
       },
@@ -162,6 +333,7 @@
       }
     },
     {
+      "if": "{{ allows access.files \"read\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -186,7 +358,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.messages \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -198,10 +370,73 @@
         "path": [
           "/api/chat.postMessage",
           "/api/chat.update",
-          "/api/chat.delete",
-          "/api/conversations.open",
+          "/api/chat.delete"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.direct_messages \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "slack.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/conversations.open"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.reactions \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "slack.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
           "/api/reactions.add",
-          "/api/reactions.remove",
+          "/api/reactions.remove"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.files \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "slack.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
           "/api/files.getUploadURLExternal",
           "/api/files.completeUploadExternal"
         ]
@@ -215,7 +450,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.files \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [

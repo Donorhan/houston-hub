@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {}, auth_method = "token", auth_config = {token = "fixture-token"}},
+	scenario = {publisher = {}, access = {gists = "read", stars = "read", emails = "read"}, config = {}, auth_method = "token", auth_config = {token = "fixture-token"}},
 	configure = function()
 		requests = {}
 		payload = "{}"
@@ -22,17 +22,17 @@ return {
 
 		local names = {}
 		for name in github do if name ~= "help" then table.insert(names, name) end end
-		assert(#names == 95, "wrong read-only surface: " .. #names)
+		assert(#names == 94, "wrong read-only surface: " .. #names)
 		for _, name in names do
 			assert(string.match(name, "^get") or string.match(name, "^list") or string.match(name, "^search") or string.match(name, "^compare") or string.match(name, "^download"), "read-only exports a write: " .. name)
 		end
 		for _, name in {"createIssue", "updateIssue", "createIssueComment", "createPull", "mergePull", "putFile", "deleteFile", "createRef",
-			"deleteRef", "createRelease", "dispatchWorkflow", "cancelWorkflowRun", "createGist", "markThreadDone", "updateRepo",
+			"deleteRef", "createRelease", "dispatchWorkflow", "cancelWorkflowRun", "createGist", "updateRepo",
 			"generateReleaseNotes", "removeAssignees", "starRepo", "unstarRepo", "createCommitComment", "createIssueCommentReaction",
 			"updatePullReviewComment", "deletePullReviewComment", "createPullReviewCommentReaction", "listIssuesAssigned"} do
 			assert(github[name] == nil, "read-only leaked " .. name)
 		end
-		assert(github.listNotifications ~= nil and github.listInstallations == nil, "token connections list notifications, not app installations")
+		assert(github.listInstallations == nil, "installation lists need Connect with GitHub")
 		assert(#requests == 0, "initialization reached GitHub")
 
 		payload = '{"login":"octocat","id":1,"name":null}'
@@ -132,8 +132,6 @@ return {
 		github.getTree({owner = "o", repo = "r", tree_sha = "feature/x"})
 		rejected(function() github.getTree({owner = "o", repo = "r", tree_sha = "main", recursive = "false"}) end, "recursive must be true or false")
 		assert(last().url == API .. "/repos/o/r/git/trees/feature%2Fx", last().url)
-		github.listNotifications({all = true})
-		assert(last().url == API .. "/notifications?all=true")
 
 		payload = "diff --git a/x b/x\n+line\n"
 		local diff = github.getPull({owner = "o", repo = "r", pull_number = 3, format = "diff"})

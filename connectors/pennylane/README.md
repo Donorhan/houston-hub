@@ -11,7 +11,7 @@ ledger entries stand. They can also read quotes, recurring invoices, products,
 analytical categories and payment mandates, follow recent changes, and prepare FEC
 or general ledger exports for a period.
 
-With read and write access, agents can also create and send invoices and quotes,
+With write access, agents can also create and send invoices and quotes,
 add customers, suppliers and products, upload receipts and supplier
 invoices, match transactions to invoices, categorize records and post ledger
 entries. Sending a document emails your customer, and a finalized invoice can no

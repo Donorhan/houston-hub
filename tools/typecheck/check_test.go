@@ -14,11 +14,11 @@ func TestRealTypeAnalysis(t *testing.T) {
 	if _, err := exec.LookPath("luau-analyze"); err != nil {
 		t.Fatal("publication requires luau-analyze installed")
 	}
-	m := manifest.Manifest{Files: []string{"main.lua"}, Config: map[string]manifest.Field{"token": {Type: "secret"}, "mode": {Type: "string", Required: true}}}
+	m := manifest.Manifest{Files: []string{"main.lua"}, Access: []manifest.AccessRow{{Name: "code", Levels: []manifest.Option{{Value: "none"}, {Value: "read"}}}}, Config: map[string]manifest.Field{"token": {Type: "secret"}, "mode": {Type: "string", Required: true}}}
 	for _, tc := range []struct {
 		name, source string
 		bad          bool
-	}{{"reserved access without declaration", `local access:string=config.access; return {help=function() return access end}`, false}, {"valid", `return {statFile=function(id:string):{id:string,name:string,isFolder:boolean,size:number?} return {id=id,name=config.mode,isFolder=false} end}`, false}, {"wrong return type", `return {statFile=function(id:number):string return id end}`, true}, {"wrong host", `return {statFile=function(id:string) return http.request({url=42}) end}`, true}, {"secret unavailable", `return {statFile=function(id:string) return config.token end}`, true}, {"bound facts", `local team:string=(auth.facts and auth.facts.team_id) or ""; return {team=function():string return team end}`, false}, {"facts are strings", `local team:number=(auth.facts and auth.facts.team_id) or 0; return {team=function():number return team end}`, true}, {"nocheck", `--!nocheck
+	}{{"access level", `local level:"none" | "read"=access.code; return {help=function() return level end}`, false}, {"undeclared access row", `local level:string=access.repos; return {help=function() return level end}`, true}, {"valid", `return {statFile=function(id:string):{id:string,name:string,isFolder:boolean,size:number?} return {id=id,name=config.mode,isFolder=false} end}`, false}, {"wrong return type", `return {statFile=function(id:number):string return id end}`, true}, {"wrong host", `return {statFile=function(id:string) return http.request({url=42}) end}`, true}, {"secret unavailable", `return {statFile=function(id:string) return config.token end}`, true}, {"bound facts", `local team:string=(auth.facts and auth.facts.team_id) or ""; return {team=function():string return team end}`, false}, {"facts are strings", `local team:number=(auth.facts and auth.facts.team_id) or 0; return {team=function():number return team end}`, true}, {"nocheck", `--!nocheck
 return {statFile=function() end}`, true}} {
 		t.Run(tc.name, func(t *testing.T) {
 			err := Check(context.Background(), "", m, map[string]string{"main.lua": tc.source})

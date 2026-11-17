@@ -7,7 +7,7 @@ local DOCS = "https://devdocs.prestashop-project.org/9/webservice/resources/"
 local NONE: Options = table.freeze({})
 
 -- Each resource's singular and plural JSON nodes, its path where that is not the
--- plural, and the writes read-write connections get.
+-- plural, and the writes connections with write access get.
 type Resource = {one: string, many: string, path: string?, writes: {string}?}
 local RESOURCES: {Resource} = {
 	{one = "address", many = "addresses"}, {one = "carrier", many = "carriers"}, {one = "cart", many = "carts"},
@@ -334,7 +334,7 @@ for _, resource in RESOURCES do
 	signatures[listName] = "({display?, filter?, sort?, limit?, offset?, language?, id_shop?}?) -> {" .. many .. ": [...]}"
 	signatures[getName] = "(id, {language?, id_shop?}?) -> {" .. one .. ": {...}}"
 
-	if config.access == "read-write" and resource.writes then
+	if resource.writes and houston.allows("data:write") then
 		for _, verb in resource.writes do
 			local name = verb .. camel(one)
 			local allowed = {id_shop = true, sendemail = SENDS_EMAIL[name]}
@@ -384,7 +384,7 @@ exports.help = function(): string
 		"Examples: listOrders({filter={current_state=2}, sort='date_add_DESC', limit=20}); getOrder(123); listOrderDetails({filter={id_order=123}}); listOrderHistories({filter={id_order=123}, sort='date_add_DESC'}); listOrderStates({language=1, display={'id','name'}}); listCustomers({filter={email='[ann@example.com]'}}); listProducts({filter={reference='%[MUG]%'}, display={'id','reference','price','name'}, language=1}); listStockAvailables({filter={id_product=9}}).",
 		"Orders link to customers, addresses, carts, carriers and currencies through id_* fields; an order's current status is current_state, an order_states ID. The webservice key's own resource and method permissions apply: a resource it does not allow fails with HTTP 401 [26], a method with HTTP 405 [25]. Errors report the HTTP status and PrestaShop's [code] messages; a plain 401 Unauthorized means the key did not reach PrestaShop. Houston retries HTTP 429 at most twice unless Retry-After asks for more than 5 seconds.",
 	}
-	if config.access == "read-write" then
+	if houston.allows("data:write") then
 		table.insert(lines, "Writes take fields as an object of PrestaShop field names (see the field reference below), sent as PrestaShop's XML; the result is the saved record. Translated fields take [{id=languageID, value='...'}] or one string for every language, associations take arrays of objects such as associations={categories={{id=2}}} and replace the whole set (json.decode('[]') clears it), and booleans become 1 or 0. Updates use PATCH and change only the given fields, which needs PrestaShop 8 or later; on PrestaShop 1.7 only creates and deletes work. createProduct needs at least price; createCustomer needs firstname, lastname, email and passwd (the plain password, which PrestaShop hashes; updates cannot change it). createOrderHistory({id_order=123, id_order_state=4}, {sendemail=true}) changes an order's status and, with sendemail, emails the customer when that status sends emails. updateOrderCarrier(id, {tracking_number='1Z...'}, {sendemail=true}) sets a shipment's tracking number and sends the in-transit email; if that email fails, PrestaShop answers HTTP 500 [46] although the number was saved. updateStockAvailable(id, {quantity=12}) sets a quantity: find the row with listStockAvailables({filter={id_product=9, id_product_attribute=0}}), but for a product with combinations update each combination's row (id_product_attribute=<combination ID>), as PrestaShop recomputes the 0 row as their total. Deleting a product or customer is permanent. Only HTTP 429 is retried: after a timeout or 5xx, read the record again before repeating a write.")
 	end
 	table.insert(lines, "Field reference: " .. DOCS .. "<path>/, where the path is the plural, or order_slip for credit slips.")

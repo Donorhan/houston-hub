@@ -17,4 +17,4 @@ local function configure()
 	end}
 end
 local scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}}
-return {scenario = scenario, config = {access = "read-write"}, configure = configure, run = run}
+return {scenario = scenario, access = {data = "write"}, configure = configure, run = run}

@@ -1,10 +1,10 @@
 # Connect your Gladia account
 
-1. Choose the access level:
-   - **Read-only** to let agents read and download transcriptions without
-     creating or deleting anything.
-   - **Read and write** to also let agents upload recordings, start
-     transcriptions and delete jobs.
+1. Choose the level for **Access**:
+   - **Read** to let agents read and download transcriptions without creating
+     or deleting anything.
+   - **Write** to also let agents upload recordings, start transcriptions and
+     delete jobs.
 2. Create an API key in the [Gladia dashboard](https://app.gladia.io/apikeys) and
    copy it.
 3. Add the connection in Houston and paste the key as the **API key**.

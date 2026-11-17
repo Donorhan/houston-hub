@@ -1,7 +1,7 @@
--- Read-write connections add the changes; trash is a move to the trash role.
+-- Write connections add the changes; trash is a move to the trash role.
 return {
 	scenario = {publisher = {}, auth_method = "", auth_config = {}, config = {host = "imap.example.com", port = 1993, username = "ada@example.com", password = "fixture-password"}},
-	config = {access = "read-write"},
+	access = {data = "write"},
 	configure = function()
 		requests = {}
 		imap = {command = function(request)

@@ -10,7 +10,7 @@ subscription is active, in a trial or in billing retry, what they bought and
 which entitlements they have, and how your products, entitlements, offerings and
 packages are set up across your apps.
 
-With read and write access, agents can also grant a customer promotional access
+With write access, agents can also grant a customer promotional access
 to an entitlement until a chosen date or revoke it, and edit your offerings:
 create them, rename them, make one current, and add, reorder or remove their
 packages and products. Changes reach your apps the next time they load their

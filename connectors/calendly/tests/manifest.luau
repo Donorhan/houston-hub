@@ -29,19 +29,19 @@ return {
 			}
 			local api = "https://api.calendly.com"
 			for _, method in { "token", "oauth" } do
-				for _, access in { "read-only", "read-write" } do
-					local config = { access = access }
+				for _, access in { "read", "write" } do
+					local config = {}
 					local input = { token = "calendly-pat" }
 					if method == "oauth" then
 						config["client_id"], config["client_secret"], input =
 							"fixture-client", "fixture-secret", nil
 					end
-					local r, err = m.resolve(nil, config, input, method)
+					local r, err = m.resolve(nil, config, input, method, { data = access })
 					assert(not err, tostring(err))
 					local token = "calendly-pat"
 					if method == "oauth" then
 						local scopes = readScopes
-						if access == "read-write" then
+						if access == "write" then
 							scopes = m.concat(readScopes, writeScopes)
 						end
 						if not (m.equal(r.Scopes, scopes)) then
@@ -57,7 +57,7 @@ return {
 						"GET " .. api .. "/organizations/O1/invitations/INV1",
 						"GET " .. api .. "/meeting_recaps/R1/transcript",
 					})
-					m.routes(r, "Bearer " .. token, (access == "read-write"), {
+					m.routes(r, "Bearer " .. token, (access == "write"), {
 						"POST " .. api .. "/invitees",
 						"POST " .. api .. "/scheduled_events/E1/cancellation",
 						"PATCH " .. api .. "/event_type_availability_schedules?event_type=x",

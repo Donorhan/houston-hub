@@ -3,7 +3,7 @@ local API = "https://docs.googleapis.com/v1"
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
+type Endpoint = {method: string, path: string, access: string?, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
@@ -119,16 +119,16 @@ end
 local exports: {[string]: any} = {}
 local help: {[string]: string} = {}
 
--- Exposes an operation when it only reads or the connection allows writes.
-local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
-	if isRead or config.access == "read-write" then
+-- Exposes an operation when the connection allows the access it needs, if any.
+local function export(name: string, access: string?, fn: (any) -> any, doc: string)
+	if access == nil or houston.allows(access) then
 		exports[name], help[name] = fn, doc
 	end
 end
 
 local function exportEndpoints(endpoints: {[string]: Endpoint})
 	for name, endpoint in endpoints do
-		export(name, endpoint.read, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
+		export(name, endpoint.access, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
 	end
 end
 
@@ -146,12 +146,12 @@ end
 -- End of the shared request layer.
 
 local endpoints: {[string]: Endpoint} = {
-	getDocument = {method = "GET", path = "/documents/{documentId}", read = true, defaults = {includeTabsContent = true},
+	getDocument = {method = "GET", path = "/documents/{documentId}", defaults = {includeTabsContent = true},
 		query = {"includeTabsContent", "suggestionsViewMode", "commentsViewMode", "fields"},
 		help = "getDocument({documentId, includeTabsContent?, suggestionsViewMode?, commentsViewMode?, fields?}) -> {documentId, title, revisionId?, tabs=[{tabProperties={tabId, title, index?, parentTabId?, nestingLevel?}, documentTab={body={content}, headers?, footers?, footnotes?, lists?, inlineObjects?, namedStyles, documentStyle, commentAnchors?}, childTabs?}]}. tabs are in display order and nest up to three levels; a link's ?tab=t.<id> names the open tab, tabId 't.<id>'. content is a list of {startIndex?, endIndex, paragraph?={elements=[{startIndex, endIndex, textRun?={content, textStyle}, person?, richLink?, dateElement?, dropdown?, footnoteReference?, inlineObjectElement?}], paragraphStyle={namedStyleType='NORMAL_TEXT'|'TITLE'|'HEADING_1'...}, bullet?}, table?={rows, columns, tableRows=[{tableCells=[{content}]}]}, sectionBreak?, tableOfContents?}. Fields equal to 0 are omitted, such as the first element's startIndex, the first tab's index and a top-level tab's nestingLevel. revisionId is present only for editors and valid for 24 hours. Responses carry every style and fail over 8 MiB; fields='title,tabs(tabProperties,childTabs(tabProperties,childTabs(tabProperties)))' lists the tabs only. includeTabsContent=false returns the first tab in the legacy body field and no tabs. suggestionsViewMode is SUGGESTIONS_INLINE (the default for anyone who can comment or edit, marking suggested text with suggestedInsertionIds and suggestedDeletionIds), PREVIEW_SUGGESTIONS_ACCEPTED or PREVIEW_WITHOUT_SUGGESTIONS (the default for viewers, who get HTTP 403 for the other two). Take indexes for batchUpdate from a SUGGESTIONS_INLINE read: suggested text shifts them. commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' with suggestionsViewMode='SUGGESTIONS_INLINE' adds comments=[{commentId, anchorId, headPost={postId, author, content, createTime}, replies, status, plainTextQuote}] and suggestions=[{suggestionId, status, summaryText, headPost, replies}]; each tab's documentTab.commentAnchors[anchorId].ranges locates them."},
-	createDocument = {method = "POST", path = "/documents", read = false, body = true,
+	createDocument = {method = "POST", path = "/documents", access = "data:write", body = true,
 		help = "createDocument({title?}) -> the new document, with documentId and revisionId. Creates an empty document in the root of My Drive; Google ignores any other field, so add content with batchUpdate."},
-	batchUpdate = {method = "POST", path = "/documents/{documentId}:batchUpdate", read = false, body = true, required = {requests = "array"},
+	batchUpdate = {method = "POST", path = "/documents/{documentId}:batchUpdate", access = "data:write", body = true, required = {requests = "array"},
 		help = "batchUpdate({documentId, requests, writeControl?}) -> {documentId, replies, writeControl, suggestionResponses?, commentUpdateState?}. Applies requests in order, all or nothing; replies and suggestionResponses (createdSuggestionIds, ...) match requests one to one. Indexes count UTF-16 code units, not the UTF-8 bytes # counts: é is 1 unit and an emoji 2. Take them from getDocument's startIndex and endIndex, never from offsets in getDocumentText. A body's text starts at index 1. Locations and ranges take tabId (omitted: the first tab), and segmentId for a header, footer or footnote. Each request sees the indexes shifted by earlier ones: edit from the end backwards, or use replaceAllText and endOfSegmentLocation, which need no index. Kinds include insertText={text, location={index, tabId?} or endOfSegmentLocation={tabId?}}, deleteContentRange={range={startIndex, endIndex, tabId?}}, replaceAllText={containsText={text, matchCase?, searchByRegex?}, replaceText, tabsCriteria?={tabIds}} (every tab unless tabsCriteria is given), updateTextStyle={range, textStyle={bold?, italic?, link?={url}, ...}, fields='bold,link'}, updateParagraphStyle={range, paragraphStyle={namedStyleType='HEADING_1'}, fields='namedStyleType'}, createParagraphBullets={range, bulletPreset='BULLET_DISC_CIRCLE_SQUARE'|'NUMBERED_DECIMAL_ALPHA_ROMAN'}, insertTable={rows, columns, location or endOfSegmentLocation}, insertTableRow={tableCellLocation={tableStartLocation={index}, rowIndex, columnIndex}, insertBelow}, insertInlineImage={uri, location or endOfSegmentLocation} (a public PNG, JPEG or GIF under 50 MB), insertPageBreak, insertPerson={personProperties={email}, location}, insertDate, insertRichLink, addDocumentTab={tabProperties={title, parentTabId?}}, updateDocumentTabProperties, deleteTab, createHeader={type='DEFAULT'}, createFooter, createFootnote, insertComment={content, range, assigneeEmailAddress?}, addCommentReply={commentId or suggestionId, post={content?, commentAction?='RESOLVE'|'REOPEN'}}, updateCommentPost, deleteComment, deleteCommentReply, acceptSuggestion={suggestionId}, rejectSuggestion and deleteSuggestion. Text edits can be saved while their comments or suggestions fail: when a batch writes comments or suggestions, check that commentUpdateState is ALL_SAVED, not ALL_FAILED_UNKNOWN_REASON; other batches report NO_UPDATES_REQUESTED or omit it. The final newline of a body, header, footer, footnote or table cell cannot be deleted: end ranges before it. A newline in inserted text starts a new paragraph. writeControl={writeMode='SUGGEST'} records the edits as suggestions for an editor to accept, and refuses addDocumentTab, deleteTab, updateDocumentTabProperties, createNamedRange, deleteNamedRange, deleteHeader, deleteFooter and updateTableColumnProperties. writeControl={requiredRevisionId=doc.revisionId} fails with HTTP 400 if the document changed since that read; targetRevisionId instead merges the edits with changes made since. Example: requests={{replaceAllText={containsText={text='{{client}}', matchCase=true}, replaceText='Acme'}}, {insertText={endOfSegmentLocation={}, text='\\nNext steps'}}}."},
 }
 
@@ -164,7 +164,7 @@ local function withDocument(name: string, endpoint: Endpoint, args: Options): an
 	return invoke(name, endpoint, args)
 end
 for name, endpoint in endpoints do
-	export(name, endpoint.read, function(input: any): any return withDocument(name, endpoint, options(input)) end, endpoint.help)
+	export(name, endpoint.access, function(input: any): any return withDocument(name, endpoint, options(input)) end, endpoint.help)
 end
 
 local NONE: {any} = table.freeze({})
@@ -222,7 +222,7 @@ local INLINE = "paragraph.elements(textRun.content,person.personProperties,richL
 local TAB_TEXT = "tabProperties,documentTab.body.content(" .. INLINE .. ",table.tableRows.tableCells.content(" .. INLINE .. ",table))"
 local TEXT_FIELDS = "documentId,title,revisionId,tabs(" .. TAB_TEXT .. ",childTabs(" .. TAB_TEXT .. ",childTabs(" .. TAB_TEXT .. ")))"
 local PREVIEWS = table.freeze({PREVIEW_WITHOUT_SUGGESTIONS = true, PREVIEW_SUGGESTIONS_ACCEPTED = true})
-export("getDocumentText", true, function(input: any): Options
+export("getDocumentText", nil, function(input: any): Options
 	local args = options(input)
 	local tabId = if args.tabId == nil then nil else text(args.tabId, "tabId")
 	assert(args.includeTabsContent == nil and args.fields == nil and args.commentsViewMode == nil, "getDocumentText received an unknown option")
@@ -242,7 +242,7 @@ local overview = {
 	"A document has one or more tabs, which may have child tabs. Read its words with getDocumentText, and its structure, styles, comments and indexes with getDocument.",
 	"No hidden paging or retries. Errors report the HTTP status and Google's message. Google allows about 300 reads and 60 writes per minute per user, and 3000 and 600 per minute across all Houston users; HTTP 429 errors are retryable after a pause.",
 }
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	table.insert(overview, "Writes change a document's text, styles, tabs, comments and suggestions. An empty Luau table encodes as a JSON object: write an empty array as json.decode('[]'). Documents cannot be deleted, renamed, moved or shared here: use the Google Drive connector. A failed or timed-out write may already have succeeded: check with getDocument before repeating it (getDocumentText hides suggestions; add suggestionsViewMode='SUGGESTIONS_INLINE' and commentsViewMode='COMMENTS_VIEW_MODE_INCLUDED' after comment writes), or pass writeControl={requiredRevisionId=doc.revisionId}, with doc read by getDocument, so a repeat fails with HTTP 400 instead of applying twice.")
 end
 exports.help = helpWith(overview)

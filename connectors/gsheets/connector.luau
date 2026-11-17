@@ -3,7 +3,7 @@ local API = "https://sheets.googleapis.com/v4"
 
 -- Request layer shared verbatim by the Google connectors (tools/validate checks they match).
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
+type Endpoint = {method: string, path: string, access: string?, query: {string}?, body: boolean?, defaults: Options?, list: string?, required: {[string]: string}?, help: string}
 
 local function text(value: any, field: string): string
 	assert(type(value) == "string" and value ~= "", field .. " must be a nonempty string")
@@ -119,16 +119,16 @@ end
 local exports: {[string]: any} = {}
 local help: {[string]: string} = {}
 
--- Exposes an operation when it only reads or the connection allows writes.
-local function export(name: string, isRead: boolean, fn: (any) -> any, doc: string)
-	if isRead or config.access == "read-write" then
+-- Exposes an operation when the connection allows the access it needs, if any.
+local function export(name: string, access: string?, fn: (any) -> any, doc: string)
+	if access == nil or houston.allows(access) then
 		exports[name], help[name] = fn, doc
 	end
 end
 
 local function exportEndpoints(endpoints: {[string]: Endpoint})
 	for name, endpoint in endpoints do
-		export(name, endpoint.read, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
+		export(name, endpoint.access, function(args: Options?): any return invoke(name, endpoint, args) end, endpoint.help)
 	end
 end
 
@@ -152,27 +152,27 @@ local RAW = {valueInputOption = "RAW"}
 local APPEND_QUERY = table.clone(WRITE_QUERY)
 table.insert(APPEND_QUERY, "insertDataOption")
 local endpoints: {[string]: Endpoint} = {
-	getSpreadsheet = {method = "GET", path = "/spreadsheets/{spreadsheetId}", read = true, defaults = {fields = SPREADSHEET_FIELDS}, list = "namedRanges",
+	getSpreadsheet = {method = "GET", path = "/spreadsheets/{spreadsheetId}", defaults = {fields = SPREADSHEET_FIELDS}, list = "namedRanges",
 		query = {"fields", "ranges", "excludeTablesInBandedRanges"},
 		help = "getSpreadsheet({spreadsheetId, fields?, ranges?}) -> {spreadsheetId, spreadsheetUrl, properties, sheets=[{properties={sheetId, title, index, gridProperties={rowCount, columnCount, ...}}}], namedRanges}. Lists the tabs and their sizes; namedRanges is [] when there are none. fields is a Google field mask: e.g. fields='sheets(data(rowData(values(formattedValue,note,hyperlink))))' with ranges={'Sheet1!A1:C3'} reads cell notes and links. Always pass ranges with data fields: responses over 8 MiB fail."},
-	getValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values/{range}", read = true, list = "values", query = READ_QUERY,
+	getValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values/{range}", list = "values", query = READ_QUERY,
 		help = "getValues({spreadsheetId, range, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {range, majorDimension, values}. One cell: getValues({spreadsheetId=..., range='Sheet1!B2'}).values[1] is {'42'}, or nil when B2 is empty."},
-	batchGetValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values:batchGet", read = true, list = "valueRanges", required = {ranges = "array"},
+	batchGetValues = {method = "GET", path = "/spreadsheets/{spreadsheetId}/values:batchGet", list = "valueRanges", required = {ranges = "array"},
 		query = {"ranges", table.unpack(READ_QUERY)},
 		help = "batchGetValues({spreadsheetId, ranges={'Sheet1!A1:B2', 'Totals!C3'}, valueRenderOption?, dateTimeRenderOption?, majorDimension?}) -> {spreadsheetId, valueRanges=[{range, majorDimension, values}]}. Reads several ranges in one request, in the order given; an empty range has values=[]."},
-	updateValues = {method = "PUT", path = "/spreadsheets/{spreadsheetId}/values/{range}", read = false, body = true, defaults = RAW, query = WRITE_QUERY, required = {values = "array"},
+	updateValues = {method = "PUT", path = "/spreadsheets/{spreadsheetId}/values/{range}", access = "data:write", body = true, defaults = RAW, query = WRITE_QUERY, required = {values = "array"},
 		help = "updateValues({spreadsheetId, range, values, valueInputOption?, majorDimension?, includeValuesInResponse?}) -> {spreadsheetId, updatedRange, updatedRows, updatedColumns, updatedCells}. Writes values from range's top-left cell, e.g. range='Sheet1!B2', values={{42}}."},
-	appendValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:append", read = false, body = true, defaults = RAW, required = {values = "array"}, query = APPEND_QUERY,
+	appendValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:append", access = "data:write", body = true, defaults = RAW, required = {values = "array"}, query = APPEND_QUERY,
 		help = "appendValues({spreadsheetId, range, values, valueInputOption?, insertDataOption?}) -> {spreadsheetId, tableRange, updates}. Adds rows after the table Google finds in range, e.g. range='Log!A:D', values={{'2026-10-16', 'paid', 120}}, valueInputOption='USER_ENTERED' to store the date as a date. insertDataOption='INSERT_ROWS' inserts rows rather than filling the empty cells below (OVERWRITE, the default). Repeating it adds the rows again."},
-	clearValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:clear", read = false, body = true,
+	clearValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values/{range}:clear", access = "data:write", body = true,
 		help = "clearValues({spreadsheetId, range}) -> {spreadsheetId, clearedRange}. Clears values and keeps formatting."},
-	batchUpdateValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values:batchUpdate", read = false, body = true, defaults = RAW, required = {data = "array"},
+	batchUpdateValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values:batchUpdate", access = "data:write", body = true, defaults = RAW, required = {data = "array"},
 		help = "batchUpdateValues({spreadsheetId, data={{range='Sheet1!A1', values={{1, 2}}}, ...}, valueInputOption?, includeValuesInResponse?}) -> {spreadsheetId, totalUpdatedCells, responses}. Writes several ranges in one request."},
-	batchClearValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values:batchClear", read = false, body = true, required = {ranges = "array"},
+	batchClearValues = {method = "POST", path = "/spreadsheets/{spreadsheetId}/values:batchClear", access = "data:write", body = true, required = {ranges = "array"},
 		help = "batchClearValues({spreadsheetId, ranges={'Sheet1!A2:D', ...}}) -> {spreadsheetId, clearedRanges}."},
-	createSpreadsheet = {method = "POST", path = "/spreadsheets", read = false, body = true,
+	createSpreadsheet = {method = "POST", path = "/spreadsheets", access = "data:write", body = true,
 		help = "createSpreadsheet({properties={title='Report'}, sheets?={{properties={title='Data'}}}}) -> the new spreadsheet, with spreadsheetId and spreadsheetUrl. It is created in the root of My Drive."},
-	batchUpdate = {method = "POST", path = "/spreadsheets/{spreadsheetId}:batchUpdate", read = false, body = true, required = {requests = "array"},
+	batchUpdate = {method = "POST", path = "/spreadsheets/{spreadsheetId}:batchUpdate", access = "data:write", body = true, required = {requests = "array"},
 		help = "batchUpdate({spreadsheetId, requests, includeSpreadsheetInResponse?}) -> {spreadsheetId, replies}. Structure and formatting, applied all or nothing, e.g. requests={{addSheet={properties={title='Archive'}}}}. Request kinds include addSheet, deleteSheet, duplicateSheet, updateSheetProperties (rename or freeze, with a fields mask), insertDimension, deleteDimension (rows or columns), findReplace, sortRange, repeatCell (formatting), mergeCells, setDataValidation and addTable. They address cells with GridRange {sheetId, startRowIndex, endRowIndex, startColumnIndex, endColumnIndex}: zero-based, ends exclusive, sheetId from getSpreadsheet. Deleting a tab, rows or columns removes their data; only the spreadsheet's version history restores it."},
 }
 
@@ -188,7 +188,7 @@ local function withRange(endpoint: Endpoint, args: Options): Endpoint
 	return resolved
 end
 for name, endpoint in endpoints do
-	export(name, endpoint.read, function(input: any): any
+	export(name, endpoint.access, function(input: any): any
 		local args = options(input)
 		if string.find(endpoint.path, "{spreadsheetId}", 1, true) then
 			args.spreadsheetId = docsId(args.spreadsheetId, "spreadsheets", "spreadsheetId")
@@ -211,7 +211,7 @@ local overview = {
 	"Responses over 8 MiB fail: read large tabs in row blocks such as 'Data!A1:Z5000', and keep batchGetValues to a few dozen ranges per call.",
 	"Google allows about 60 reads per minute per user; HTTP 429 errors are retryable after a pause. No hidden paging or retries. Errors report the HTTP status and Google's message.",
 }
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	table.insert(overview, "Writes default to valueInputOption='RAW', storing values exactly as given, so '2026-10-16' stays text; pass 'USER_ENTERED' to parse numbers, dates and formulas as if typed. In values, json null leaves a cell unchanged and '' clears it. An empty Luau table encodes as a JSON object, which Google rejects: write an empty row or array as json.decode('[]'). Request bodies over 8 MiB fail: write large tables in row blocks. Google allows about 60 writes per minute per user. A failed or timed-out write may already have succeeded: read the range before repeating it.")
 end
 exports.help = helpWith(overview)

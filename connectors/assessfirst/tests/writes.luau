@@ -4,7 +4,7 @@ local PM = "ae5d8fe1546e45569a6364455e9f8bbb"
 local G = "786a70ccd1454e83bfae271ffa721c0d"
 local W = "f4128a0183594722a58f9ccb96e7633d"
 return {
-	scenario = {publisher = {}, config = {access = "read-write"}, auth_method = "token", auth_config = {token = "fixture-private-assessfirst-token"}},
+	scenario = {publisher = {}, access = {data = "write"}, config = {}, auth_method = "token", auth_config = {token = "fixture-private-assessfirst-token"}},
 	configure = function()
 		calls = 0
 		status = 200

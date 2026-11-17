@@ -1,6 +1,6 @@
 -- Native Notion fields and responses are deliberately preserved, including nulls.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, read: boolean, body: boolean, query: {string}, required: {string}, help: string}
+type Endpoint = {method: string, path: string, access: string?, body: boolean, query: {string}, required: {string}, help: string}
 local API = "https://api.notion.com"
 local NULL = json.decode("null")
 local ADMIN = auth.method == "admin"
@@ -118,7 +118,7 @@ end
 local exports: {[string]: any} = {}
 local help: {[string]: string} = {}
 for name, endpoint in endpoints do
-	if name ~= "sendFileUpload" and (endpoint.read or config.access == "read-write") then
+	if name ~= "sendFileUpload" and (not endpoint.access or houston.allows(endpoint.access)) then
 		exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		help[name] = endpoint.help
 	end
@@ -133,7 +133,7 @@ exports.downloadFile = function(input: Options): Options
 end
 help.downloadFile = "downloadFile({url, path}) -> {path, url, size}. Stream a fresh Notion signed file/plugin/export URL into a session file. The returned URL is Houston's signed download URL. Only documented Notion storage origins are allowed; external file URLs use caller HTTP instead. Redirects are not followed. A failed transfer leaves the destination as it was."
 
-if not ADMIN and config.access == "read-write" then
+if not ADMIN and houston.allows("data:write") then
 	exports.sendFileUpload = function(input: Options): any
 		local args = options(input)
 		local id = identifier(args.file_upload_id, "file_upload_id")

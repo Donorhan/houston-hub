@@ -5,8 +5,8 @@
 2. Add the Umami connection in Houston. Keep **API host** as `api.umami.is` and
    **Deployment** as **Cloud**, or choose US/EU explicitly.
 3. Paste the key into **API key or self-hosted bearer token**.
-4. Keep read-only access, enable all reads and writes, or choose **Custom** and
-   set access independently for each area you want to use. Save the connection.
+4. Choose **None**, **Read** or **Write** for each API area you want to use;
+   every area except **Collection** starts at **Read**. Save the connection.
 
 Umami keys have the account's permissions. Houston's access selections restrict
 this connection; they do not reduce the key's permissions elsewhere. Account and

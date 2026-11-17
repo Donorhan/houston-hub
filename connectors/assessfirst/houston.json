@@ -1,32 +1,33 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "AssessFirst",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.png",
-  "config": {
-    "access": {
-      "default": "read-only",
-      "description": "Completion status only shows agents which assessments each candidate has finished, with names and emails; Houston refuses every request for scores, reports and other results on that level, and every change. Houston sends no changes on a Read-only connection. The AssessFirst API token itself has full access to your company's AssessFirst data.",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "description": "Completion status shows agents which assessments each candidate has finished, with names and emails; Houston refuses every request for scores, reports and other results on that level, and every change. Houston sends no changes on Read. The AssessFirst API token itself has full access to your company's AssessFirst data.",
+      "levels": [
         {
-          "label": "Completion status only",
-          "value": "custom"
+          "value": "status",
+          "label": "Completion status"
         },
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "order": 1,
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "api_host": {
       "default": "app.assessfirst.com",
       "description": "Use Test only with a token generated on simu.assessfirst.com, AssessFirst's test environment.",
@@ -41,7 +42,6 @@
           "value": "simu.assessfirst.com"
         }
       ],
-      "order": 2,
       "type": "string"
     }
   },
@@ -93,7 +93,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-only\" }}",
+      "if": "{{ allows access.data \"read\" }}",
       "match": {
         "host": [
           "{{config.api_host}}"
@@ -127,41 +127,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
-      "match": {
-        "host": [
-          "{{config.api_host}}"
-        ],
-        "method": [
-          "GET"
-        ],
-        "path": [
-          "/betty-V2/benchmarks",
-          "/betty-V2/candidate/{candidate_uuid}",
-          "/betty-V2/candidate/{candidate_uuid}/adequacies/{pm_uuid}",
-          "/betty-V2/candidate/{candidate_uuid}/career/top",
-          "/betty-V2/candidate/{candidate_uuid}/init-voice/{pm_uuid}",
-          "/betty-V2/candidate/{candidate_uuid}/report/{report_id}",
-          "/betty-V2/candidate/{candidate_uuid}/reports",
-          "/betty-V2/candidate/{candidate_uuid}/scores",
-          "/betty-V2/candidate/{candidate_uuid}/synthesis",
-          "/betty-V2/locales",
-          "/betty-V2/onepager/candidate/{candidate_uuid}/results",
-          "/betty-V2/recruiters",
-          "/betty-V2/webhooks"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "action": {
-        "headers": {
-          "set": {
-            "AF-Token": "{{auth.token.token}}"
-          }
-        }
-      },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.api_host}}"
@@ -188,7 +154,7 @@
           }
         }
       },
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "host": [
           "{{config.api_host}}"

@@ -1,6 +1,13 @@
 local API = "https://api.hubapi.com"
 local OBJECTS = API .. "/crm/objects/2026-09/"
-local TYPES = {"contacts", "companies", "deals", "tickets", "notes", "tasks", "calls", "meetings", "emails"}
+-- Each access row and the object types it covers.
+local ROWS = {
+	contacts = {"contacts"}, companies = {"companies"}, deals = {"deals"}, tickets = {"tickets"},
+	engagements = {"notes", "tasks", "calls", "meetings", "emails"},
+}
+local RANK = {none = 0, read = 1, write = 2}
+-- The OAuth scopes of the schema version 1 read-only and read-write choices, which the default
+-- levels and every row at write must request unchanged.
 local READ_SCOPES = {
 	"oauth", "crm.objects.contacts.read", "crm.objects.companies.read", "crm.objects.deals.read",
 	"crm.objects.tickets.read", "crm.objects.owners.read", "crm.schemas.contacts.read", "crm.schemas.companies.read",
@@ -8,33 +15,48 @@ local READ_SCOPES = {
 }
 local WRITE_SCOPES = {"crm.objects.contacts.write", "crm.objects.companies.write", "crm.objects.deals.write", "crm.objects.tickets.write"}
 
+local function reads(row: string): {string}
+	local routes = {}
+	for _, kind in ROWS[row] do
+		table.insert(routes, "GET " .. OBJECTS .. kind .. "?limit=100&properties=hs_timestamp,hubspot_owner_id")
+		table.insert(routes, "GET " .. OBJECTS .. kind .. "/101")
+		table.insert(routes, "GET " .. OBJECTS .. kind .. "/sku%3A123?idProperty=sku")
+		table.insert(routes, "GET " .. OBJECTS .. kind .. "/101/associations/contacts?limit=500&after=x1")
+		table.insert(routes, "POST " .. OBJECTS .. kind .. "/search")
+		table.insert(routes, "POST " .. OBJECTS .. kind .. "/batch/read?archived=true")
+		table.insert(routes, "GET " .. API .. "/crm/properties/2026-09/" .. kind .. "?archived=true")
+		table.insert(routes, "GET " .. API .. "/crm/properties/2026-09/" .. kind .. "/hs_timestamp")
+	end
+	if row == "deals" or row == "tickets" then
+		table.insert(routes, "GET " .. API .. "/crm/pipelines/2026-09/" .. row)
+		table.insert(routes, "GET " .. API .. "/crm/pipelines/2026-09/" .. row .. "/0")
+	end
+	return routes
+end
+
+local function writes(row: string): {string}
+	local routes = {}
+	for _, kind in ROWS[row] do
+		table.insert(routes, "POST " .. OBJECTS .. kind)
+		table.insert(routes, "PATCH " .. OBJECTS .. kind .. "/101?idProperty=email")
+		table.insert(routes, "PATCH " .. OBJECTS .. kind .. "/sku%3A123?idProperty=sku")
+		table.insert(routes, "PUT " .. OBJECTS .. kind .. "/101/associations/companies/512")
+		table.insert(routes, "PUT " .. OBJECTS .. kind .. "/101/associations/default/companies/512")
+		table.insert(routes, "DELETE " .. OBJECTS .. kind .. "/101/associations/companies/512")
+	end
+	return routes
+end
+
 return {
 	contract = function(m)
-		local reads = {
-			"GET " .. OBJECTS .. "contacts/ana%40example.com?idProperty=email&properties=email",
-			"GET " .. OBJECTS .. "contacts/sku%3A123?idProperty=sku",
-			"GET " .. OBJECTS .. "deals/9876/associations/contacts?limit=500&after=x1",
-			"POST " .. OBJECTS .. "deals/search", "POST " .. OBJECTS .. "notes/batch/read?archived=true",
+		-- Association batch reads and labels name both object types in placeholders, and owners
+		-- belong to no row, so they are available at every level.
+		local base = {
 			"POST " .. API .. "/crm/associations/2026-09/deals/companies/batch/read",
 			"GET " .. API .. "/crm/associations/2026-09/contacts/companies/labels",
-			"GET " .. API .. "/crm/pipelines/2026-09/deals", "GET " .. API .. "/crm/pipelines/2026-09/tickets/0",
 			"GET " .. API .. "/crm/owners/2026-09?email=ana%40example.com&limit=500",
 			"GET " .. API .. "/crm/owners/2026-09/41629779?idProperty=userId",
 		}
-		local writes = {}
-		for _, kind in TYPES do
-			table.insert(reads, "GET " .. OBJECTS .. kind .. "?limit=100&properties=hs_timestamp,hubspot_owner_id")
-			table.insert(reads, "GET " .. OBJECTS .. kind .. "/101")
-			table.insert(reads, "POST " .. OBJECTS .. kind .. "/search")
-			table.insert(reads, "GET " .. API .. "/crm/properties/2026-09/" .. kind .. "?archived=true")
-			table.insert(reads, "GET " .. API .. "/crm/properties/2026-09/" .. kind .. "/hs_timestamp")
-			table.insert(writes, "POST " .. OBJECTS .. kind)
-			table.insert(writes, "PATCH " .. OBJECTS .. kind .. "/101?idProperty=email")
-			table.insert(writes, "PATCH " .. OBJECTS .. kind .. "/sku%3A123?idProperty=sku")
-			table.insert(writes, "PUT " .. OBJECTS .. kind .. "/101/associations/companies/512")
-			table.insert(writes, "PUT " .. OBJECTS .. kind .. "/101/associations/default/companies/512")
-			table.insert(writes, "DELETE " .. OBJECTS .. kind .. "/101/associations/companies/512")
-		end
 		-- The token never reaches HubSpot's OAuth endpoints (token exchange, introspection, revocation,
 		-- or /oauth/v1/access-tokens, which echoes the token), account details, other hosts, record
 		-- deletes, bulk writes, merges, schema administration, other object types or API versions.
@@ -46,10 +68,11 @@ return {
 		-- nine types would take about 500 paths. Luau bounds them to the nine types, and the token's scopes
 		-- bound what HubSpot answers.
 		local anyTypeReads = {
-			"GET " .. OBJECTS .. "contacts/101/associations/quotes", "GET " .. API .. "/crm/associations/2026-09/contacts/quotes/labels",
+			"GET " .. API .. "/crm/associations/2026-09/contacts/quotes/labels",
 			"POST " .. API .. "/crm/associations/2026-09/quotes/contacts/batch/read",
 		}
-		local anyTypeWrites = {
+		local contactsToAnyType = {"GET " .. OBJECTS .. "contacts/101/associations/quotes"}
+		local contactsToAnyTypeWrites = {
 			"PUT " .. OBJECTS .. "contacts/101/associations/quotes/7", "PUT " .. OBJECTS .. "contacts/101/associations/default/quotes/7",
 			"DELETE " .. OBJECTS .. "contacts/101/associations/quotes/7",
 		}
@@ -81,27 +104,57 @@ return {
 			"GET " .. OBJECTS .. "contacts/%2e%2e/users", "GET " .. OBJECTS .. "contacts/101/../../users",
 			"GET " .. OBJECTS .. "contacts/101%2Fassociations/companies",
 		}
+		-- The default levels, every row at write, every row at none, then each row alone at write.
+		local cases: {{[string]: string}} = {
+			{},
+			{contacts = "write", companies = "write", deals = "write", tickets = "write", engagements = "write"},
+			{contacts = "none", companies = "none", deals = "none", tickets = "none", engagements = "none"},
+		}
+		for row in ROWS do
+			local access = {contacts = "none", companies = "none", deals = "none", tickets = "none", engagements = "none"}
+			access[row] = "write"
+			table.insert(cases, access)
+		end
 		local publisher = {client_id = "publisher-client", client_secret = "publisher-secret"}
-		for _, method in {"oauth", "token"} do
-			for _, access in {"read-only", "read-write"} do
-				local r, err = m.resolve(if method == "oauth" then publisher else nil, {access = access},
-					if method == "token" then {token = "fixture-token"} else nil, method)
+		for index, access in cases do
+			local function rank(row: string): number return RANK[access[row] or "read"] end
+			local scopes = {"oauth", "crm.objects.owners.read", "sales-email-read"}
+			for row in ROWS do
+				if row == "engagements" then continue end
+				if rank(row) >= 1 then table.insert(scopes, "crm.objects." .. row .. ".read"); table.insert(scopes, "crm.schemas." .. row .. ".read") end
+				if rank(row) == 2 then table.insert(scopes, "crm.objects." .. row .. ".write") end
+			end
+			if index == 1 then m.sortedEqual(m.concat(READ_SCOPES), scopes) end
+			if index == 2 then m.sortedEqual(m.concat(READ_SCOPES, WRITE_SCOPES), scopes) end
+			-- A manual token follows the same proxy rules, so the default and full levels cover it.
+			for _, method in if index <= 2 then {"oauth", "token"} else {"oauth"} do
+				local r, err = m.resolve(if method == "oauth" then publisher else nil, {},
+					if method == "token" then {token = "fixture-token"} else nil, method, access)
 				assert(r and not err, tostring(err))
 				if method == "oauth" then
-					local expected = if access == "read-write" then m.concat(READ_SCOPES, WRITE_SCOPES) else READ_SCOPES
-					assert(m.equal(r.Scopes, expected), "requested OAuth scopes for " .. access)
+					m.sortedEqual(m.concat(scopes), m.concat(r.Scopes))
 					r.Context.Auth.oauth.access_token = "fixture-token"
 				else
 					assert(m.count(r.Scopes) == 0, "a manual token requests no scopes")
 				end
-				m.routes(r, "Bearer fixture-token", true, reads)
-				m.rejectOverrides(r, reads)
-				m.routes(r, "Bearer fixture-token", true, anyTypeReads)
-				m.routes(r, "Bearer fixture-token", access == "read-write", writes)
-				m.routes(r, "Bearer fixture-token", access == "read-write", anyTypeWrites)
-				if access == "read-write" then m.rejectOverrides(r, writes) end
+				m.routes(r, "Bearer fixture-token", true, m.concat(base, anyTypeReads))
+				for row in ROWS do
+					m.routes(r, "Bearer fixture-token", rank(row) >= 1, reads(row))
+					m.routes(r, "Bearer fixture-token", rank(row) == 2, writes(row))
+					if index == 2 and method == "oauth" then m.rejectOverrides(r, m.concat(reads(row), writes(row))) end
+				end
+				if index == 2 and method == "oauth" then m.rejectOverrides(r, base) end
+				m.routes(r, "Bearer fixture-token", rank("contacts") >= 1, contactsToAnyType)
+				m.routes(r, "Bearer fixture-token", rank("contacts") == 2, contactsToAnyTypeWrites)
 				m.routes(r, "Bearer fixture-token", false, denied)
 			end
 		end
+		local result, err = m.exports({}, "token", nil, nil, cases[3])
+		assert(result and not err, tostring(err))
+		assert(result.type == "result" and m.equal(result.exports, {"getOwner", "listOwners"}), "every row at none keeps only owners")
+		assert(string.find(result.help, "This connection reads no records: only owners are available.", 1, true), result.help)
+		result, err = m.exports({}, "token", nil, nil, {contacts = "write", companies = "none", deals = "read", tickets = "none", engagements = "none"})
+		assert(result and not err and result.type == "result", tostring(err))
+		assert(string.find(result.help, "objectType is one of contacts, deals; writes take contacts.", 1, true), result.help)
 	end,
 }

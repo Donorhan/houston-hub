@@ -5,7 +5,7 @@
 2. Grant the permissions below, then generate and copy the `sk_` key.
 3. In Houston, paste **Secret API key (v2)**, choose the matching access level and save.
 
-| Permission | Read-only | Read and write |
+| Permission | Read | Write |
 | --- | --- | --- |
 | Charts & metrics | Read only | Read only |
 | Customer information | Read only | Read & write |

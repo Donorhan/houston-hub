@@ -1,5 +1,5 @@
 -- With Email submission, draft senders are verified identities and drafts can be sent.
-return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},config={access="read-write"}, configure=function()
+return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},access = {data = "write"}, configure=function()
 
         requests, responses = {}, {}
         http = {request = function(req)

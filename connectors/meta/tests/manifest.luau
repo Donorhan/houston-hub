@@ -3,8 +3,8 @@ return {
 		-- TestMetaAccessRoutes
 		do
 			local api = "https://graph.facebook.com/v26.0"
-			for _, access in { "read-only", "read-write" } do
-				local r, err = m.resolve(nil, { access = access }, { token = "EAAPAGE" }, "token")
+			for _, access in { "read", "write" } do
+				local r, err = m.resolve(nil, {}, { token = "EAAPAGE" }, "token", { data = access })
 				assert(not err, tostring(err))
 				m.routes(r, "Bearer EAAPAGE", true, {
 					"GET " .. api .. "/me?fields=id%2Cname",
@@ -16,7 +16,7 @@ return {
 					r,
 					{ "GET " .. api .. "/me/feed", "GET " .. api .. "/1/content_publishing_limit" }
 				)
-				if access == "read-write" then
+				if access == "write" then
 					m.rejectOverrides(r, {
 						"POST " .. api .. "/me/feed",
 						"DELETE " .. api .. "/101_1",

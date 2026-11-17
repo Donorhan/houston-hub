@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {access = "read-only"}, auth_method = "token", auth_config = {token = "fixture-page-token"}},
+	scenario = {publisher = {}, access = {data = "read"}, config = {}, auth_method = "token", auth_config = {token = "fixture-page-token"}},
 	configure = function()
 		requests, responses = {}, {}
 		-- Sealing is native; a table of opaque handles stands in for it.

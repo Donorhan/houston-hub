@@ -9,13 +9,13 @@ local DOCS = "https://developer.wordpress.org/rest-api/reference/"
 -- _embed adds linked authors, terms, featured media and replies in their public embed context.
 local META_QUERY = {_fields = true, _embed = true}
 local DOMAIN = "site domain"
-local WRITE = config.access == "read-write"
+local WRITE = houston.allows("data:write")
 
 -- Core resources share one CRUD shape; {parent} is the revised post or page. Read-only
 -- connections refuse the edit context, which adds post passwords and users' and commenters'
 -- email and IP addresses, and accept only the listed users and comments options: WordPress
 -- matches searches and some filters against those addresses. Settings include the admin
--- email and need read-write even to read.
+-- email and need write access even to read.
 -- Plugins, themes, application passwords, user changes, batch requests and the site
 -- editor are deliberately not exposed (the manifest allows only these routes).
 local function set(...: string): {[string]: boolean}
@@ -222,12 +222,12 @@ local function signature(endpoint: Endpoint): string
 	return "({" .. table.concat(fields, ", ") .. "})"
 end
 
--- Reads, plus writes and sensitive reads on read-write connections, and help listing them
+-- Reads, plus writes and sensitive reads with write access, and help listing them
 -- after intro.
 local function operations(endpoints: {[string]: Endpoint}, call: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if (endpoint.method == "GET" and not endpoint.sensitive) or config.access == "read-write" then
+		if (endpoint.method == "GET" and not endpoint.sensitive) or houston.allows("data:write") then
 			exports[name] = function(args: Options?): any return call(name, endpoint, args) end
 		end
 	end
@@ -277,7 +277,7 @@ end
 local function call(name: string, endpoint: Endpoint, input: Options?): any
 	if not WRITE and type(input) == "table" then
 		local context = input.context
-		assert(context == nil or context == "view" or context == "embed", "context must be view or embed: context='edit' needs read-write access because it adds post passwords and users' and commenters' email and IP addresses")
+		assert(context == nil or context == "view" or context == "embed", "context must be view or embed: context='edit' needs write access because it adds post passwords and users' and commenters' email and IP addresses")
 		local allowed = endpoint.private
 		if allowed then
 			for key in input do

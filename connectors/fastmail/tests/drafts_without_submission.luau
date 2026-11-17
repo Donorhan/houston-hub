@@ -1,5 +1,5 @@
 -- A token without Email submission prepares drafts but never sends.
-return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},config={access="read-write"}, configure=function()
+return {scenario={["auth_config"]={["token"]="fixture-private-password !@#"},["auth_method"]="token",["config"]={},["publisher"]={}},access = {data = "write"}, configure=function()
 
         requests, responses = {}, {}
         http = {request = function(req)

@@ -39,7 +39,7 @@ func TestStandaloneBundleAndPrivateFiles(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "tests", "behavior.lua"), []byte(`return {scenario={},run=function(c) assert(c.answer()==42) end}`), 0644); err != nil {
 		t.Fatal(err)
 	}
-	for name, body := range map[string]string{"houston.json": `{"description":"Example","files":["main.luau"],"name":"Example","proxy":[{"action":{},"match":{"host":["api.example.com"],"protocol":"http"}}],"schema_version":1}`, "main.luau": `local helper = require("lib/helper.lua"); return {answer = helper.answer, help = function() return "answer() returns 42" end}`, "lib/helper.lua": `return {answer = function() return 42 end}`} {
+	for name, body := range map[string]string{"houston.json": `{"description":"Example","files":["main.luau"],"name":"Example","proxy":[{"action":{},"match":{"host":["api.example.com"],"protocol":"http"}}],"schema_version":2}`, "main.luau": `local helper = require("lib/helper.lua"); return {answer = helper.answer, help = function() return "answer() returns 42" end}`, "lib/helper.lua": `return {answer = function() return 42 end}`} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0644); err != nil {
 			t.Fatal(err)
 		}
@@ -78,7 +78,7 @@ func TestStandaloneBundleAndPrivateFiles(t *testing.T) {
 }
 func TestManifestUsesAuthoritativeValidation(t *testing.T) {
 	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "houston.json"), []byte(`{"description":"Example","files":["main.lua"],"name":"Example","proxy":[{"action":{"headers":{"set":{"Authorization":{}}}},"match":{"host":["api.example.com"],"protocol":"http"}}],"schema_version":1}`), 0644)
+	os.WriteFile(filepath.Join(dir, "houston.json"), []byte(`{"description":"Example","files":["main.lua"],"name":"Example","proxy":[{"action":{"headers":{"set":{"Authorization":{}}}},"match":{"host":["api.example.com"],"protocol":"http"}}],"schema_version":2}`), 0644)
 	os.WriteFile(filepath.Join(dir, "main.lua"), []byte(`return {}`), 0644)
 	if _, err := validate(dir); err == nil {
 		t.Fatal("accepted non-object header recipe")

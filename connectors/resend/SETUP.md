@@ -2,8 +2,8 @@
 
 1. Open [API Keys](https://resend.com/api-keys), choose **Create API Key**, name it
    and select **Full access**. Copy the `re_` key.
-2. Paste it into Houston's **API key**, choose **Read-only** or **Read and write**,
-   and save.
+2. Paste it into Houston's **API key**, choose **Read** or **Write** for
+   **Access**, and save.
 3. To send beyond your own address, verify a sending domain under
    [Domains](https://resend.com/domains).
 
@@ -16,6 +16,6 @@
 ## Advanced
 
 **Sending access** keys, optionally restricted to one domain, work only for sending
-on a **Read and write** connection; reads fail. Inboxes need receiving enabled on
+on a connection with **Write** access; reads fail. Inboxes need receiving enabled on
 their domain and may require forwarding. Your plan's inbox and sending limits apply.
 Replace revoked keys in Houston; manage keys and OAuth apps in Resend.

@@ -1,8 +1,8 @@
 # Connect your Google account
 
-1. Choose the access level:
-   - **Read-only** to let agents read without changing anything.
-   - **Read and write** to also let agents deploy, run jobs, manage instances and
+1. Choose the level for **Access**:
+   - **Read** to let agents read without changing anything.
+   - **Write** to also let agents deploy, run jobs, manage instances and
      change storage objects.
 2. Select **Continue with Google**, choose your account, and approve the
    permissions Google lists. If Google shows a checkbox per permission, tick
@@ -15,7 +15,7 @@ need roles that allow them, such as **Cloud Run Developer** or **Compute
 Instance Admin (v1)**. Ask a project owner to grant roles on the
 [IAM page](https://console.cloud.google.com/iam-admin/iam).
 
-> **Read and write** asks Google for full access to Google Cloud on your behalf.
+> **Write** asks Google for full access to Google Cloud on your behalf.
 > Houston's connector only offers the actions listed in its description, but use
 > an account whose roles match what you want agents to do.
 

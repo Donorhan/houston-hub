@@ -9,11 +9,11 @@ local MAX_PAGE = 250
 local MAX_DOCUMENT = 64 * 1024
 local MAX_URL = 8 * 1024
 
--- Read-only connections send queries with GET, which Linear refuses for mutations (HTTP 405),
--- and the manifest allows POST only on read-write connections.
-local WRITES = config.access == "read-write"
+-- Read connections send queries with GET, which Linear refuses for mutations (HTTP 405),
+-- and the manifest allows POST only with write access.
+local WRITES = houston.allows("data:write")
 
--- Fields each operation selects; on read-write connections graphql() reaches the others.
+-- Fields each operation selects; with write access graphql() reaches the others.
 local TEAM_REF = "team { id key name }"
 local PERSON = "{ id name displayName }"
 local USER = "id name displayName email active admin guest url timezone createdAt"
@@ -252,7 +252,7 @@ local function graphql(input: Options?): any
 	return (execute("graphql", source, variables, operationName))
 end
 
--- Arbitrary documents can read webhook signing secrets and SSO settings, so they need read-write.
+-- Arbitrary documents can read webhook signing secrets and SSO settings, so they need write access.
 if WRITES then exports.graphql = graphql end
 
 exports.help = function(): string

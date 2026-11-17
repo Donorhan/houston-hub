@@ -2,7 +2,7 @@
 type Options = {[string]: any}
 type Endpoint = {
 	method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, allow: {string}?,
-	write: boolean?, body: (boolean | string)?, doc: string, about: string,
+	access: string?, body: (boolean | string)?, doc: string, about: string,
 }
 
 local PROVIDER = "Gusto"
@@ -27,68 +27,68 @@ local endpoints: {[string]: Endpoint} = {
 	listCompanyAdmins = {method = "GET", path = "/v1/companies/{company_id}/admins", query = PAGE, doc = "get-v1-companies-company_id-admins", about = ""},
 	listCompanyCustomFields = {method = "GET", path = "/v1/companies/{company_id}/custom_fields", query = PAGE, doc = "get-v1-companies-company_id-custom_fields", about = ""},
 	listLocations = {method = "GET", path = "/v1/companies/{company_id}/locations", query = PAGE, doc = "get-v1-companies-company_id-locations", about = ""},
-	createLocation = {method = "POST", path = "/v1/companies/{company_id}/locations", required = {"street_1", "city", "state", "zip", "phone_number"},
+	createLocation = {method = "POST", path = "/v1/companies/{company_id}/locations", access = "data:write", required = {"street_1", "city", "state", "zip", "phone_number"},
 		doc = "post-v1-companies-company_id-locations", about = "Also street_2, country, mailing_address, filing_address."},
 	getLocation = {method = "GET", path = "/v1/locations/{location_id}", doc = "get-v1-locations-location_id", about = ""},
-	updateLocation = {method = "PUT", path = "/v1/locations/{location_id}", required = {"version"}, doc = "put-v1-locations-location_id", about = ""},
+	updateLocation = {method = "PUT", path = "/v1/locations/{location_id}", access = "data:write", required = {"version"}, doc = "put-v1-locations-location_id", about = ""},
 	listMinimumWages = {method = "GET", path = "/v1/locations/{location_id}/minimum_wages", query = {"effective_date"}, doc = "get-v1-locations-location_uuid-minimum_wages", about = ""},
 
 	listDepartments = {method = "GET", path = "/v1/companies/{company_id}/departments", doc = "get-companies-departments", about = "With their employees and contractors."},
-	createDepartment = {method = "POST", path = "/v1/companies/{company_id}/departments", required = {"title"}, doc = "post-departments", about = ""},
+	createDepartment = {method = "POST", path = "/v1/companies/{company_id}/departments", access = "data:write", required = {"title"}, doc = "post-departments", about = ""},
 	getDepartment = {method = "GET", path = "/v1/departments/{department_uuid}", doc = "get-department", about = ""},
-	updateDepartment = {method = "PUT", path = "/v1/departments/{department_uuid}", required = {"title", "version"}, doc = "put-departments", about = ""},
-	deleteDepartment = {method = "DELETE", path = "/v1/departments/{department_uuid}", doc = "delete-department", about = "Only an empty department."},
-	addDepartmentPeople = {method = "PUT", path = "/v1/departments/{department_uuid}/add", required = {"version"},
+	updateDepartment = {method = "PUT", path = "/v1/departments/{department_uuid}", access = "data:write", required = {"title", "version"}, doc = "put-departments", about = ""},
+	deleteDepartment = {method = "DELETE", path = "/v1/departments/{department_uuid}", access = "data:write", doc = "delete-department", about = "Only an empty department."},
+	addDepartmentPeople = {method = "PUT", path = "/v1/departments/{department_uuid}/add", access = "data:write", required = {"version"},
 		doc = "put-add-people-to-department", about = "Also employees={{uuid}}, contractors={{uuid}}."},
-	removeDepartmentPeople = {method = "PUT", path = "/v1/departments/{department_uuid}/remove", required = {"version"},
+	removeDepartmentPeople = {method = "PUT", path = "/v1/departments/{department_uuid}/remove", access = "data:write", required = {"version"},
 		doc = "put-remove-people-from-department", about = "Also employees={{uuid}}, contractors={{uuid}}."},
 
 	listEmployees = {method = "GET", path = "/v1/companies/{company_id}/employees",
 		query = {"search_term", "sort_by", "include", "location_uuid", "payroll_uuid", "onboarded", "onboarded_active", "terminated", "terminated_today", "uuids", "page", "per"},
 		doc = "get-v1-companies-company_id-employees", about = "include: all_compensations, all_home_addresses, company_name, current_home_address, custom_fields or portal_invitations."},
-	createEmployee = {method = "POST", path = "/v1/companies/{company_id}/employees", required = {"first_name", "last_name"},
+	createEmployee = {method = "POST", path = "/v1/companies/{company_id}/employees", access = "data:write", required = {"first_name", "last_name"},
 		doc = "post-v1-employees", about = "Also middle_initial, preferred_first_name, email, date_of_birth, ssn, self_onboarding. Starts onboarding."},
 	getEmployee = {method = "GET", path = "/v1/employees/{employee_id}", query = {"include"}, doc = "get-v1-employees", about = "With jobs; pay rates need the compensations scope."},
-	updateEmployee = {method = "PUT", path = "/v1/employees/{employee_id}", required = {"version"}, doc = "put-v1-employees", about = ""},
-	deleteEmployee = {method = "DELETE", path = "/v1/employees/{employee_id}", doc = "delete-v1-employee", about = "Only an employee who hasn't finished onboarding; terminate the others."},
+	updateEmployee = {method = "PUT", path = "/v1/employees/{employee_id}", access = "data:write", required = {"version"}, doc = "put-v1-employees", about = ""},
+	deleteEmployee = {method = "DELETE", path = "/v1/employees/{employee_id}", access = "data:write", doc = "delete-v1-employee", about = "Only an employee who hasn't finished onboarding; terminate the others."},
 	listEmployeeCustomFields = {method = "GET", path = "/v1/employees/{employee_id}/custom_fields", query = PAGE, doc = "get-v1-employees-employee_id-custom_fields", about = ""},
 	getEmploymentHistory = {method = "GET", path = "/v1/employees/{employee_id}/employment_history", doc = "get-v1-employees-employee_id-employment_history", about = "Hire and termination dates."},
 	listTerminations = {method = "GET", path = "/v1/employees/{employee_id}/terminations", doc = "get-v1-employees-employee_id-terminations", about = ""},
-	createTermination = {method = "POST", path = "/v1/employees/{employee_id}/terminations", required = {"effective_date"},
+	createTermination = {method = "POST", path = "/v1/employees/{employee_id}/terminations", access = "data:write", required = {"effective_date"},
 		doc = "post-v1-employees-employee_id-terminations", about = "Also run_termination_payroll. Ends the employment on that date."},
-	updateTermination = {method = "PUT", path = "/v1/terminations/{employee_id}", required = {"effective_date", "version"}, doc = "put-v1-terminations-employee_id", about = ""},
-	deleteTermination = {method = "DELETE", path = "/v1/employees/{employee_id}/terminations", doc = "delete-v1-employees-employee_id-terminations", about = "Cancels a termination that hasn't taken effect."},
+	updateTermination = {method = "PUT", path = "/v1/terminations/{employee_id}", access = "data:write", required = {"effective_date", "version"}, doc = "put-v1-terminations-employee_id", about = ""},
+	deleteTermination = {method = "DELETE", path = "/v1/employees/{employee_id}/terminations", access = "data:write", doc = "delete-v1-employees-employee_id-terminations", about = "Cancels a termination that hasn't taken effect."},
 	getRehire = {method = "GET", path = "/v1/employees/{employee_id}/rehire", doc = "get-v1-employees-employee_id-rehire", about = "nil when no rehire is scheduled."},
-	createRehire = {method = "POST", path = "/v1/employees/{employee_id}/rehire", required = {"effective_date", "file_new_hire_report", "work_location_uuid"}, doc = "post-v1-employees-employee_id-rehire", about = ""},
-	updateRehire = {method = "PUT", path = "/v1/employees/{employee_id}/rehire", required = {"effective_date", "file_new_hire_report", "work_location_uuid", "version"}, doc = "put-v1-employees-employee_id-rehire", about = ""},
-	deleteRehire = {method = "DELETE", path = "/v1/employees/{employee_id}/rehire", doc = "delete-v1-employees-employee_id-rehire", about = "Cancels a rehire that hasn't taken effect."},
+	createRehire = {method = "POST", path = "/v1/employees/{employee_id}/rehire", access = "data:write", required = {"effective_date", "file_new_hire_report", "work_location_uuid"}, doc = "post-v1-employees-employee_id-rehire", about = ""},
+	updateRehire = {method = "PUT", path = "/v1/employees/{employee_id}/rehire", access = "data:write", required = {"effective_date", "file_new_hire_report", "work_location_uuid", "version"}, doc = "put-v1-employees-employee_id-rehire", about = ""},
+	deleteRehire = {method = "DELETE", path = "/v1/employees/{employee_id}/rehire", access = "data:write", doc = "delete-v1-employees-employee_id-rehire", about = "Cancels a rehire that hasn't taken effect."},
 	listHomeAddresses = {method = "GET", path = "/v1/employees/{employee_id}/home_addresses", doc = "get-v1-employees-employee_id-home_addresses", about = ""},
-	createHomeAddress = {method = "POST", path = "/v1/employees/{employee_id}/home_addresses",
+	createHomeAddress = {method = "POST", path = "/v1/employees/{employee_id}/home_addresses", access = "data:write",
 		doc = "post-v1-employees-employee_id-home_addresses", about = "Body {street_1, street_2?, city, state, zip, effective_date?, courtesy_withholding?}."},
 	getHomeAddress = {method = "GET", path = "/v1/home_addresses/{home_address_uuid}", doc = "get-v1-home_addresses-home_address_uuid", about = ""},
-	updateHomeAddress = {method = "PUT", path = "/v1/home_addresses/{home_address_uuid}", required = {"version"}, doc = "put-v1-home_addresses-home_address_uuid", about = ""},
-	deleteHomeAddress = {method = "DELETE", path = "/v1/home_addresses/{home_address_uuid}", doc = "delete-v1-home_addresses-home_address_uuid", about = ""},
+	updateHomeAddress = {method = "PUT", path = "/v1/home_addresses/{home_address_uuid}", access = "data:write", required = {"version"}, doc = "put-v1-home_addresses-home_address_uuid", about = ""},
+	deleteHomeAddress = {method = "DELETE", path = "/v1/home_addresses/{home_address_uuid}", access = "data:write", doc = "delete-v1-home_addresses-home_address_uuid", about = ""},
 	listWorkAddresses = {method = "GET", path = "/v1/employees/{employee_id}/work_addresses", doc = "get-v1-employees-employee_id-work_addresses", about = ""},
-	createWorkAddress = {method = "POST", path = "/v1/employees/{employee_id}/work_addresses",
+	createWorkAddress = {method = "POST", path = "/v1/employees/{employee_id}/work_addresses", access = "data:write",
 		doc = "post-v1-employees-employee_id-work_addresses", about = "Body {location_uuid, effective_date?}."},
 	getWorkAddress = {method = "GET", path = "/v1/work_addresses/{work_address_uuid}", doc = "get-v1-work_addresses-work_address_uuid", about = ""},
-	updateWorkAddress = {method = "PUT", path = "/v1/work_addresses/{work_address_uuid}", required = {"version"}, doc = "put-v1-work_addresses-work_address_uuid", about = ""},
-	deleteWorkAddress = {method = "DELETE", path = "/v1/work_addresses/{work_address_uuid}", doc = "delete-v1-work_addresses-work_address_uuid", about = ""},
+	updateWorkAddress = {method = "PUT", path = "/v1/work_addresses/{work_address_uuid}", access = "data:write", required = {"version"}, doc = "put-v1-work_addresses-work_address_uuid", about = ""},
+	deleteWorkAddress = {method = "DELETE", path = "/v1/work_addresses/{work_address_uuid}", access = "data:write", doc = "delete-v1-work_addresses-work_address_uuid", about = ""},
 
 	listCompensations = {method = "GET", path = "/v1/jobs/{job_id}/compensations", query = {"include", "page", "per"},
 		doc = "get-v1-jobs-job_id-compensations", about = "job_id comes from an employee's jobs; include='all_compensations' adds past and future rates."},
-	createCompensation = {method = "POST", path = "/v1/jobs/{job_id}/compensations", required = {"rate", "payment_unit", "flsa_status"},
+	createCompensation = {method = "POST", path = "/v1/jobs/{job_id}/compensations", access = "data:write", required = {"rate", "payment_unit", "flsa_status"},
 		doc = "post-v1-compensations-compensation_id", about = "rate is a string; payment_unit Hour, Week, Month, Year or Paycheck. Also effective_date, adjust_for_minimum_wage."},
 	getCompensation = {method = "GET", path = "/v1/compensations/{compensation_id}", doc = "get-v1-compensations-compensation_id", about = ""},
-	updateCompensation = {method = "PUT", path = "/v1/compensations/{compensation_id}", required = {"version"}, doc = "put-v1-compensations-compensation_id", about = ""},
-	deleteCompensation = {method = "DELETE", path = "/v1/compensations/{compensation_id}", doc = "delete-v1-compensations-compensation_id", about = "Only a compensation not yet paid on a payroll."},
+	updateCompensation = {method = "PUT", path = "/v1/compensations/{compensation_id}", access = "data:write", required = {"version"}, doc = "put-v1-compensations-compensation_id", about = ""},
+	deleteCompensation = {method = "DELETE", path = "/v1/compensations/{compensation_id}", access = "data:write", doc = "delete-v1-compensations-compensation_id", about = "Only a compensation not yet paid on a payroll."},
 
 	listContractors = {method = "GET", path = "/v1/companies/{company_id}/contractors",
 		query = {"search_term", "sort_by", "include", "onboarded", "onboarded_active", "terminated", "terminated_today", "page", "per"}, doc = "get-v1-companies-company_uuid-contractors", about = ""},
-	createContractor = {method = "POST", path = "/v1/companies/{company_id}/contractors", required = {"type", "wage_type", "start_date"},
+	createContractor = {method = "POST", path = "/v1/companies/{company_id}/contractors", access = "data:write", required = {"type", "wage_type", "start_date"},
 		doc = "post-v1-companies-company_uuid-contractors", about = "type Individual or Business; wage_type Fixed or Hourly. Also first_name, last_name, business_name, email, hourly_rate, self_onboarding."},
 	getContractor = {method = "GET", path = "/v1/contractors/{contractor_uuid}", query = {"include"}, doc = "get-v1-contractors-contractor_uuid", about = ""},
-	updateContractor = {method = "PUT", path = "/v1/contractors/{contractor_uuid}", required = {"version"}, doc = "put-v1-contractors-contractor_uuid", about = ""},
+	updateContractor = {method = "PUT", path = "/v1/contractors/{contractor_uuid}", access = "data:write", required = {"version"}, doc = "put-v1-contractors-contractor_uuid", about = ""},
 
 	listPaySchedules = {method = "GET", path = "/v1/companies/{company_id}/pay_schedules", query = PAGE, doc = "get-v1-companies-company_id-pay_schedules", about = ""},
 	getPaySchedule = {method = "GET", path = "/v1/companies/{company_id}/pay_schedules/{pay_schedule_id}", doc = "get-v1-companies-company_id-pay_schedules-pay_schedule_id", about = ""},
@@ -103,31 +103,31 @@ local endpoints: {[string]: Endpoint} = {
 		doc = "get-v1-companies-company_id-payrolls", about = "Always paged (per up to 100). Defaults to processed regular payrolls of the past 6 months: pass processing_statuses={'unprocessed'} for drafts and payroll_types={'regular', 'off_cycle'} for off-cycle ones (also external). start_date and end_date span at most a year, ending at most 3 months ahead. include: totals, taxes, payroll_status_meta, risk_blockers, reversals."},
 	getPayroll = {method = "GET", path = "/v1/companies/{company_id}/payrolls/{payroll_id}", query = {"include", "sort_by", "page", "per"},
 		doc = "get-v1-companies-company_id-payrolls-payroll_id", about = "Gross and net pay, taxes and deductions per employee. Always pages employee_compensations (per default 25, up to 100) without totals: request the next page until fewer than per come back. include: benefits, deductions, taxes, payroll_taxes, payroll_status_meta, totals, risk_blockers, reversals."},
-	preparePayroll = {method = "PUT", path = "/v1/companies/{company_id}/payrolls/{payroll_id}/prepare", query = {"sort_by", "page", "per"},
+	preparePayroll = {method = "PUT", path = "/v1/companies/{company_id}/payrolls/{payroll_id}/prepare", access = "data:write", query = {"sort_by", "page", "per"},
 		doc = "put-v1-companies-company_id-payrolls-payroll_id-prepare", about = "Readies an unprocessed payroll for editing and returns it with each employee_compensations entry's version, paged like getPayroll. Also employee_uuids (up to 100) to prepare only those employees, or add up to 25 to a Bonus, Correction or Adhoc off-cycle payroll. Clears any earlier calculation."},
-	updatePayroll = {method = "PUT", path = "/v1/companies/{company_id}/payrolls/{payroll_id}", required = {"employee_compensations"},
+	updatePayroll = {method = "PUT", path = "/v1/companies/{company_id}/payrolls/{payroll_id}", access = "data:write", required = {"employee_compensations"},
 		doc = "put-v1-companies-company_id-payrolls", about = "employee_compensations={{employee_uuid, version, fixed_compensations?, hourly_compensations?, paid_time_off?, excluded?, memo?}}, up to 100, each version from preparePayroll. Also withholding_pay_period, skip_regular_deductions, fixed_withholding_rate. Changes the draft only; omitted entries stay."},
-	calculateAccruingTimeOffHours = {method = "POST", path = "/v1/payrolls/{payroll_id}/employees/{employee_id}/calculate_accruing_time_off_hours", write = false,
+	calculateAccruingTimeOffHours = {method = "POST", path = "/v1/payrolls/{payroll_id}/employees/{employee_id}/calculate_accruing_time_off_hours",
 		allow = {"regular_hours_worked", "overtime_hours_worked", "double_overtime_hours_worked", "pto_hours_used", "sick_hours_used"},
 		doc = "post-v1-payrolls-payroll_id-calculate_accruing_time_off_hours", about = "Computes only; body fields regular_hours_worked, overtime_hours_worked, double_overtime_hours_worked, pto_hours_used and sick_hours_used."},
 	listContractorPayments = {method = "GET", path = "/v1/companies/{company_id}/contractor_payments", query = {"start_date", "end_date", "contractor_uuid", "group_by_date", "page", "per"},
 		required = {"start_date", "end_date"}, doc = "get-v1-companies-company_id-contractor_payments", about = "Totals and payments in the date range."},
 	getContractorPayment = {method = "GET", path = "/v1/companies/{company_id}/contractor_payments/{contractor_payment_id}", doc = "get-v1-companies-company_id-contractor_payment-contractor-payment", about = ""},
 	listEarningTypes = {method = "GET", path = "/v1/companies/{company_id}/earning_types", doc = "get-v1-companies-company_id-earning_types", about = "{default, custom}."},
-	createEarningType = {method = "POST", path = "/v1/companies/{company_id}/earning_types", required = {"name"},
+	createEarningType = {method = "POST", path = "/v1/companies/{company_id}/earning_types", access = "data:write", required = {"name"},
 		doc = "post-v1-companies-company_id-earning_types", about = "A custom earning type for payroll fixed compensations."},
-	updateEarningType = {method = "PUT", path = "/v1/companies/{company_id}/earning_types/{earning_type_uuid}",
+	updateEarningType = {method = "PUT", path = "/v1/companies/{company_id}/earning_types/{earning_type_uuid}", access = "data:write",
 		doc = "put-v1-companies-company_id-earning_types-earning_type_uuid", about = "Body {name}."},
-	deleteEarningType = {method = "DELETE", path = "/v1/companies/{company_id}/earning_types/{earning_type_uuid}",
+	deleteEarningType = {method = "DELETE", path = "/v1/companies/{company_id}/earning_types/{earning_type_uuid}", access = "data:write",
 		doc = "delete-v1-companies-company_id-earning_types-earning_type_uuid", about = "Deactivates a custom earning type."},
-	createGeneralLedgerReport = {method = "POST", path = "/v1/payrolls/{payroll_uuid}/reports/general_ledger", required = {"aggregation"}, allow = {"aggregation", "integration_type"}, write = false,
+	createGeneralLedgerReport = {method = "POST", path = "/v1/payrolls/{payroll_uuid}/reports/general_ledger", required = {"aggregation"}, allow = {"aggregation", "integration_type"},
 		doc = "post-payrolls-payroll_uuid-reports-general_ledger", about = "aggregation default, job, department or integration, with integration_type (such as xero or qbo) for integration. Returns {request_uuid}; poll getReport until its status is succeeded or failed."},
 	getReport = {method = "GET", path = "/v1/reports/{request_uuid}",
 		doc = "get-reports-request_uuid", about = "{status, report_urls}: temporary download links; treat them as secrets."},
 
 	listTimeOffPolicies = {method = "GET", path = "/v1/companies/{company_id}/time_off_policies", doc = "get-v1-companies-company_uuid-time_off_policies", about = ""},
 	getTimeOffPolicy = {method = "GET", path = "/v1/time_off_policies/{time_off_policy_uuid}", doc = "get-v1-time_off_policies-time_off_policy_uuid", about = "With employee balances."},
-	addTimeOffPolicyEmployees = {method = "PUT", path = "/v1/time_off_policies/{time_off_policy_uuid}/add_employees", required = {"employees"},
+	addTimeOffPolicyEmployees = {method = "PUT", path = "/v1/time_off_policies/{time_off_policy_uuid}/add_employees", access = "data:write", required = {"employees"},
 		doc = "put-v1-time_off_policies-time_off_policy_uuid-add_employees", about = "employees={{uuid, balance?}}."},
 	listTimeOffRequests = {method = "GET", path = "/v1/companies/{company_id}/time_off_requests", query = {"start_date", "end_date"}, doc = "get-v1-companies-company_id-time_off_requests", about = ""},
 	listTimeOffActivities = {method = "GET", path = "/v1/employees/{employee_id}/time_off_activities", query = {"time_off_type"}, required = {"time_off_type"},
@@ -138,58 +138,58 @@ local endpoints: {[string]: Endpoint} = {
 	getBenefitRequirements = {method = "GET", path = "/v1/benefits/{benefit_id}/requirements", doc = "get-v1-benefits-benefits_id-requirements", about = ""},
 	listCompanyBenefits = {method = "GET", path = "/v1/companies/{company_id}/company_benefits", query = {"active", "enrollment_count", "benefit_type"},
 		doc = "get-v1-companies-company_id-company_benefits", about = "benefit_type takes benefit type numbers."},
-	createCompanyBenefit = {method = "POST", path = "/v1/companies/{company_id}/company_benefits", required = {"description"},
+	createCompanyBenefit = {method = "POST", path = "/v1/companies/{company_id}/company_benefits", access = "data:write", required = {"description"},
 		doc = "post-v1-companies-company_id-company_benefits", about = "Also benefit_type, active, responsible_for_employer_taxes, responsible_for_employee_w2."},
 	getCompanyBenefit = {method = "GET", path = "/v1/company_benefits/{company_benefit_id}", query = {"with_employee_benefits", "include"}, doc = "get-v1-company_benefits-company_benefit_id", about = ""},
-	updateCompanyBenefit = {method = "PUT", path = "/v1/company_benefits/{company_benefit_id}", required = {"version"}, doc = "put-v1-company_benefits-company_benefit_id", about = ""},
-	deleteCompanyBenefit = {method = "DELETE", path = "/v1/company_benefits/{company_benefit_id}",
+	updateCompanyBenefit = {method = "PUT", path = "/v1/company_benefits/{company_benefit_id}", access = "data:write", required = {"version"}, doc = "put-v1-company_benefits-company_benefit_id", about = ""},
+	deleteCompanyBenefit = {method = "DELETE", path = "/v1/company_benefits/{company_benefit_id}", access = "data:write",
 		doc = "delete-v1-company_benefits-company_benefit_id", about = "Only a benefit without employee enrollments or payroll history; otherwise set active=false."},
 	getCompanyBenefitSummary = {method = "GET", path = "/v1/company_benefits/{company_benefit_id}/summary", query = {"start_date", "end_date", "detailed"},
 		doc = "get-v1-benefits-company_benefit_id-summary", about = "Employee deductions and company contributions over the range."},
 	getContributionExclusions = {method = "GET", path = "/v1/company_benefits/{company_benefit_id}/contribution_exclusions", doc = "get-v1-company_benefits-company_benefit_id-contribution_exclusions", about = ""},
-	updateContributionExclusions = {method = "PUT", path = "/v1/company_benefits/{company_benefit_id}/contribution_exclusions", required = {"contribution_exclusions"}, doc = "put-v1-company_benefits-company_benefit_id-contribution_exclusions", about = ""},
+	updateContributionExclusions = {method = "PUT", path = "/v1/company_benefits/{company_benefit_id}/contribution_exclusions", access = "data:write", required = {"contribution_exclusions"}, doc = "put-v1-company_benefits-company_benefit_id-contribution_exclusions", about = ""},
 	listCompanyBenefitEmployeeBenefits = {method = "GET", path = "/v1/company_benefits/{company_benefit_id}/employee_benefits", query = {"include", "page", "per"},
 		doc = "get-v1-company_benefits-company_benefit_id-employee_benefits", about = "Enrollments in one company benefit."},
-	updateCompanyBenefitEmployeeBenefits = {method = "PUT", path = "/v1/company_benefits/{company_benefit_id}/employee_benefits", required = {"employee_benefits"},
+	updateCompanyBenefitEmployeeBenefits = {method = "PUT", path = "/v1/company_benefits/{company_benefit_id}/employee_benefits", access = "data:write", required = {"employee_benefits"},
 		doc = "put-v1-company_benefits-company_benefit_id-employee_benefits", about = "employee_benefits={{employee_uuid, ...}} creates or updates many enrollments."},
 	listEmployeeBenefits = {method = "GET", path = "/v1/employees/{employee_id}/employee_benefits", query = {"include", "page", "per"}, doc = "get-v1-employees-employee_id-employee_benefits", about = ""},
-	createEmployeeBenefit = {method = "POST", path = "/v1/employees/{employee_id}/employee_benefits", required = {"company_benefit_uuid"},
+	createEmployeeBenefit = {method = "POST", path = "/v1/employees/{employee_id}/employee_benefits", access = "data:write", required = {"company_benefit_uuid"},
 		doc = "post-v1-employees-employee_id-employee_benefits", about = "Also active, employee_deduction, company_contribution, deduct_as_percentage, effective_date and more. Enrolls the employee."},
 	getEmployeeBenefit = {method = "GET", path = "/v1/employee_benefits/{employee_benefit_id}", doc = "get-v1-employee_benefits-employee_benefit_id", about = ""},
-	updateEmployeeBenefit = {method = "PUT", path = "/v1/employee_benefits/{employee_benefit_id}", required = {"version"}, doc = "put-v1-employee_benefits-employee_benefit_id", about = ""},
-	deleteEmployeeBenefit = {method = "DELETE", path = "/v1/employee_benefits/{employee_benefit_id}", doc = "delete-v1-employee_benefits-employee_benefit_id", about = "Ends the enrollment."},
+	updateEmployeeBenefit = {method = "PUT", path = "/v1/employee_benefits/{employee_benefit_id}", access = "data:write", required = {"version"}, doc = "put-v1-employee_benefits-employee_benefit_id", about = ""},
+	deleteEmployeeBenefit = {method = "DELETE", path = "/v1/employee_benefits/{employee_benefit_id}", access = "data:write", doc = "delete-v1-employee_benefits-employee_benefit_id", about = "Ends the enrollment."},
 	getYtdBenefitAmountsFromDifferentCompany = {method = "GET", path = "/v1/employees/{employee_id}/ytd_benefit_amounts_from_different_company", query = {"tax_year"},
 		doc = "get-employee-ytd-benefit-amounts-from-different-company", about = "Contributions made at a previous employer this year."},
-	createYtdBenefitAmountsFromDifferentCompany = {method = "POST", path = "/v1/employees/{employee_id}/ytd_benefit_amounts_from_different_company",
+	createYtdBenefitAmountsFromDifferentCompany = {method = "POST", path = "/v1/employees/{employee_id}/ytd_benefit_amounts_from_different_company", access = "data:write",
 		required = {"benefit_type", "tax_year", "ytd_employee_deduction_amount", "ytd_company_contribution_amount"}, doc = "post-employee-ytd-benefit-amounts-from-different-company", about = ""},
 	listSection603HighEarnerStatuses = {method = "GET", path = "/v1/employees/{employee_id}/section603_high_earner_statuses",
 		doc = "get-v1-employees-employee_uuid-section603_high_earner_statuses", about = "Whether catch-up contributions must be Roth, per year."},
 	getSection603HighEarnerStatus = {method = "GET", path = "/v1/employees/{employee_id}/section603_high_earner_statuses/{effective_year}", doc = "get-v1-employees-employee_uuid-section603_high_earner_statuses-effective_year", about = ""},
-	createSection603HighEarnerStatus = {method = "POST", path = "/v1/employees/{employee_id}/section603_high_earner_statuses", required = {"effective_year", "is_high_earner"}, doc = "post-v1-employees-employee_uuid-section603_high_earner_statuses", about = ""},
-	updateSection603HighEarnerStatus = {method = "PATCH", path = "/v1/employees/{employee_id}/section603_high_earner_statuses/{effective_year}", required = {"is_high_earner"}, doc = "patch-v1-employees-employee_uuid-section603_high_earner_statuses-effective_year", about = ""},
+	createSection603HighEarnerStatus = {method = "POST", path = "/v1/employees/{employee_id}/section603_high_earner_statuses", access = "data:write", required = {"effective_year", "is_high_earner"}, doc = "post-v1-employees-employee_uuid-section603_high_earner_statuses", about = ""},
+	updateSection603HighEarnerStatus = {method = "PATCH", path = "/v1/employees/{employee_id}/section603_high_earner_statuses/{effective_year}", access = "data:write", required = {"is_high_earner"}, doc = "patch-v1-employees-employee_uuid-section603_high_earner_statuses-effective_year", about = ""},
 
 	listGarnishments = {method = "GET", path = "/v1/employees/{employee_id}/garnishments", query = PAGE, doc = "get-v1-employees-employee_id-garnishments", about = "Court-ordered and voluntary deductions."},
-	createGarnishment = {method = "POST", path = "/v1/employees/{employee_id}/garnishments", required = {"amount", "court_ordered"},
+	createGarnishment = {method = "POST", path = "/v1/employees/{employee_id}/garnishments", access = "data:write", required = {"amount", "court_ordered"},
 		doc = "post-v1-employees-employee_id-garnishments", about = "Also description, garnishment_type, recurring, deduct_as_percentage, annual_maximum and more."},
 	getGarnishment = {method = "GET", path = "/v1/garnishments/{garnishment_id}", doc = "get-v1-garnishments-garnishment_id", about = ""},
-	updateGarnishment = {method = "PUT", path = "/v1/garnishments/{garnishment_id}", required = {"version"}, doc = "put-v1-garnishments-garnishment_id", about = ""},
+	updateGarnishment = {method = "PUT", path = "/v1/garnishments/{garnishment_id}", access = "data:write", required = {"version"}, doc = "put-v1-garnishments-garnishment_id", about = ""},
 	getChildSupportData = {method = "GET", path = "/v1/garnishments/child_support", doc = "get-v1-garnishments-child_support", about = "Child support agencies and their required fields per state."},
 	listRecurringReimbursements = {method = "GET", path = "/v1/employees/{employee_id}/recurring_reimbursements", query = PAGE, doc = "get-v1-employees-employee_id-recurring_reimbursements", about = ""},
-	createRecurringReimbursement = {method = "POST", path = "/v1/employees/{employee_id}/recurring_reimbursements", required = {"description", "amount"},
+	createRecurringReimbursement = {method = "POST", path = "/v1/employees/{employee_id}/recurring_reimbursements", access = "data:write", required = {"description", "amount"},
 		doc = "post-v1-employees-employee_id-recurring_reimbursements", about = "amount is a number. Paid on every regular payroll."},
 	getRecurringReimbursement = {method = "GET", path = "/v1/recurring_reimbursements/{id}", doc = "get-v1-recurring_reimbursements", about = ""},
-	updateRecurringReimbursement = {method = "PUT", path = "/v1/recurring_reimbursements/{id}", required = {"version"}, doc = "put-v1-recurring_reimbursements", about = ""},
-	deleteRecurringReimbursement = {method = "DELETE", path = "/v1/recurring_reimbursements/{id}", doc = "delete-v1-recurring_reimbursements", about = ""},
+	updateRecurringReimbursement = {method = "PUT", path = "/v1/recurring_reimbursements/{id}", access = "data:write", required = {"version"}, doc = "put-v1-recurring_reimbursements", about = ""},
+	deleteRecurringReimbursement = {method = "DELETE", path = "/v1/recurring_reimbursements/{id}", access = "data:write", doc = "delete-v1-recurring_reimbursements", about = ""},
 
 	listTimeSheets = {method = "GET", path = "/v1/companies/{company_id}/time_tracking/time_sheets",
 		query = {"entity_type", "entity_uuids", "status", "after", "before", "sort_by", "sort_order", "page", "per"},
 		doc = "get-companies-company_uuid-time_tracking-time_sheets", about = "entity_type Employee or Contractor; status pending, approved or rejected; after/before filter created_at (ISO 8601)."},
-	createTimeSheet = {method = "POST", path = "/v1/companies/{company_id}/time_tracking/time_sheets", required = {"entity_type", "entity_uuid", "shift_started_at", "time_zone"},
+	createTimeSheet = {method = "POST", path = "/v1/companies/{company_id}/time_tracking/time_sheets", access = "data:write", required = {"entity_type", "entity_uuid", "shift_started_at", "time_zone"},
 		doc = "post-companies-company_uuid-time_tracking-time_sheets", about = "Also shift_ended_at, job_uuid, metadata, entries."},
 	getTimeSheet = {method = "GET", path = "/v1/time_tracking/time_sheets/{time_sheet_uuid}", doc = "get-time_tracking-time_sheets-time_sheet_uuid", about = ""},
-	updateTimeSheet = {method = "PUT", path = "/v1/time_tracking/time_sheets/{time_sheet_uuid}", required = {"version"}, doc = "put-time_tracking-time_sheets-time_sheet_uuid", about = ""},
-	deleteTimeSheet = {method = "DELETE", path = "/v1/time_tracking/time_sheets/{time_sheet_uuid}", query = {"version"}, required = {"version"}, doc = "delete-time_tracking-time_sheets-time_sheet_uuid", about = ""},
-	createPayrollSync = {method = "POST", path = "/v1/companies/{company_id}/time_tracking/payroll_syncs", required = {"kind", "pay_schedule_uuid", "pay_period_start_date", "pay_period_end_date"},
+	updateTimeSheet = {method = "PUT", path = "/v1/time_tracking/time_sheets/{time_sheet_uuid}", access = "data:write", required = {"version"}, doc = "put-time_tracking-time_sheets-time_sheet_uuid", about = ""},
+	deleteTimeSheet = {method = "DELETE", path = "/v1/time_tracking/time_sheets/{time_sheet_uuid}", access = "data:write", query = {"version"}, required = {"version"}, doc = "delete-time_tracking-time_sheets-time_sheet_uuid", about = ""},
+	createPayrollSync = {method = "POST", path = "/v1/companies/{company_id}/time_tracking/payroll_syncs", access = "data:write", required = {"kind", "pay_schedule_uuid", "pay_period_start_date", "pay_period_end_date"},
 		doc = "post-companies-company_uuid-time_tracking-payroll_syncs", about = "Copies approved time sheets into that pay period's unprocessed payroll."},
 	getPayrollSync = {method = "GET", path = "/v1/time_tracking/payroll_syncs/{payroll_sync_uuid}", doc = "get-time_tracking-payroll_syncs-payroll_sync_uuid", about = ""},
 
@@ -228,12 +228,6 @@ local function queryParts(value: any, field: string): {string}
 	return parts
 end
 
--- Only GET reads unless write says otherwise.
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
-
 -- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
@@ -249,7 +243,7 @@ end
 -- a top-level JSON array is accepted too, and the second result tells which one came back.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
+	if endpoint.method ~= "GET" and endpoint.access and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
 	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
 	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
@@ -284,7 +278,7 @@ end
 local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if not writes(endpoint) or config.access == "read-write" then
+		if not endpoint.access or houston.allows(endpoint.access) then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		end
 	end
@@ -357,7 +351,7 @@ local function failStatus(name: string, endpoint: Endpoint, response: HttpRespon
 	if #details > 0 then message ..= ": " .. table.concat(details, "; ") end
 	local retry = header(response, "retry-after")
 	if response.statusCode == 429 and retry and string.match(retry, "^%d+$") then message ..= "; retry after " .. retry .. "s" end
-	local creates = endpoint.method == "POST" and writes(endpoint)
+	local creates = endpoint.method == "POST" and endpoint.access ~= nil
 	return houston.fail({operation = name, layer = "upstream", upstream_status = response.statusCode,
 		retryable = response.statusCode == 429 or (response.statusCode >= 500 and not creates), message = message})
 end
@@ -366,7 +360,7 @@ end
 -- Gusto's paging headers; a write answered without a body returns {success=true} and a read
 -- answered 204 No Content returns nil.
 local function decode(name: string, endpoint: Endpoint, response: HttpResponse): any
-	if response.statusCode == 204 and not writes(endpoint) then
+	if response.statusCode == 204 and not endpoint.access then
 		response.body:close()
 		return nil
 	end
@@ -420,5 +414,5 @@ return operations(endpoints, request, {
 	"Examples: local company_id = gusto.getTokenInfo().resource.uuid; gusto.listEmployees({company_id=company_id, terminated=false, include={'custom_fields'}, page=1, per=100}); gusto.listPayrolls({company_id=company_id, start_date='2026-01-01', end_date='2026-06-30', include={'totals'}}); gusto.getPayroll({company_id=company_id, payroll_id=id, include={'taxes', 'deductions'}}).",
 	"Responses include personal and pay data (birth dates, home addresses, pay rates, garnishments); share only what the task needs. Gusto's scopes for the app decide what is visible: pay rates need the compensations scope, and a missing scope fails with 403 missing_oauth_scopes.",
 	"Errors report the HTTP status and Gusto's category, error_key and message, with per-item nested errors (for example 422 invalid_attribute_value or 404 not_found). Gusto allows 200 requests per minute per connection.",
-	if config.access == "read-write" then WRITES else "Read-only connections omit writes.",
+	if houston.allows("data:write") then WRITES else "Read-only connections omit writes.",
 })

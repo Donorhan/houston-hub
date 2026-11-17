@@ -2,17 +2,17 @@
 
 1. Open [API & Webhooks](https://calendly.com/integrations/api_webhooks) and generate
    a personal access token with the scopes below. Copy it when shown.
-2. In Houston, choose **Personal access token**, paste it and select **Read-only**
-   or **Read and write** to match the intended access. Save the connection.
+2. In Houston, choose **Personal access token**, paste it and choose **Read**
+   or **Write** for **Access** to match the intended access. Save the connection.
 
 ## Scopes
 
-For **Read-only**: `users:read`, `organizations:read`, `event_types:read`,
+For **Read**: `users:read`, `organizations:read`, `event_types:read`,
 `availability:read`, `scheduled_events:read`, `locations:read`,
 `routing_forms:read`, `groups:read`, `webhooks:read`, `contacts:read`,
 `meeting_recaps:read`, `activity_log:read` and `outgoing_communications:read`.
 
-For **Read and write**, also: `organizations:write`, `event_types:write`,
+For **Write**, also: `organizations:write`, `event_types:write`,
 `availability:write`, `scheduled_events:write`, `scheduling_links:write`,
 `shares:write`, `webhooks:write`, `contacts:write` and `meeting_recaps:write`.
 

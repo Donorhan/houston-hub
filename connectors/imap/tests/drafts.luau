@@ -1,7 +1,7 @@
 -- Drafts forward one draft or discard command; attachments flatten into parallel lists.
 return {
 	scenario = {publisher = {}, auth_method = "", auth_config = {}, config = {host = "imap.example.com", username = "ada@example.com", password = "fixture-password"}},
-	config = {access = "read-write"},
+	access = {data = "write"},
 	configure = function()
 		requests = {}
 		imap = {command = function(request)

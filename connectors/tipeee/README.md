@@ -6,10 +6,10 @@ description: Manage your Tipeee creator page, rewards, news, supporters, reports
 Connect your Tipeee creator account to follow your supporters, review payments
 and statistics, and work with your rewards and news.
 
-**Read-only** lets you view supported content and reports. **Read and write**
+**Read** access lets you view supported content and reports. **Write** access
 also lets you manage your page, publish news, use your inbox, send messages,
 request payouts, upload files and configure streaming widgets. Opening inbox
-messages may mark them as read, so inbox access requires **Read and write**.
+messages may mark them as read, so inbox access requires **Write**.
 
 Your Tipeee account permissions still apply. Identity verification, account
 security and linking a Discord account remain on Tipeee's website.

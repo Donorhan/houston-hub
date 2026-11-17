@@ -2,7 +2,7 @@
 
 You need to be the primary admin or a full-access admin of the company in Gusto.
 
-1. Choose **Read-only** or **Read and write** access.
+1. Choose **Read** or **Write** for **Access**.
 2. Select **Authorize connection** and sign in with your Gusto account.
 3. If you manage several companies, pick the one to connect, then allow access.
 

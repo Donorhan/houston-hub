@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/big"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -14,18 +15,28 @@ import (
 var nameRE = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 var scalarRefRE = regexp.MustCompile(`^(config|publisher)\.[a-z][a-z0-9_]{0,63}$|^auth\.[a-z][a-z0-9_]{0,63}\.[a-z][a-z0-9_]{0,63}$`)
 var methodRefRE = regexp.MustCompile(`^auth\.[a-z][a-z0-9_]{0,63}$`)
+var accessRefRE = regexp.MustCompile(`^access\.[a-z][a-z0-9_]{0,63}$`)
 var errUnresolved = errors.New("unresolved template reference")
 
 // Context is a private server-only reference snapshot. Auth leaves resolve only
 // for SelectedAuth even when other stored method inputs are present in Auth.
 type Context struct {
-	Publisher    map[string]any
+	Publisher map[string]any
+	// Access holds every access row's resolved level.
+	Access       map[string]AccessLevel
 	Config       map[string]any
 	Auth         map[string]map[string]any
 	SelectedAuth string
 	// Errors contains unresolved active prerequisite failures. Evaluation checks
 	// every referenced prerequisite before it evaluates any boolean operand.
 	Errors map[string]error
+}
+
+// AccessLevel is a row's resolved level with every level it includes, lowest
+// first, so predicates evaluate without the manifest.
+type AccessLevel struct {
+	Level    string   `json:"level"`
+	Includes []string `json:"includes"`
 }
 
 func (c Context) Lookup(ref string) (any, bool, error) {
@@ -38,6 +49,9 @@ func (c Context) Lookup(ref string) (any, bool, error) {
 		case "publisher":
 			v, ok := c.Publisher[p[1]]
 			return v, ok, nil
+		case "access":
+			v, ok := c.Access[p[1]]
+			return v.Level, ok, nil
 		case "config":
 			v, ok := c.Config[p[1]]
 			return v, ok, nil
@@ -252,9 +266,12 @@ func (p *predParser) parse() (predicate, error) {
 		if !scalarRefRE.MatchString(n.ref) && !methodRefRE.MatchString(n.ref) {
 			return n, fmt.Errorf("invalid predicate reference")
 		}
-	case "is":
+	case "is", "allows":
 		n.ref = p.word()
-		if !scalarRefRE.MatchString(n.ref) {
+		if n.op == "allows" && !accessRefRE.MatchString(n.ref) {
+			return n, fmt.Errorf("allows requires an access row reference")
+		}
+		if !scalarRefRE.MatchString(n.ref) && !accessRefRE.MatchString(n.ref) {
 			return n, fmt.Errorf("is requires a scalar reference")
 		}
 		p.space()
@@ -345,8 +362,12 @@ func (p predicate) eval(c Context) (bool, error) {
 	if e != nil {
 		return false, e
 	}
-	if p.op == "isDefined" {
+	switch p.op {
+	case "isDefined":
 		return ok, nil
+	case "allows":
+		literal, _ := p.literal.(string)
+		return ok && slices.Contains(c.Access[strings.TrimPrefix(p.ref, "access.")].Includes, literal), nil
 	}
 	return ok && equal(v, p.literal), nil
 }
@@ -368,6 +389,11 @@ func EvaluatePredicate(s string, c Context) (bool, error) {
 func (m *Manifest) reference(ref string) (Field, error) {
 	p := strings.Split(ref, ".")
 	if len(p) == 2 {
+		if p[0] == "access" {
+			if r, ok := m.AccessRow(p[1]); ok {
+				return Field{Type: "access", Required: true, Options: r.Levels}, nil
+			}
+		}
 		if p[0] == "config" {
 			if f, ok := m.Config[p[1]]; ok {
 				return f, nil
@@ -443,7 +469,14 @@ func (m *Manifest) validatePredicate(s, phase string, used map[string]bool) erro
 		if f.Type == "marker" && n.op != "isDefined" {
 			return fmt.Errorf("method markers support only isDefined")
 		}
-		if n.op == "is" {
+		if f.Type == "access" {
+			if n.op == "is" && phase != "scope" {
+				return fmt.Errorf("is %s is allowed only on scope groups; use allows so lowering a level never enables a rule", n.ref)
+			}
+			if !slices.ContainsFunc(f.Options, func(o Option) bool { return o.Value == n.literal }) {
+				return fmt.Errorf("%s has no level %v", n.ref, n.literal)
+			}
+		} else if n.op == "is" {
 			if e := ValidateValue(f, n.literal); e != nil {
 				return fmt.Errorf("predicate literal incompatible with %s: %w", n.ref, e)
 			}

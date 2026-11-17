@@ -11,17 +11,30 @@ return {
 			}
 			local writeScopes = { "files.content.write", "sharing.write", "file_requests.write" }
 			local method = "oauth"
-			for _, access in { "read-only", "read-write" } do
+			-- The default and full matrices request exactly the v1 Read-only and Read and write scopes.
+			for _, case in
+				{
+					{ access = nil, scopes = readScopes },
+					{ access = { files = "write", sharing = "write", file_requests = "write" }, scopes = m.concat(readScopes, writeScopes) },
+					{ access = { files = "none", sharing = "none", file_requests = "none" }, scopes = { "account_info.read" } },
+					{
+						access = { files = "write", sharing = "none", file_requests = "read" },
+						scopes = {
+							"account_info.read",
+							"files.metadata.read",
+							"files.content.read",
+							"file_requests.read",
+							"files.content.write",
+						},
+					},
+					{ access = { files = "none", sharing = "write" }, scopes = { "account_info.read", "sharing.read", "file_requests.read", "sharing.write" } },
+				}
+			do
 				local publisher = { client_id = "publisher-key", client_secret = "publisher-secret" }
-				local config = { access = access }
-				local r, err = m.resolve(publisher, config, nil, method)
+				local r, err = m.resolve(publisher, {}, nil, method, case.access)
 				assert(not err, tostring(err))
-				local scopes = readScopes
-				if access == "read-write" then
-					scopes = m.concat(readScopes, writeScopes)
-				end
-				if not (m.equal(r.Scopes, scopes)) then
-					m.fail("access=%s scopes %s", access, r.Scopes)
+				if not (m.equal(r.Scopes, case.scopes)) then
+					m.fail("access=%s scopes %s", case.access and json.encode(case.access) or "default", r.Scopes)
 				end
 				r.Context.Auth[method].access_token = "fixture-token"
 				m.routes(r, "Bearer fixture-token", true, {

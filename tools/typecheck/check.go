@@ -84,7 +84,8 @@ local fs: {
     signedPutUrl:(string,number?)->Operation<string>,
 } = nil :: any
 local json: {encode:(any)->string,decode:((Bytes)->any) & ((Reader)->Operation<any>),jq:(any,string)->any} = nil :: any
-local houston: {fail:(any)->never,seal:(any)->string,unseal:(string)->any} = nil :: any
+-- allows checks space-separated row:level requirements, all of which must hold.
+local houston: {fail:(any)->never,seal:(any)->string,unseal:(string)->any,allows:(string)->boolean} = nil :: any
 local require: (string)->any = nil :: any
 `
 
@@ -114,6 +115,7 @@ func Check(ctx context.Context, binary string, m manifest.Manifest, modules map[
 		var generated strings.Builder
 		generated.WriteString(hosts)
 		generated.WriteString(configType(m.Config))
+		generated.WriteString(accessType(m.Access))
 		generated.WriteString("\nlocal exported = (function()\n")
 		generated.WriteString(source)
 		generated.WriteString("\nend)()\n")
@@ -145,9 +147,6 @@ func configType(fields map[string]manifest.Field) string {
 	}
 	sort.Strings(keys)
 	parts := make([]string, 0, len(keys))
-	if _, ok := fields["access"]; !ok {
-		parts = append(parts, `["access"]:("read-only" | "read-write")`)
-	}
 	for _, key := range keys {
 		field := fields[key]
 		kind := field.Type
@@ -161,12 +160,25 @@ func configType(fields map[string]manifest.Field) string {
 			}
 			kind = "(" + strings.Join(options, " | ") + ")"
 		}
-		if key != "access" && (field.If != "" || !field.Required && field.Default == nil) {
+		if field.If != "" || !field.Required && field.Default == nil {
 			kind += "?"
 		}
 		parts = append(parts, "["+strconv.Quote(key)+"]:"+kind)
 	}
 	return "local config: {" + strings.Join(parts, ",") + "} = nil :: any\n"
+}
+
+// accessType declares the read-only access table: one level union per row.
+func accessType(rows []manifest.AccessRow) string {
+	parts := make([]string, len(rows))
+	for i, row := range rows {
+		levels := make([]string, len(row.Levels))
+		for j, level := range row.Levels {
+			levels[j] = strconv.Quote(level.Value)
+		}
+		parts[i] = "[" + strconv.Quote(row.Name) + "]:(" + strings.Join(levels, " | ") + ")"
+	}
+	return "local access: {" + strings.Join(parts, ",") + "} = nil :: any\n"
 }
 
 type boundedOutput struct{ data []byte }

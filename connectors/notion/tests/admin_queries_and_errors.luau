@@ -1,6 +1,6 @@
 return {
  scenario={publisher={},config={},auth_method="admin",auth_config={token="fixture-admin-private-token"}},
- config={access="read-write"},
+ access={data="write"},
  configure=function()
   requests={}
   responseBody='{"object":"list","results":[],"has_more":false,"next_cursor":null}'

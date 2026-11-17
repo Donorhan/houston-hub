@@ -39,19 +39,20 @@ return {
 					end
 				end
 			end
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local r, err = m.resolve(
 					nil,
-					{ access = access, host = "ERP.Example.com", install_path = "/dolibarr" },
+					{ host = "ERP.Example.com", install_path = "/dolibarr" },
 					{ token = key },
-					"key"
+					"key",
+					{ data = access }
 				)
 				assert(not err, tostring(err))
 				if
 					(
 						(r.PublicConfig["host"] ~= "ERP.Example.com")
 						or (r.PublicConfig["install_path"] ~= "/dolibarr")
-					) or (m.count(r.PublicConfig) ~= 3)
+					) or (m.count(r.PublicConfig) ~= 2)
 				then
 					m.fail("unexpected Lua config: %s", r.PublicConfig)
 				end
@@ -87,7 +88,7 @@ return {
 					assertDolibarrRoutes(
 						r,
 						key,
-						(access == "read-write"),
+						(access == "write"),
 						"POST " .. api .. "/thirdparties",
 						"PUT " .. api .. "/thirdparties/12",
 						"POST " .. api .. "/contacts",

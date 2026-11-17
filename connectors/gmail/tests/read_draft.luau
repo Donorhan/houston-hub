@@ -1,6 +1,6 @@
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	config = {access = "custom"},
+	access = {data = "draft"},
 	configure = function()
 		requests, responses = {}, {}
 		http = {request = function(req)
@@ -15,7 +15,7 @@ return {
 		local names = {}
 		for name in c do table.insert(names, name) end
 		table.sort(names)
-		assert(table.concat(names, ",") == "createDraft,deleteDraft,getAttachment,getDraft,getLabel,getMessage,getMessages,getProfile,getThread,listDrafts,listHistory,listLabels,listMailFolders,listMessages,listSendAs,listThreads,updateDraft", "read and draft got " .. table.concat(names, ","))
+		assert(table.concat(names, ",") == "createDraft,deleteDraft,getAttachment,getDraft,getLabel,getMessage,getMessages,getProfile,getThread,listDrafts,listHistory,listLabels,listMailFolders,listMessages,listSendAs,listThreads,updateDraft", "draft got " .. table.concat(names, ","))
 
 		responses = {'{"id":"d1","message":{"id":"m1","threadId":"t1"}}'}
 		assert(c.createDraft({to = "ana@example.com", subject = "Monday follow-up", text = "Hi Ana"}).id == "d1")

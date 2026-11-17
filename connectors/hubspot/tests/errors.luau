@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {access = "read-write"}, auth_method = "token", auth_config = {token = "fixture-token"}},
+	scenario = {publisher = {}, access = {contacts = "write", companies = "write", deals = "write", tickets = "write", engagements = "write"}, config = {}, auth_method = "token", auth_config = {token = "fixture-token"}},
 	configure = function()
 		calls = 0
 		status = 200

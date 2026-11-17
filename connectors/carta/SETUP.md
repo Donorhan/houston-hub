@@ -1,6 +1,6 @@
 # Connect Carta
 
-1. Choose **Read-only** or **Read and write** access.
+1. Choose **Read** or **Write** for **Access**.
 2. Select **Authorize connection** and sign in with your Carta account.
 3. On Carta's consent screen, choose the companies, firms or portfolios to share,
    then allow access.
@@ -24,7 +24,7 @@ later means submitting a new app.
 2. Set **Grant type** to authorization code and add Houston's displayed callback
    URL under **Callbacks**.
 3. Under **Scopes**, select every scope below. Houston requests the first list for
-   read-only access and both lists for read and write access.
+   **Read** access and both lists for **Write** access.
    - Read: `read_user_info`, `read_issuer_info`,
      `read_issuer_capitalizationtablesummary`,
      `read_issuer_stakeholdercapitalizationtable`, `read_issuer_shareclasses`,
@@ -60,7 +60,7 @@ Promotion creates a new production app: enter its `client_id` and `client_secret
 Houston, then select **Set up again** and sign in with **Connect with your Carta app**.
 Carta's fund accounting endpoints (capital calls, management fees, carried interest)
 are in beta; ask your Carta representative to enable them for your app before
-choosing read and write access.
+choosing **Write** access.
 
 ### Troubleshooting
 

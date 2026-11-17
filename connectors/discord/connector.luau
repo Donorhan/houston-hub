@@ -378,7 +378,7 @@ local exports: {[string]: any} = {
 	getMessage = getMessage, listThreads = listThreads, listArchivedThreads = listArchivedThreads,
 	searchMessages = searchMessages, searchMembers = searchMembers, getMember = getMember, listRoles = listRoles,
 }
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	exports.postMessage = postMessage
 	exports.reply = reply
 	exports.editMessage = editMessage
@@ -439,7 +439,7 @@ exports.help = function(): string
 	table.sort(names)
 	local sections = {[[Discord: Houston's bot in one Discord server, the one this connection added it to. Credentials stay on Houston. Calls return completed values; do not wrap them in await(). Pass every ID (server, channel, thread, message, user, role) as a string, never a number. Results keep Discord's field names. Unknown options are rejected.
 Scope: guild routes always address the connected server, and channel, thread and message calls first check that the channel belongs to it; any other channel, including DMs, fails with "is not in this server". Threads are channels: pass a thread's id wherever a channel is expected. The bot sees only channels its role can view. Without Discord's Message Content access, messages from other people can have empty content, embeds and attachments (the bot's own messages and messages mentioning it stay complete).
-Each call returns one page and never paginates on its own. Discord rate-limits the bot across every Houston server, so prefer searchMessages over scanning channels page by page, keep limits small, and do not loop over many channels. Rate-limited calls fail as retryable with the wait; permission errors (403) never succeed on retry. Writes act as Houston's bot, need Read and write access and never retry automatically.]]}
+Each call returns one page and never paginates on its own. Discord rate-limits the bot across every Houston server, so prefer searchMessages over scanning channels page by page, keep limits small, and do not loop over many channels. Rate-limited calls fail as retryable with the wait; permission errors (403) never succeed on retry. Writes act as Houston's bot, need write access and never retry automatically.]]}
 	for _, name in names do
 		local section = operationHelp[name]
 		assert(section, "missing help for configured function " .. name)

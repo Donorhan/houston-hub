@@ -81,7 +81,15 @@ func Schema() ([]byte, error) {
 	props("ProxyMatch")["colon_path_parameters"].(map[string]any)["uniqueItems"] = true
 	props("ProxyMatch")["colon_path_parameters"].(map[string]any)["items"] = map[string]any{"type": "string", "pattern": `^[A-Za-z_][A-Za-z0-9_]*$`}
 	props("ProxyMatch")["colon_path_parameters"].(map[string]any)["description"] = "Placeholder names whose values may contain a colon, plain or percent-encoded, such as a URN; other placeholders, bare or before a {name}:verb suffix, refuse colons. Opaque parameters already accept colons and cannot be repeated here."
-	props("Manifest")["schema_version"] = map[string]any{"const": 1}
+	props("Manifest")["schema_version"] = map[string]any{"const": SchemaVersion}
+	props("Manifest")["access"].(map[string]any)["maxItems"] = MaxAccessRows
+	props("Manifest")["access"].(map[string]any)["description"] = "The access matrix: rows the user sets to one level each, ordered by display. Predicates read them with {{ allows access.<row> \"<level>\" }}; is access.<row> is allowed only on scope groups."
+	props("AccessRow")["name"].(map[string]any)["pattern"] = nameRE.String()
+	props("AccessRow")["levels"].(map[string]any)["minItems"] = 2
+	props("AccessRow")["levels"].(map[string]any)["maxItems"] = MaxAccessLevels
+	props("AccessRow")["levels"].(map[string]any)["description"] = "Levels from least to most access; none, when present, comes first."
+	props("AuthMethod")["setup_url"].(map[string]any)["description"] = "Manual methods only: a literal HTTPS link where people create the credential."
+	props("AuthMethod")["setup_params"].(map[string]any)["description"] = "Manual methods only: query parameter to access row; the link carries each row's level except none."
 	props("Manifest")["warning"].(map[string]any)["description"] = "Markdown notice shown prominently wherever people set up or review this connector, such as a pending provider approval that affects their experience."
 	props("Manifest")["connections"].(map[string]any)["enum"] = ConnectionPolicies
 	props("Manifest")["connections"].(map[string]any)["description"] = "Which connections Houston accepts: personal-only, shared-only, or unrestricted (the default). Set personal-only when the provider forbids sharing one person's authorization with other users."
@@ -144,9 +152,9 @@ func Schema() ([]byte, error) {
 	manualKeys := []string{"brand", "authorize_url", "token_url", "client_id", "client_secret", "client_auth", "token_encoding", "token_headers", "pkce", "scopes", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "account", "shared", "api_key", "auth_config_id", "app"}
 	manual := forbid(manualKeys...)
 	manual["required"] = []string{"config"}
-	oauth := forbid("config", "api_key", "auth_config_id", "app")
+	oauth := forbid("config", "api_key", "auth_config_id", "app", "setup_url", "setup_params")
 	oauth["required"] = []string{"authorize_url", "token_url", "client_id"}
-	composio := forbid("scopes", "client_id", "client_secret", "config", "authorize_url", "token_url", "client_auth", "token_encoding", "token_headers", "pkce", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "shared")
+	composio := forbid("setup_url", "setup_params", "scopes", "client_id", "client_secret", "config", "authorize_url", "token_url", "client_auth", "token_encoding", "token_headers", "pkce", "scope_parameter", "scope_separator", "authorize_params", "token_params", "refresh_params", "token_response", "refresh_response", "require_refresh", "shared")
 	composio["required"] = []string{"api_key", "auth_config_id", "app"}
 	def("AuthMethod")["allOf"] = []any{
 		map[string]any{"if": condition("type", "manual"), "then": manual},
@@ -166,5 +174,5 @@ func Schema() ([]byte, error) {
 	props("Field")["format"].(map[string]any)["description"] = "json requires valid JSON and pem one or more PEM certificates; the string value is preserved and connectors validate its meaning."
 	props("TLS")["mode"] = map[string]any{"type": "string", "anyOf": []any{map[string]any{"enum": TLSModes}, map[string]any{"pattern": `^\{\{.+\}\}$`}}, "description": "A TLS mode, or one reference to a config or publisher field whose options are TLS modes."}
 	props("TLS")["ca"].(map[string]any)["description"] = "PEM certificates that replace the trusted authorities, or one reference to a pem-formatted config or publisher field."
-	return json.MarshalIndent(map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://ok-houston.com/schemas/connector-manifest-v1.json", "title": "Houston connector manifest v1", "$ref": "#/$defs/Manifest", "$defs": defs}, "", "  ")
+	return json.MarshalIndent(map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://ok-houston.com/schemas/connector-manifest-v2.json", "title": "Houston connector manifest v2", "$ref": "#/$defs/Manifest", "$defs": defs}, "", "  ")
 }

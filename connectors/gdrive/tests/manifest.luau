@@ -3,9 +3,10 @@ return {
 		local function google(access, scopes)
 			local r, err = m.resolve(
 				{ client_id = "publisher-client", client_secret = "publisher-secret" },
-				{ access = access },
+				{},
 				nil,
-				"oauth"
+				"oauth",
+				{ data = access }
 			)
 			assert(r and not err, tostring(err))
 			local want = { "https://www.googleapis.com/auth/userinfo.email" }
@@ -19,9 +20,9 @@ return {
 		do
 			local api = "https://www.googleapis.com/drive/v3"
 			local upload = "https://www.googleapis.com/upload/drive/v3"
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local scope = "drive.readonly"
-				if access == "read-write" then
+				if access == "write" then
 					scope = "drive"
 				end
 				local r = google(access, { scope })
@@ -48,14 +49,14 @@ return {
 					"PUT " .. upload .. "/files?uploadType=resumable&upload_id=xyz",
 					"PUT " .. upload .. "/files/f1?uploadType=resumable&upload_id=xyz",
 				}
-				m.routes(r, "Bearer fixture-token", (access == "read-write"), writes)
+				m.routes(r, "Bearer fixture-token", (access == "write"), writes)
 				m.routes(
 					r,
 					"Bearer fixture-token",
-					(access == "read-write"),
+					(access == "write"),
 					{ "DELETE " .. api .. "/files/trash" }
 				)
-				if access == "read-write" then
+				if access == "write" then
 					m.rejectOverrides(r, writes)
 				end
 				m.routes(r, "Bearer fixture-token", false, {
@@ -83,7 +84,7 @@ return {
 			end
 		end
 		do
-			local drive = google("read-only", { "drive.readonly" })
+			local drive = google("read", { "drive.readonly" })
 			m.routes(
 				drive,
 				"Bearer fixture-token",

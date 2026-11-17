@@ -1,14 +1,14 @@
 # Connect your Microsoft account
 
-1. Choose the access level:
-   - **Read-only** to let agents read your contacts without changing anything.
-   - **Read and write** to also let agents add, change and delete contacts and
+1. Choose the level for **Access**:
+   - **Read** to let agents read your contacts without changing anything.
+   - **Write** to also let agents add, change and delete contacts and
      contact folders.
 2. Select **Continue with Microsoft**, sign in with your Outlook.com, work or
    school account, and select **Accept** on the permissions Microsoft lists.
 
 Many work and school organizations require an administrator to approve
-**Read and write** access for new apps; **Read-only** usually needs no
+**Write** access for new apps; **Read** usually needs no
 approval. If Microsoft shows **Need admin approval**, send the request or ask
 your administrator to approve Houston, then connect again.
 

@@ -105,6 +105,7 @@ func checkContract(ctx context.Context, binary string, m manifest.Manifest, modu
 func contractCall(ctx context.Context, binary string, m manifest.Manifest, modules map[string]string, operation string, raw json.RawMessage) (any, error) {
 	var in struct {
 		Publisher  map[string]any      `json:"publisher"`
+		Access     map[string]string   `json:"access"`
 		Config     map[string]any      `json:"config"`
 		AuthConfig map[string]any      `json:"auth_config"`
 		AuthMethod string              `json:"auth_method"`
@@ -134,7 +135,7 @@ func contractCall(ctx context.Context, binary string, m manifest.Manifest, modul
 			Returns   []any    `json:"returns,omitempty"`
 		}
 		err := call(ctx, binary, "connector-host", map[string]any{
-			"files": m.Files, "modules": modules, "config": in.Config,
+			"files": m.Files, "modules": modules, "access": m.AccessLevels(withDefaults(m, in.Access)), "config": in.Config,
 			"protocol": m.Proxy[0].Match.Protocol, "args": []any{},
 			"auth": m.DiscoveryAuth(in.AuthMethod, in.Scopes, in.Facts),
 		}, &result)
@@ -146,10 +147,12 @@ func contractCall(ctx context.Context, binary string, m manifest.Manifest, modul
 	case "resolve", "draft":
 		var r *manifest.Resolved
 		var err error
+		inputs := manifest.Inputs{Publisher: in.Publisher, Access: in.Access, Config: in.Config, Auth: in.AuthConfig, Method: in.AuthMethod}
 		if operation == "draft" {
-			r, err = m.ResolveDraft(in.Publisher, in.Config, in.AuthConfig, in.AuthMethod)
+			r, err = m.ResolveDraft(inputs)
 		} else {
-			r, err = m.Resolve(in.Publisher, in.Config, in.AuthConfig, in.AuthMethod)
+			inputs.Access = withDefaults(m, in.Access)
+			r, err = m.Resolve(inputs)
 		}
 		if r != nil {
 			r.Context.Errors = nil

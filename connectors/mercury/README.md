@@ -8,10 +8,10 @@ Connect your Mercury business account so your agents can check current and
 available balances, review transactions, follow SAFE signing and payment progress,
 and download statements and SAFE documents.
 
-Read-only access also includes treasury and credit accounts, recipients, approval
+Read access also includes treasury and credit accounts, recipients, approval
 requests, customers, invoices, categories, cards, users, events and webhooks.
 
-With read and write access, agents can send money, transfer funds, request payment
+With write access, agents can send money, transfer funds, request payment
 approvals, manage recipients and invoices, update transaction notes and categories,
 upload receipts and tax documents, issue and manage virtual cards, and configure
 webhooks. Your Mercury token permissions and approval policies still apply.

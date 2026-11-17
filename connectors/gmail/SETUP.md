@@ -1,13 +1,13 @@
 # Connect Gmail
 
-1. Choose **Access**:
-   - **Read-only** to let agents search and read your mail, threads, labels,
-     drafts and attachments.
-   - **Read and draft** to also let agents create, edit and delete drafts. You
-     review and send them yourself in Gmail; Houston refuses every send.
-   - **Read and write** to also let agents send mail and replies, create,
-     rename, apply and delete labels, mark messages read or unread, archive
-     them, and move them to the trash and back.
+1. Choose the level for **Access**:
+   - **Read** to let agents search and read your mail, threads, labels, drafts
+     and attachments.
+   - **Draft** to also let agents create, edit and delete drafts. You review and
+     send them yourself in Gmail; Houston refuses every send.
+   - **Write** to also let agents send mail and replies, create, rename, apply
+     and delete labels, mark messages read or unread, archive them, and move
+     them to the trash and back.
 2. Choose an available sign-in option and select **Connect Gmail**.
 3. Choose your Google account and approve access. With Connect with Google, if
    Google shows a checkbox per permission, tick them all: Houston refuses a

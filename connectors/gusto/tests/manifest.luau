@@ -14,14 +14,14 @@ return {
 				then
 					m.fail("%s endpoints %s %s %s", method, a.authorize_url, a.token_url, a.pkce)
 				end
-				for _, access in { "read-only", "read-write" } do
-					local config = { access = access }
+				for _, access in { "read", "write" } do
+					local config = {}
 					local publisher = { client_id = "houston-client", client_secret = "houston-secret" }
 					if method ~= "gusto" then
 						config["own_app"], config["client_id"], config["client_secret"], publisher =
 							true, "fixture-client", "fixture-secret", nil
 					end
-					local r, err = m.resolve(publisher, config, nil, method)
+					local r, err = m.resolve(publisher, config, nil, method, { data = access })
 					assert(not err, tostring(err))
 					if m.count(r.Scopes) ~= 0 then
 						m.fail("%s requests scopes %s", method, r.Scopes)
@@ -37,7 +37,7 @@ return {
 							"POST " .. api .. "/payrolls/p1/reports/general_ledger",
 							"POST " .. api .. "/payrolls/p1/employees/e1/calculate_accruing_time_off_hours",
 						})
-						m.routes(r, "Bearer " .. token, (access == "read-write"), {
+						m.routes(r, "Bearer " .. token, (access == "write"), {
 							"POST " .. api .. "/companies/c1/employees",
 							"PUT " .. api .. "/employees/e1",
 							"DELETE " .. api .. "/employees/e1",
@@ -78,9 +78,10 @@ return {
 		do
 			local r, err = m.resolve(
 				{ client_id = "houston-client", client_secret = "houston-secret" },
-				{ access = "read-write" },
+				{},
 				nil,
-				"gusto"
+				"gusto",
+				{ data = "write" }
 			)
 			assert(not err, tostring(err))
 			r.Context.Auth["gusto"].access_token = "gusto-token"

@@ -2,20 +2,20 @@
 
 1. In Figma, open **Settings → Security → Personal access tokens → Generate new
    token**. Set an expiry and the scopes below, then copy the token.
-2. In Houston, choose **Personal access token**, paste it, select **Read-only** or
-   **Read and write**, and save.
+2. In Houston, choose **Personal access token**, paste it, choose **Read** or
+   **Write** for **Access**, and save.
 
 > Personal tokens expire within 90 days. Replace them in Houston before expiry.
 > Your Figma plan and seat determine API quotas.
 
 ## Scopes
 
-For **Read-only**: `current_user:read`, `file_content:read`,
+For **Read**: `current_user:read`, `file_content:read`,
 `file_metadata:read`, `file_versions:read`, `file_comments:read`,
 `library_assets:read`, `library_content:read`, `team_library_content:read` and
 `projects:read`.
 
-For **Read and write**, also `file_comments:write`.
+For **Write**, also `file_comments:write`.
 
 See Figma's [scopes](https://developers.figma.com/docs/rest-api/scopes/),
 [personal access tokens](https://developers.figma.com/docs/rest-api/personal-access-tokens/)

@@ -2,8 +2,8 @@ return {
 	contract = function(m)
 		do
 			local api = "https://api.cal.com/v2"
-			for _, access in { "read-only", "read-write" } do
-				local r, err = m.resolve(nil, { access = access }, { token = "cal_live_fixture" }, "api_key")
+			for _, access in { "read", "write" } do
+				local r, err = m.resolve(nil, {}, { token = "cal_live_fixture" }, "api_key", { data = access })
 				assert(not err, tostring(err))
 				m.routes(r, "Bearer cal_live_fixture", true, {
 					"GET " .. api .. "/me",
@@ -13,7 +13,7 @@ return {
 					"GET " .. api .. "/teams/3/bookings",
 					"POST " .. api .. "/routing-forms/f1/calculate-slots?start=2026-10-15&end=2026-10-16",
 				})
-				m.routes(r, "Bearer cal_live_fixture", (access == "read-write"), {
+				m.routes(r, "Bearer cal_live_fixture", (access == "write"), {
 					"GET " .. api .. "/webhooks",
 					"GET " .. api .. "/event-types/1/webhooks/w1",
 					"POST " .. api .. "/bookings",

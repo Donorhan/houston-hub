@@ -30,7 +30,7 @@
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ allows access.files \"write\" }}",
           "values": [
             "files.write"
           ]
@@ -41,22 +41,6 @@
     }
   },
   "config": {
-    "access": {
-      "default": "read-only",
-      "label": "Access",
-      "options": [
-        {
-          "label": "Read only",
-          "value": "read-only"
-        },
-        {
-          "label": "Read and write",
-          "value": "read-write"
-        }
-      ],
-      "order": 1,
-      "type": "string"
-    },
     "client_id": {
       "label": "OAuth client ID",
       "order": 1,
@@ -79,6 +63,23 @@
   "description": "Read files and optionally upload or change them.",
   "files": [
     "connector.luau"
+  ],
+  "access": [
+    {
+      "name": "files",
+      "label": "Access",
+      "levels": [
+        {
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Read and write"
+        }
+      ],
+      "default": "read"
+    }
   ],
   "name": "Example Files",
   "proxy": [
@@ -253,6 +254,6 @@
       "type": "string"
     }
   },
-  "schema_version": 1,
+  "schema_version": 2,
   "setup": "Choose an API key or authorize your Example Files account."
 }

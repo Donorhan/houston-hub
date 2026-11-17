@@ -1,7 +1,7 @@
 -- Routing expectations come from official Notion OpenAPI, not connector descriptors.
 return {
  scenario={publisher={},config={},auth_method="admin",auth_config={token="fixture-notion-private-token"}},
- config={access="read-write"},
+ access={data="write"},
  configure=function()
   requests={}
   fs=fixture.files()

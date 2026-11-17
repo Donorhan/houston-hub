@@ -81,8 +81,8 @@ return {
 				client_secret = "fixture-secret",
 				bot_token = "fixture-bot-token",
 			}
-			for _, access in { "read-only", "read-write" } do
-				local r, err = m.resolve(publisher, { access = access }, nil, "oauth")
+			for _, access in { "read", "write" } do
+				local r, err = m.resolve(publisher, {}, nil, "oauth", { data = access })
 				assert(not err, tostring(err))
 				if not (m.equal(r.Scopes, { "bot" })) then
 					m.fail("access=%s scopes %s", access, r.Scopes)
@@ -94,7 +94,7 @@ return {
 					assert(not err, tostring(err))
 				end
 				m.routes(r, "Bot fixture-bot-token", true, read)
-				m.routes(r, "Bot fixture-bot-token", (access == "read-write"), writes)
+				m.routes(r, "Bot fixture-bot-token", (access == "write"), writes)
 				m.routes(r, "Bot fixture-bot-token", false, denied)
 			end
 		end

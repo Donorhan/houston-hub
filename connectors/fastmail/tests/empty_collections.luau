@@ -1,6 +1,6 @@
 return {
     scenario = {auth_method = "token", auth_config = {token = "fixture-private-token"}, config = {}, publisher = {}},
-    config = {access = "read-only"},
+    access = {data = "read"},
     configure = function()
         requests, responses = {}, {}
         http = {request = function(request)

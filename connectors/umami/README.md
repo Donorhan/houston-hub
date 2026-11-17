@@ -10,14 +10,14 @@ Supports Umami Cloud (account region, US or EU) and public HTTPS self-hosted
 Umami 3.4.1 installations. Older installations may not provide newer endpoints.
 Your Umami role, subscription and enabled features still determine availability.
 
-Connections default to **Read only** across all API areas. Choose **Custom** to select
-several areas independently, granting each no access, read only, or read and
-write. Unselected areas are disabled. Houston restricts both the callable
+Each API area has its own access row, set to **None**, **Read** or **Write**
+(**Collection** offers **None** or **Write**). Connections start at **Read** for
+every area except **Collection**. Houston restricts both the callable
 functions and outgoing API routes; these restrictions do not change the API key
 inside Umami. Team inventory includes its websites, boards, links and pixels.
 Account writes can issue credentials, and administration can change other users
 and authentication policies. Collection writes accept the supplied website IDs;
-custom access limits API areas, not individual websites or records.
+access rows limit API areas, not individual websites or records.
 
 Lists support filters and return one page at a time. Exports can be saved as ZIP
 files in the execution session. Large date ranges and replays may require smaller

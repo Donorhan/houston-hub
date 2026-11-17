@@ -1,6 +1,6 @@
 -- Sentry REST API v0. Arguments and results keep Sentry's native camelCase field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?,
+type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, access: string?, body: (boolean | string)?,
 	fields: {string}?, shape: string?, doc: string, about: string}
 
 local PROVIDER = "Sentry"
@@ -67,10 +67,10 @@ local endpoints: {[string]: Endpoint} = {
 		required = {"field"}, doc = "releases/retrieve-release-health-session-statistics/",
 		about = "Release health time series, {start, end, intervals, groups: [{by, totals, series}]}. field (one or an array): sum(session), count_unique(user), crash_free_rate(session), crash_free_rate(user), crash_rate(session), crash_rate(user) or avg, p50 to p99 or max of session.duration. groupBy: project, release, environment or session.status. query filters, such as 'release:web@1.2.0'. interval is at least 1h."},
 
-	updateIssue = {method = "PUT", path = "/organizations/:org/issues/{issue_id}/",
+	updateIssue = {method = "PUT", path = "/organizations/:org/issues/{issue_id}/", access = "data:write",
 		fields = {"status", "statusDetails", "substatus", "assignedTo", "priority", "hasSeen", "isBookmarked", "isSubscribed", "inbox"}, doc = "events/update-an-issue/",
 		about = "Changes an issue and returns it. Resolve with status='resolved', optionally with statusDetails={inNextRelease=true} or {inRelease='web@1.2.0'} (or 'latest'); reopen with status='unresolved'. Ignore (archive) with status='ignored' and substatus 'archived_forever', 'archived_until_escalating', or 'archived_until_condition_met' with statusDetails such as {ignoreDuration=minutes}, {ignoreCount=n, ignoreWindow=minutes} or {ignoreUserCount=n, ignoreUserWindow=minutes}. assignedTo: 'user:<id>', 'team:<id>', a username or an email, or '' to unassign. priority: low, medium or high. hasSeen, isBookmarked and isSubscribed apply to the token's user."},
-	addIssueComment = {method = "POST", path = "/organizations/:org/issues/{issue_id}/comments/", required = {"text"}, fields = {"text"},
+	addIssueComment = {method = "POST", path = "/organizations/:org/issues/{issue_id}/comments/", access = "data:write", required = {"text"}, fields = {"text"},
 		doc = "events/", about = "Comments on an issue in Markdown, {id, type='note', data={text}}; Sentry notifies the issue's subscribers and refuses an identical comment twice. Sentry doesn't document this route."},
 }
 
@@ -105,12 +105,6 @@ local function queryParts(value: any, field: string): {string}
 	return parts
 end
 
--- Only GET reads unless write says otherwise.
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
-
 -- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
@@ -126,7 +120,7 @@ end
 -- a top-level JSON array is accepted too, and the second result tells which one came back.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
+	if endpoint.method ~= "GET" and endpoint.access and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
 	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
 	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
@@ -161,7 +155,7 @@ end
 local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if not writes(endpoint) or config.access == "read-write" then
+		if not endpoint.access or houston.allows(endpoint.access) then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		end
 	end
@@ -457,7 +451,7 @@ local intro = {
 	"Examples: local page = sentry.listIssues({query='is:unresolved level:error', project='web', statsPeriod='24h', limit=10}); local issue = page.results[1]; local e = sentry.getIssueEvent({issue_id=issue.id, event_id='recommended'}); sentry.listReleases({project='web', health='1', per_page=5}).",
 	"The token's scopes and your Sentry role still apply: an HTTP 403 means a missing scope or role, and organization auth tokens (sntrys_...) reach releases only. Sentry limits requests per caller and endpoint over short windows; Houston retries an HTTP 429 twice, then reports when the limit resets. Errors report the HTTP status and Sentry's detail.",
 }
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	table.insert(intro, "Side effects: updateIssue changes the issue for everyone and can notify its subscribers; addIssueComment notifies its subscribers. Failures are not retried: after a timeout or 5xx, read the issue or its comments before repeating a write.")
 else
 	table.insert(intro, "This read-only connection omits writes.")

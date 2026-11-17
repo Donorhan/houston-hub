@@ -8,7 +8,7 @@ Connect your Wise business account so your agents can check balances in every
 currency, review account activity and transfers, look up exchange rates, read
 your receiving bank details and save transfer receipts.
 
-With read and write access, agents can also price transfers, add recipients,
+With write access, agents can also price transfers, add recipients,
 draft transfers and payment batches, open or close balances, and move money
 between your balances and jars. Wise still decides what your token may do.
 

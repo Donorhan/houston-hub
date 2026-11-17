@@ -1,6 +1,6 @@
 return {
     scenario = {auth_method = "token", auth_config = {token = "fixture-notion-token"}, config = {}, publisher = {}},
-    config = {access = "read-write"},
+    access = {data = "write"},
     configure = function()
         requests, responses, signedPaths, writes = {}, {}, {}, {}
         nativeFiles = fixture.files()

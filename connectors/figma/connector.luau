@@ -1,6 +1,6 @@
 -- Figma REST API v1. Arguments and results keep Figma's native snake_case field names.
 type Options = {[string]: any}
-type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, write: boolean?, body: (boolean | string)?,
+type Endpoint = {method: string, path: string, query: {string}?, extra: {string}?, required: {string}?, access: string?, body: (boolean | string)?,
 	doc: string, about: string}
 
 local PROVIDER = "Figma"
@@ -57,13 +57,13 @@ local endpoints: {[string]: Endpoint} = {
 		about = "All comments of a file, unpaginated, {comments: [{id, message, parent_id, user, created_at, resolved_at, client_meta, order_id, reactions}]}. parent_id marks a reply; as_md=true returns messages in Markdown."},
 	listCommentReactions = {method = "GET", path = "/v1/files/{file_key}/comments/{comment_id}/reactions", query = {"cursor"},
 		doc = "comments-endpoints/#get-comment-reactions-endpoint", about = "{reactions, pagination}; pass pagination.next_page as cursor for the next page."},
-	postComment = {method = "POST", path = "/v1/files/{file_key}/comments", required = {"message"}, doc = "comments-endpoints/#post-comments-endpoint",
+	postComment = {method = "POST", path = "/v1/files/{file_key}/comments", access = "data:write", required = {"message"}, doc = "comments-endpoints/#post-comments-endpoint",
 		about = "Body {message, comment_id?, client_meta?}. comment_id replies to a top-level comment. client_meta pins it: {x, y}, {node_id, node_offset={x, y}}, or a region adding region_width and region_height. Figma notifies the people mentioned or following the thread."},
-	deleteComment = {method = "DELETE", path = "/v1/files/{file_key}/comments/{comment_id}", doc = "comments-endpoints/#delete-comments-endpoint",
+	deleteComment = {method = "DELETE", path = "/v1/files/{file_key}/comments/{comment_id}", access = "data:write", doc = "comments-endpoints/#delete-comments-endpoint",
 		about = "Deletes one of your own comments."},
-	addCommentReaction = {method = "POST", path = "/v1/files/{file_key}/comments/{comment_id}/reactions", required = {"emoji"},
+	addCommentReaction = {method = "POST", path = "/v1/files/{file_key}/comments/{comment_id}/reactions", access = "data:write", required = {"emoji"},
 		doc = "comments-endpoints/#post-comment-reactions-endpoint", about = "Body {emoji}, a shortcode such as ':+1:' or ':heart:'."},
-	removeCommentReaction = {method = "DELETE", path = "/v1/files/{file_key}/comments/{comment_id}/reactions", query = {"emoji"}, required = {"emoji"},
+	removeCommentReaction = {method = "DELETE", path = "/v1/files/{file_key}/comments/{comment_id}/reactions", access = "data:write", query = {"emoji"}, required = {"emoji"},
 		doc = "comments-endpoints/#delete-comment-reactions-endpoint", about = "Removes your reaction with that emoji."},
 }
 
@@ -98,12 +98,6 @@ local function queryParts(value: any, field: string): {string}
 	return parts
 end
 
--- Only GET reads unless write says otherwise.
-local function writes(endpoint: Endpoint): boolean
-	if endpoint.write ~= nil then return endpoint.write end
-	return endpoint.method ~= "GET"
-end
-
 -- POST, PATCH and PUT send the remaining options as the JSON body unless body is false
 -- (no body) or names the one option to send.
 local function hasBody(endpoint: Endpoint): boolean
@@ -119,7 +113,7 @@ end
 -- a top-level JSON array is accepted too, and the second result tells which one came back.
 local function object(name: string, endpoint: Endpoint, response: HttpResponse, arrays: boolean?): (any, boolean)
 	local raw = await(response.body:readAll())
-	if endpoint.method ~= "GET" and writes(endpoint) and string.match(raw, "^%s*$") then return nil, false end
+	if endpoint.method ~= "GET" and endpoint.access and string.match(raw, "^%s*$") then return nil, false end
 	local ok, value = pcall(json.decode, raw)
 	local list = arrays == true and string.match(raw, "^%s*%[") ~= nil
 	if not ok or type(value) ~= "table" or not (list or string.match(raw, "^%s*{")) then
@@ -154,7 +148,7 @@ end
 local function operations(endpoints: {[string]: Endpoint}, request: (string, Endpoint, Options?) -> any, intro: {string}): {[string]: any}
 	local exports: {[string]: any} = {}
 	for name, endpoint in endpoints do
-		if not writes(endpoint) or config.access == "read-write" then
+		if not endpoint.access or houston.allows(endpoint.access) then
 			exports[name] = function(args: Options?): any return request(name, endpoint, args) end
 		end
 	end
@@ -400,7 +394,7 @@ local intro = {
 	"Figma limits requests by endpoint tier, seat and plan: file, node and render calls are tier 1, 10 to 20 a minute on Dev and Full seats of paid plans but at most 20 a month on View and Collab seats and 6 a month for files on the Starter plan; comments, versions and projects are tier 2, metadata and libraries tier 3. Houston retries an HTTP 429 twice when Retry-After is 5 seconds or less, then reports Retry-After, the seat's limit type and the plan. Results above 8 MiB fail: narrow getFile with depth or ids. A call, saved renders included, must finish within 30 seconds: save fewer ids or a smaller scale when renders are large.",
 	"Errors report the HTTP status and Figma's message.",
 }
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	table.insert(intro, "Side effects: postComment and addCommentReaction notify the file's followers and mentioned people; deleteComment works on your own comments only. Other failures are not retried: after a timeout or 5xx, list the comments before repeating a write.")
 else
 	table.insert(intro, "This read-only connection omits writes.")

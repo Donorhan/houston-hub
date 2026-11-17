@@ -1,26 +1,28 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Figma",
   "files": [
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "default": "read-only",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
       ],
-      "type": "string"
-    },
+      "default": "read"
+    }
+  ],
+  "config": {
     "client_id": {
       "label": "OAuth client ID",
       "order": 1,
@@ -72,7 +74,7 @@
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ allows access.data \"write\" }}",
           "values": [
             "file_comments:write"
           ]
@@ -179,7 +181,7 @@
       }
     },
     {
-      "if": "{{ and (is config.access \"read-write\") (isDefined auth.token) }}",
+      "if": "{{ and (allows access.data \"write\") (isDefined auth.token) }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -205,7 +207,7 @@
       }
     },
     {
-      "if": "{{ and (is config.access \"read-write\") (isDefined auth.token) }}",
+      "if": "{{ and (allows access.data \"write\") (isDefined auth.token) }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -231,7 +233,7 @@
       }
     },
     {
-      "if": "{{ and (is config.access \"read-write\") (isDefined auth.oauth) }}",
+      "if": "{{ and (allows access.data \"write\") (isDefined auth.oauth) }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -257,7 +259,7 @@
       }
     },
     {
-      "if": "{{ and (is config.access \"read-write\") (isDefined auth.oauth) }}",
+      "if": "{{ and (allows access.data \"write\") (isDefined auth.oauth) }}",
       "match": {
         "protocol": "http",
         "host": [

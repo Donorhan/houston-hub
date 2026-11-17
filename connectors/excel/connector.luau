@@ -193,7 +193,7 @@ Send one request at a time per workbook: parallel calls on one workbook cause th
 timeouts and conflicts. Errors report the HTTP status, Graph's code and message, and Excel's
 innerError code when there is one, e.g. 'Microsoft Graph HTTP 409 (conflict): ...; innerError:
 itemAlreadyExists'. Errors marked retryable (429, and on reads 500, 502, 503, 504 or 509) carry
-Retry-After when Graph sends one; an Excel 500 seldom succeeds when repeated unchanged. Houston itself retries only a short 429 wait.]] .. (if config.access == "read-write" then [[
+Retry-After when Graph sends one; an Excel 500 seldom succeeds when repeated unchanged. Houston itself retries only a short 429 wait.]] .. (if houston.allows("data:write") then [[
 
 Writes save to the file in OneDrive, with or without a session; the file's version history is
 the only undo. Strings in values are read as if typed: '00123' becomes 123 and '2026-11-10' a
@@ -230,8 +230,8 @@ local FORMATS = {
 local READ = {readOnlyHint = true, openWorldHint = true}
 local WRITE = {readOnlyHint = false, destructiveHint = false, openWorldHint = true}
 local DESTRUCTIVE = {readOnlyHint = false, destructiveHint = true, openWorldHint = true}
--- Sessions exist only on read-write connections, which can create them.
-local SESSION: Options = if config.access == "read-write"
+-- Sessions exist only on connections with write access, which can create them.
+local SESSION: Options = if houston.allows("data:write")
 	then {sessionId = {type = "string", minLength = 1, description = "A session id from createSession; omit for a one-off call."}}
 	else {}
 
@@ -243,7 +243,7 @@ end
 
 -- Moves sessionId from args into Graph's workbook-session-id header.
 local function session(args: Options): HttpHeaders
-	if config.access ~= "read-write" or args.sessionId == nil then return {} end
+	if not houston.allows("data:write") or args.sessionId == nil then return {} end
 	local id = text(args.sessionId, "sessionId")
 	assert(not string.find(id, "%c"), "sessionId must be a session id from createSession")
 	args.sessionId = nil
@@ -464,7 +464,7 @@ function exports.getRange(input: any): Options
 	return request("getRange", "GET", rangePath(args, true), args, {headers = headers, query = {"$select"}, defaults = {select = RANGE_FIELDS}})
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	-- A minimal package: one empty worksheet, Sheet1, and the default Normal cell style.
 	local XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
 	local RELATIONSHIPS = "http://schemas.openxmlformats.org/package/2006/relationships"

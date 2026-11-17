@@ -1,9 +1,9 @@
 # Connect your Google account
 
-1. Choose the access level:
-   - **Read-only** to let agents read forms and their responses without
+1. Choose the level for **Access**:
+   - **Read** to let agents read forms and their responses without
      changing anything.
-   - **Read and write** to also let agents create forms, edit their questions
+   - **Write** to also let agents create forms, edit their questions
      and settings, and open or close them to responses.
 2. Select **Continue with Google**, choose your account, and approve the
    permissions Google lists. If Google shows a checkbox per permission, tick

@@ -1099,14 +1099,14 @@ local function destroy_ids(ids: any, operation: any)
 	return { ids = gone }
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 
-	operationHelp.markRead = [==[markRead(ids) -> {ids}. Marks messages read by setting $seen, preserving other keywords and mailboxes. Accepts one ID or a list of strings/{id} rows. Requires a writable Email token and read-write connection access; Email submission scope is unnecessary. Batches of 50 may partially complete; inspect keywords after a failure before retrying.]==]
+	operationHelp.markRead = [==[markRead(ids) -> {ids}. Marks messages read by setting $seen, preserving other keywords and mailboxes. Accepts one ID or a list of strings/{id} rows. Requires a writable Email token and Write access; Email submission scope is unnecessary. Batches of 50 may partially complete; inspect keywords after a failure before retrying.]==]
 	function functions.markRead(ids: Ids)
 		return { ids = update_ids(id_list(ids, "markRead"), { ["keywords/$seen"] = true }, "markRead") }
 	end
 
-	operationHelp.markUnread = [==[markUnread(ids) -> {ids}. Marks messages unread by removing $seen, preserving other keywords and mailboxes. Accepts one ID or a list of strings/{id} rows. Requires a writable Email token and read-write connection access; Email submission scope is unnecessary. Batches of 50 may partially complete; inspect keywords after a failure before retrying.]==]
+	operationHelp.markUnread = [==[markUnread(ids) -> {ids}. Marks messages unread by removing $seen, preserving other keywords and mailboxes. Accepts one ID or a list of strings/{id} rows. Requires a writable Email token and Write access; Email submission scope is unnecessary. Batches of 50 may partially complete; inspect keywords after a failure before retrying.]==]
 	function functions.markUnread(ids: Ids)
 		return { ids = update_ids(id_list(ids, "markUnread"), { ["keywords/$seen"] = json.decode("null") }, "markUnread") }
 	end
@@ -1216,13 +1216,13 @@ if config.access == "read-write" then
 
 end
 
--- Read and draft (custom) connections add only draft operations to the reads; the person sends from Fastmail.
-if config.access == "read-write" or config.access == "custom" then
+-- Draft connections add only draft operations to the reads; the person sends from Fastmail.
+if houston.allows("data:draft") then
 
 	local DRAFT_SCOPE = "Needs only the Email scope: without Email submission, identityId is refused and from (default: the account address) is not checked against sending identities."
-	local REVIEW = if config.access == "read-write"
+	local REVIEW = if houston.allows("data:write")
 		then "The person can review and send it in Fastmail, or send it later with sendDraft."
-		else "Read and draft connection: this connector never sends; the person reviews and sends drafts in Fastmail."
+		else "Draft connection: this connector never sends; the person reviews and sends drafts in Fastmail."
 
 	operationHelp.createDraft = [==[createDraft({to?,text,subject?,identityId?,from?,cc?,bcc?,replyTo?,attachments?}) -> {id,threadId}. Saves a draft in Drafts without sending. Options as for sending: address arrays use {email,name?}, but to may be empty; attachments={{path,filename?,mimeType?}} uploads session files. ]==] .. DRAFT_SCOPE .. " " .. REVIEW .. [==[ List drafts with listMessages({folder="drafts"}) and read them with getMessage.]==]
 	function functions.createDraft(body: DraftOptions): DraftResult

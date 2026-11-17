@@ -3,9 +3,10 @@ return {
 		local function google(access, scopes)
 			local r, err = m.resolve(
 				{ client_id = "publisher-client", client_secret = "publisher-secret" },
-				{ access = access },
+				{},
 				nil,
-				"oauth"
+				"oauth",
+				{ data = access }
 			)
 			assert(r and not err, tostring(err))
 			local want = { "https://www.googleapis.com/auth/userinfo.email" }
@@ -18,9 +19,9 @@ return {
 		end
 		do
 			local api = "https://sheets.googleapis.com/v4/spreadsheets"
-			for _, access in { "read-only", "read-write" } do
+			for _, access in { "read", "write" } do
 				local scope = "spreadsheets.readonly"
-				if access == "read-write" then
+				if access == "write" then
 					scope = "spreadsheets"
 				end
 				local r = google(access, { scope })
@@ -42,7 +43,7 @@ return {
 					"PUT " .. api .. "/s1/values/%27Q2%2FQ3%27%21B2",
 					"POST " .. api .. "/s1/values/%27Log%2F2026%27%21A%3AD:append",
 				}
-				m.routes(r, "Bearer fixture-token", (access == "read-write"), writes)
+				m.routes(r, "Bearer fixture-token", (access == "write"), writes)
 				m.routes(r, "Bearer fixture-token", false, {
 					"POST https://oauth2.googleapis.com/token",
 					"GET https://www.googleapis.com/drive/v3/files",
@@ -61,13 +62,13 @@ return {
 					"GET " .. api .. "/s1%2F..%2Fx/values/A1",
 				})
 				m.rejectOverrides(r, { "GET " .. api .. "/s1", "GET " .. api .. "/s1/values/A1" })
-				if access == "read-write" then
+				if access == "write" then
 					m.rejectOverrides(r, writes)
 				end
 			end
 		end
 		do
-			local sheets = google("read-only", { "spreadsheets.readonly" })
+			local sheets = google("read", { "spreadsheets.readonly" })
 			local spreadsheet = "https://sheets.googleapis.com/v4/spreadsheets/x"
 			m.routes(sheets, "Bearer fixture-token", true, { "GET " .. spreadsheet })
 			m.refused(sheets, "", { "POST " .. spreadsheet .. ":batchUpdate" })

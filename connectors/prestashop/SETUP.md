@@ -3,7 +3,7 @@
 Requires PrestaShop 1.7, 8 or 9 over HTTPS at the domain root, and a back-office
 account allowed to manage **Advanced Parameters**.
 
-> Use a separate **View (GET)**-only key for read-only connections. PrestaShop can
+> Use a separate **View (GET)**-only key for connections with **Read** access. PrestaShop can
 > turn read requests into changes; a write-enabled key can change data regardless
 > of Houston's Access setting.
 
@@ -16,7 +16,7 @@ account allowed to manage **Advanced Parameters**.
    `order_payments`, `order_slip`, `order_states`, `orders`, `products`,
    `stock_availables`, `suppliers`. Leave write columns off and save.
 4. In Houston, enter **Store domain** without `https://` or a path, paste
-   **Webservice key**, choose **Read-only** and save.
+   **Webservice key**, choose **Read** for **Access** and save.
 
 [Official webservice guide](https://devdocs.prestashop-project.org/9/webservice/tutorials/creating-access/).
 
@@ -24,7 +24,7 @@ account allowed to manage **Advanced Parameters**.
 
 ### Changes and multiple stores
 
-For a separate **Read and write** connection, allow **Add (POST)** for customers,
+For a separate connection with **Write** access, allow **Add (POST)** for customers,
 order histories and products; **Patch (PATCH)** for customers, order carriers,
 products and stock (version 8+); and **Delete (DELETE)** for customers/products
 only if permanent deletion is intended. Status and tracking changes can email customers.

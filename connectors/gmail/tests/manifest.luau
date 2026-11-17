@@ -3,9 +3,10 @@ return {
 		local function google(access, scopes)
 			local r, err = m.resolve(
 				{ client_id = "publisher-client", client_secret = "publisher-secret" },
-				{ access = access },
+				{},
 				nil,
-				"oauth"
+				"oauth",
+				{ data = access }
 			)
 			assert(r and not err, tostring(err))
 			local want = { "https://www.googleapis.com/auth/userinfo.email" }
@@ -21,9 +22,9 @@ return {
 			local upload = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
 			for access, scopes in
 				{
-					["read-only"] = { "gmail.readonly" },
-					custom = { "gmail.readonly", "gmail.compose" },
-					["read-write"] = { "gmail.modify" },
+					read = { "gmail.readonly" },
+					draft = { "gmail.readonly", "gmail.compose" },
+					write = { "gmail.modify" },
 				}
 			do
 				do
@@ -49,8 +50,8 @@ return {
 						"PUT " .. upload .. "/drafts/d1?uploadType=multipart",
 						"DELETE " .. api .. "/drafts/d1",
 					}
-					m.routes(r, "Bearer fixture-token", (access ~= "read-only"), drafts)
-					if access ~= "read-only" then
+					m.routes(r, "Bearer fixture-token", (access ~= "read"), drafts)
+					if access ~= "read" then
 						m.rejectOverrides(r, drafts)
 					end
 					local writes = {
@@ -67,8 +68,8 @@ return {
 						"POST " .. api .. "/drafts/send",
 						"POST " .. upload .. "/messages/send?uploadType=multipart",
 					}
-					m.routes(r, "Bearer fixture-token", (access == "read-write"), writes)
-					if access == "read-write" then
+					m.routes(r, "Bearer fixture-token", (access == "write"), writes)
+					if access == "write" then
 						m.rejectOverrides(r, writes)
 					end
 					m.routes(r, "Bearer fixture-token", false, {
@@ -104,7 +105,7 @@ return {
 			end
 		end
 		do
-			local gmail = google("custom", { "gmail.readonly", "gmail.compose" })
+			local gmail = google("draft", { "gmail.readonly", "gmail.compose" })
 			local api = "https://gmail.googleapis.com/gmail/v1/users/me"
 			local upload = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
 			m.routes(

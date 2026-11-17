@@ -1,5 +1,5 @@
 return {
-	scenario = {publisher = {}, config = {store_host = "shop.example.com", access = "read-write"}, auth_method = "keys",
+	scenario = {publisher = {}, access = {data = "write"}, config = {store_host = "shop.example.com"}, auth_method = "keys",
 		auth_config = {consumer_key = "ck_fixture", consumer_secret = "cs_fixture"}},
 	configure = function()
 		calls = 0

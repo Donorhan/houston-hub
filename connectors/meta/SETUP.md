@@ -22,7 +22,7 @@ Each Houston connection serves one Page.
 5. Copy your Page's `access_token`. In the
    [Access Token Debugger](https://developers.facebook.com/tools/debug/accesstoken/),
    confirm **Type: Page** and check its expiry.
-6. In Houston, choose **Read-only** or **Read and write**, enter the
+6. In Houston, choose **Read** or **Write** for **Access**, enter the
    Page access token, and save the connection.
 
 > Use the **Page token**, not the system user token. Customer conversations need
@@ -32,21 +32,21 @@ Each Houston connection serves one Page.
 ## Permissions
 
 
-For **Read-only**: `pages_show_list`, `pages_read_engagement`,
+For **Read**: `pages_show_list`, `pages_read_engagement`,
 `pages_read_user_content`, `read_insights`, `pages_manage_metadata`,
 `pages_messaging` and `business_management`; for Instagram, also
 `instagram_basic`, `instagram_manage_comments`, `instagram_manage_insights` and
 `instagram_manage_messages`.
 
-For **Read and write**, also: `pages_manage_posts`, `pages_manage_engagement` and
+For **Write**, also: `pages_manage_posts`, `pages_manage_engagement` and
 `publish_video` when Meta offers it; for Instagram, `instagram_content_publish` and
 `instagram_manage_contents`.
 
-Some read-only permissions also allow changes: Meta requires `pages_manage_metadata`
+Some **Read** permissions also allow changes: Meta requires `pages_manage_metadata`
 to read conversations, adds `business_management` with the **Manage everything on
 your Page** use case for business-owned Pages, and grants reading and replying to
 messages together (`pages_messaging`, `instagram_manage_messages`). Leave out
-messaging permissions if you do not need the inbox. On a **Read-only** connection
+messaging permissions if you do not need the inbox. With **Read** access
 Houston blocks every write, whatever the token allows. See Meta's
 [permissions reference](https://developers.facebook.com/docs/permissions).
 

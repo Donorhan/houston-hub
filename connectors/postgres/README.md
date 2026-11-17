@@ -14,7 +14,7 @@ data with SQL.
 
 ## Make changes when you allow it
 
-With **Read and write** access, agents can also insert, update, and delete rows
-or change the schema. With **Read-only** access, every statement runs in a
+With **Write** access, agents can also insert, update, and delete rows
+or change the schema. With **Read** access, every statement runs in a
 read-only transaction, so data and schema cannot change. Your database user's permissions
 always apply.

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Example Supabase Project",
   "description": "Access one Supabase project through REST or Postgres.",
   "files": [

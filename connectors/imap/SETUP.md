@@ -3,8 +3,8 @@
 1. Find your provider's IMAP host and create an app password if required.
    Houston needs implicit TLS, usually port **993**; STARTTLS on 143 is unsupported.
 2. Enter **Host**, **Port**, **Username** (usually your email) and **Password**.
-3. Choose **Read-only**, **Read and draft** to manage drafts for you to send, or
-   **Read and write** to also organize mail. This connector cannot send email.
+3. For **Access**, choose **Read**, **Draft** to manage drafts for you to send, or
+   **Write** to also organize mail. This connector cannot send email.
 4. Keep **TLS mode** on **Verify certificate and host name (recommended)** and
    select **Add connection**. For a private server, see
    [Self-signed and private certificates](#self-signed-and-private-certificates).

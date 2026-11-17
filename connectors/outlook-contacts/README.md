@@ -8,7 +8,7 @@ Let agents find the people in your Outlook address book and keep it tidy.
 - Look up contacts by email address and read their phone numbers, addresses,
   companies and notes.
 - Browse your contact folders, including nested ones.
-- With **Read and write** access: add, update and delete contacts, and create,
+- With **Write** access: add, update and delete contacts, and create,
   rename, move and delete contact folders.
 
 Works with Outlook.com and Microsoft 365 work or school accounts. It reaches

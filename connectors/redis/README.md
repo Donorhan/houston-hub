@@ -14,6 +14,6 @@ streams.
 
 ## Make changes when you allow it
 
-With **Read and write** access, agents can also set, update, and delete keys.
-With **Read-only** access, agents can run only the commands Redis marks as
+With **Write** access, agents can also set, update, and delete keys.
+With **Read** access, agents can run only the commands Redis marks as
 read-only. Your Redis user's ACL always applies.

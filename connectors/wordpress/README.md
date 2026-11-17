@@ -8,7 +8,7 @@ Connect your self-hosted WordPress site so your agents can read your posts, page
 drafts and revisions, search the site, and look up media, categories, tags,
 comments and authors.
 
-With read and write access, agents can also write and edit posts and pages, save
+With write access, agents can also write and edit posts and pages, save
 them as drafts, submit them for review, schedule or publish them, upload images
 and other media, manage categories and tags, and approve, reply to, mark as spam
 or trash comments. Published posts are public right away, and WordPress may email

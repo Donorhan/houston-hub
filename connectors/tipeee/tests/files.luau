@@ -2,7 +2,7 @@ local requests = {}
 local payload = "{}"
 local status = 200
 return {
-	scenario = {config = {access = "read-write"}, auth_method = "token", auth_config = {token = "fixture-token"}},
+	scenario = {access = {data = "write"}, config = {}, auth_method = "token", auth_config = {token = "fixture-token"}},
 	configure = function()
 		requests = {}; payload = "{}"; status = 200
 		fs = fixture.files()

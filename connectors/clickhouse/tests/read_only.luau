@@ -1,7 +1,7 @@
--- Read-only connections expose query alone, and it always asks for a read-only statement.
+-- Read access exposes query alone, and it always asks for a read-only statement.
 return {
 	scenario = {publisher = {}, auth_method = "", auth_config = {}, config = {host = "db.example.com", database = "app", username = "reader", password = "fixture-password"}},
-	config = {access = "read-only"},
+	access = {data = "read"},
 	configure = function()
 		requests = {}
 		db = {query = function(request)
@@ -10,7 +10,7 @@ return {
 		end}
 	end,
 	run = function(exports)
-		assert(exports.execute == nil, "read-only access must not expose execute")
+		assert(exports.execute == nil, "read access must not expose execute")
 		local result = fixture.example("query")
 		assert(result.rows[1].n == 7 and result.truncated == false)
 		local request = requests[1]

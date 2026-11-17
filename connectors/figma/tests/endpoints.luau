@@ -2,7 +2,7 @@ return {
 	contract = function(m)
 		local want = {}
 		for _, entry in m.endpoints() do
-			table.insert(want, entry.method .. " " .. entry.path .. " " .. tostring(entry.write))
+			table.insert(want, entry.method .. " " .. entry.path .. " " .. tostring(entry.access ~= nil))
 		end
 		for _, method in { "auth.token", "auth.oauth" } do
 			local got = {}
@@ -22,7 +22,7 @@ return {
 								.. " "
 								.. path
 								.. " "
-								.. tostring(string.find(gate, '"read-write"', 1, true) ~= nil)
+								.. tostring(string.find(gate, 'allows access.data "write"', 1, true) ~= nil)
 						)
 					end
 				end

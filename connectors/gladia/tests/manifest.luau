@@ -33,11 +33,11 @@ return {
 				end
 			end
 		end
-		for _, access in { "read-only", "read-write" } do
-			local r, err = m.resolve(nil, { access = access }, { token = "gladia-fixture-key" }, "api_key")
+		for _, level in { "read", "write" } do
+			local r, err = m.resolve(nil, {}, { token = "gladia-fixture-key" }, "api_key", { data = level })
 			assert(r and not err, tostring(err))
 			keyed(r, reads)
-			if access == "read-write" then
+			if level == "write" then
 				keyed(r, writes)
 			else
 				m.routes(r, "", false, writes)

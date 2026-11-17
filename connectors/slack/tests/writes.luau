@@ -1,6 +1,6 @@
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	config = {access = "read-write"},
+	access = {direct_messages = "write", files = "write", reactions = "write", messages = "write"},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
@@ -25,7 +25,7 @@ return {
 	end,
 	run = function(slack)
 		for _, name in {"postMessage", "reply", "updateMessage", "deleteMessage", "openConversation", "addReaction", "removeReaction", "uploadFile"} do
-			assert(type(slack[name]) == "function", name .. " is exported with read-write access")
+			assert(type(slack[name]) == "function", name .. " is exported at write access")
 		end
 
 		local opts = {blocks = {{type = "section", text = {type = "mrkdwn", text = "*Hi*"}}}, unfurl_links = false}

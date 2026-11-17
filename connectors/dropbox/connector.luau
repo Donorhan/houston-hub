@@ -1,6 +1,6 @@
 -- Dropbox API v2. Arguments and results keep Dropbox's native field names.
 type Options = {[string]: any}
-type Endpoint = {route: string, scope: string, read: boolean, required: {[string]: string}?, style: ("download" | "upload")?, void: boolean?, emptyResult: boolean?, help: string}
+type Endpoint = {route: string, scope: string, access: string?, required: {[string]: string}?, style: ("download" | "upload")?, void: boolean?, emptyResult: boolean?, help: string}
 local API = "https://api.dropboxapi.com/2/"
 local CONTENT = "https://content.dropboxapi.com/2/"
 local MAX_SAFE_INTEGER = 9007199254740991
@@ -144,119 +144,119 @@ local function job(starters: string, tags: string?): string
 end
 local endpoints: {[string]: Endpoint} = {
 	-- Account
-	getCurrentAccount = {route = "users/get_current_account", scope = "account_info.read", read = true, void = true,
+	getCurrentAccount = {route = "users/get_current_account", scope = "account_info.read", void = true,
 		help = "() -> {account_id, name, email, root_info, ...}. root_info identifies the account's home and root namespaces."},
-	getSpaceUsage = {route = "users/get_space_usage", scope = "account_info.read", read = true, void = true, help = "() -> {used, allocation}. Bytes used and the quota."},
-	getAccount = {route = "users/get_account", scope = "sharing.read", required = {account_id = "string"}, read = true, help = "({account_id}) -> {account_id, name, email, ...}. Another Dropbox user, e.g. a folder member."},
+	getSpaceUsage = {route = "users/get_space_usage", scope = "account_info.read", void = true, help = "() -> {used, allocation}. Bytes used and the quota."},
+	getAccount = {route = "users/get_account", scope = "sharing.read", required = {account_id = "string"}, access = "sharing:read", help = "({account_id}) -> {account_id, name, email, ...}. Another Dropbox user, e.g. a folder member."},
 
 	-- Files and folders
-	getMetadata = {route = "files/get_metadata", scope = "files.metadata.read", required = {path = "string"}, read = true,
+	getMetadata = {route = "files/get_metadata", scope = "files.metadata.read", required = {path = "string"}, access = "files:read",
 		help = "({path, include_media_info?, include_deleted?}) -> file, folder or deleted metadata; ['.tag'] tells which."},
-	listFolder = {route = "files/list_folder", scope = "files.metadata.read", required = {path = "string"}, read = true,
+	listFolder = {route = "files/list_folder", scope = "files.metadata.read", required = {path = "string"}, access = "files:read",
 		help = "({path, recursive?, limit?, include_deleted?, include_media_info?}) -> {entries, cursor, has_more}. path='' is the root. limit is a hint up to 2000."},
-	listFolderContinue = {route = "files/list_folder/continue", scope = "files.metadata.read", required = {cursor = "string"}, read = true, help = CURSOR .. " Also returns later changes when called with a saved cursor."},
-	listFolderGetLatestCursor = {route = "files/list_folder/get_latest_cursor", scope = "files.metadata.read", required = {path = "string"}, read = true,
+	listFolderContinue = {route = "files/list_folder/continue", scope = "files.metadata.read", required = {cursor = "string"}, access = "files:read", help = CURSOR .. " Also returns later changes when called with a saved cursor."},
+	listFolderGetLatestCursor = {route = "files/list_folder/get_latest_cursor", scope = "files.metadata.read", required = {path = "string"}, access = "files:read",
 		help = "({path, recursive?}) -> {cursor}. A cursor at the current state; listFolderContinue on it later returns only changes."},
-	search = {route = "files/search_v2", scope = "files.metadata.read", required = {query = "string"}, read = true,
+	search = {route = "files/search_v2", scope = "files.metadata.read", required = {query = "string"}, access = "files:read",
 		help = "({query, options?={path?, max_results?, file_status?, filename_only?, file_extensions?, file_categories?}}) -> {matches, has_more, cursor?}. Matches names and content; matches[i].metadata.metadata is the file."},
-	searchContinue = {route = "files/search/continue_v2", scope = "files.metadata.read", required = {cursor = "string"}, read = true, help = CURSOR},
-	listRevisions = {route = "files/list_revisions", scope = "files.metadata.read", required = {path = "string"}, read = true, help = "({path, limit?, before_rev?}) -> {is_deleted, entries, has_more}. A file's versions, newest first; pass the last entry's rev as before_rev for older ones."},
-	getTemporaryLink = {route = "files/get_temporary_link", scope = "files.content.read", required = {path = "string"}, read = true,
+	searchContinue = {route = "files/search/continue_v2", scope = "files.metadata.read", required = {cursor = "string"}, access = "files:read", help = CURSOR},
+	listRevisions = {route = "files/list_revisions", scope = "files.metadata.read", required = {path = "string"}, access = "files:read", help = "({path, limit?, before_rev?}) -> {is_deleted, entries, has_more}. A file's versions, newest first; pass the last entry's rev as before_rev for older ones."},
+	getTemporaryLink = {route = "files/get_temporary_link", scope = "files.content.read", required = {path = "string"}, access = "files:read",
 		help = "({path}) -> {metadata, link}. A direct download link valid for four hours, to hand to a person or an outside client; Houston scripts transfer files with download."},
-	download = {route = "files/download", scope = "files.content.read", required = {path = "string"}, read = true, style = "download", help = "({path, rev?, session_path}) -> {session_path, url, size, result=file metadata}."},
-	downloadZip = {route = "files/download_zip", scope = "files.content.read", required = {path = "string"}, read = true, style = "download",
+	download = {route = "files/download", scope = "files.content.read", required = {path = "string"}, access = "files:read", style = "download", help = "({path, rev?, session_path}) -> {session_path, url, size, result=file metadata}."},
+	downloadZip = {route = "files/download_zip", scope = "files.content.read", required = {path = "string"}, access = "files:read", style = "download",
 		help = "({path, session_path}) -> {session_path, url, size, result={metadata}}. A folder as a zip: Dropbox requires under 20 GB total, under 4 GB per file and fewer than 10,000 files/folders including the root. Houston's smaller transfer limit still applies."},
-	export = {route = "files/export", scope = "files.content.read", required = {path = "string"}, read = true, style = "download",
+	export = {route = "files/export", scope = "files.content.read", required = {path = "string"}, access = "files:read", style = "download",
 		help = "({path, export_format?, session_path}) -> {session_path, url, size, result={export_metadata, file_metadata}}. Converts files that have no downloadable bytes, such as Paper docs: their metadata has export_info.export_as, and export_info.export_options lists other export_format values."},
-	getPreview = {route = "files/get_preview", scope = "files.content.read", required = {path = "string"}, read = true, style = "download",
+	getPreview = {route = "files/get_preview", scope = "files.content.read", required = {path = "string"}, access = "files:read", style = "download",
 		help = "({path, rev?, session_path}) -> {session_path, url, size, result=file metadata}. A PDF preview of documents or an HTML preview of spreadsheets."},
-	getThumbnail = {route = "files/get_thumbnail", scope = "files.content.read", required = {path = "string"}, read = true, style = "download",
+	getThumbnail = {route = "files/get_thumbnail", scope = "files.content.read", required = {path = "string"}, access = "files:read", style = "download",
 		help = "({path, format?='jpeg'|'png'|'webp', size?='w64h64'|'w256h256'|...|'w2048h1536', mode?, session_path}) -> {session_path, url, size, result=file metadata}. Images only; defaults to a 64x64 JPEG."},
-	createFolder = {route = "files/create_folder_v2", scope = "files.content.write", required = {path = "string"}, read = false, help = "({path, autorename?}) -> {metadata}."},
-	upload = {route = "files/upload", scope = "files.content.write", required = {path = "string"}, read = false, style = "upload",
+	createFolder = {route = "files/create_folder_v2", scope = "files.content.write", required = {path = "string"}, access = "files:write", help = "({path, autorename?}) -> {metadata}."},
+	upload = {route = "files/upload", scope = "files.content.write", required = {path = "string"}, access = "files:write", style = "upload",
 		help = "({path, session_path, mode?='add'|'overwrite'|{['.tag']='update', update=rev}, autorename?, mute?}) -> file metadata. Sends a session file of at most 150 MiB; the default mode 'add' never replaces an existing file."},
-	saveUrl = {route = "files/save_url", scope = "files.content.write", required = {path = "string", url = "string"}, read = false,
+	saveUrl = {route = "files/save_url", scope = "files.content.write", required = {path = "string", url = "string"}, access = "files:write",
 		help = "({path, url}) -> {['.tag']='async_job_id'|'complete', ...}. Dropbox downloads a public URL into path within 15 minutes; poll saveUrlCheckJobStatus."},
-	saveUrlCheckJobStatus = {route = "files/save_url/check_job_status", scope = "files.content.write", required = {async_job_id = "string"}, read = false, help = job("saveUrl")},
-	move = {route = "files/move_v2", scope = "files.content.write", required = {from_path = "string", to_path = "string"}, read = false, help = "({from_path, to_path, autorename?}) -> {metadata}. Moves or renames a file or folder."},
-	copy = {route = "files/copy_v2", scope = "files.content.write", required = {from_path = "string", to_path = "string"}, read = false, help = "({from_path, to_path, autorename?}) -> {metadata}."},
-	delete = {route = "files/delete_v2", scope = "files.content.write", required = {path = "string"}, read = false,
+	saveUrlCheckJobStatus = {route = "files/save_url/check_job_status", scope = "files.content.write", required = {async_job_id = "string"}, access = "files:write", help = job("saveUrl")},
+	move = {route = "files/move_v2", scope = "files.content.write", required = {from_path = "string", to_path = "string"}, access = "files:write", help = "({from_path, to_path, autorename?}) -> {metadata}. Moves or renames a file or folder."},
+	copy = {route = "files/copy_v2", scope = "files.content.write", required = {from_path = "string", to_path = "string"}, access = "files:write", help = "({from_path, to_path, autorename?}) -> {metadata}."},
+	delete = {route = "files/delete_v2", scope = "files.content.write", required = {path = "string"}, access = "files:write",
 		help = "({path, parent_rev?}) -> {metadata}. Deleted files stay recoverable with restore for the account's retention period."},
-	restore = {route = "files/restore", scope = "files.content.write", required = {path = "string", rev = "string"}, read = false, help = "({path, rev}) -> file metadata. Restores a deleted file or an earlier revision from listRevisions."},
-	moveBatch = {route = "files/move_batch_v2", scope = "files.content.write", required = {entries = "array"}, read = false,
+	restore = {route = "files/restore", scope = "files.content.write", required = {path = "string", rev = "string"}, access = "files:write", help = "({path, rev}) -> file metadata. Restores a deleted file or an earlier revision from listRevisions."},
+	moveBatch = {route = "files/move_batch_v2", scope = "files.content.write", required = {entries = "array"}, access = "files:write",
 		help = "({entries={{from_path, to_path}, ...}, autorename?}) -> {['.tag']='async_job_id'|'complete', ...}. Up to 1,000 entries; poll moveBatchCheck."},
-	moveBatchCheck = {route = "files/move_batch/check_v2", scope = "files.content.write", required = {async_job_id = "string"}, read = false, help = job("moveBatch", "'in_progress'|'complete'") .. ENTRIES},
-	copyBatch = {route = "files/copy_batch_v2", scope = "files.content.write", required = {entries = "array"}, read = false,
+	moveBatchCheck = {route = "files/move_batch/check_v2", scope = "files.content.write", required = {async_job_id = "string"}, access = "files:write", help = job("moveBatch", "'in_progress'|'complete'") .. ENTRIES},
+	copyBatch = {route = "files/copy_batch_v2", scope = "files.content.write", required = {entries = "array"}, access = "files:write",
 		help = "({entries={{from_path, to_path}, ...}, autorename?}) -> {['.tag']='async_job_id'|'complete', ...}. Up to 1,000 entries; poll copyBatchCheck."},
-	copyBatchCheck = {route = "files/copy_batch/check_v2", scope = "files.content.write", required = {async_job_id = "string"}, read = false, help = job("copyBatch", "'in_progress'|'complete'") .. ENTRIES},
-	deleteBatch = {route = "files/delete_batch", scope = "files.content.write", required = {entries = "array"}, read = false,
+	copyBatchCheck = {route = "files/copy_batch/check_v2", scope = "files.content.write", required = {async_job_id = "string"}, access = "files:write", help = job("copyBatch", "'in_progress'|'complete'") .. ENTRIES},
+	deleteBatch = {route = "files/delete_batch", scope = "files.content.write", required = {entries = "array"}, access = "files:write",
 		help = "({entries={{path}, ...}}) -> {['.tag']='async_job_id'|'complete', ...}. Up to 1,000 entries; poll deleteBatchCheck."},
-	deleteBatchCheck = {route = "files/delete_batch/check", scope = "files.content.write", required = {async_job_id = "string"}, read = false, help = job("deleteBatch") .. ENTRIES},
+	deleteBatchCheck = {route = "files/delete_batch/check", scope = "files.content.write", required = {async_job_id = "string"}, access = "files:write", help = job("deleteBatch") .. ENTRIES},
 
 	-- Shared links
-	listSharedLinks = {route = "sharing/list_shared_links", scope = "sharing.read", read = true,
+	listSharedLinks = {route = "sharing/list_shared_links", scope = "sharing.read", access = "sharing:read",
 		help = "({path?, cursor?, direct_only?}) -> {links, has_more, cursor?}. Without path, every link the account created; pass cursor back for the next page."},
-	getSharedLinkMetadata = {route = "sharing/get_shared_link_metadata", scope = "sharing.read", required = {url = "string"}, read = true, help = "({url, path?, link_password?}) -> link metadata. path selects an item inside a shared folder link."},
-	getSharedLinkFile = {route = "sharing/get_shared_link_file", scope = "sharing.read", required = {url = "string"}, read = true, style = "download",
+	getSharedLinkMetadata = {route = "sharing/get_shared_link_metadata", scope = "sharing.read", required = {url = "string"}, access = "sharing:read", help = "({url, path?, link_password?}) -> link metadata. path selects an item inside a shared folder link."},
+	getSharedLinkFile = {route = "sharing/get_shared_link_file", scope = "sharing.read", required = {url = "string"}, access = "sharing:read", style = "download",
 		help = "({url, path?, link_password?, session_path}) -> {session_path, url, size, result=link metadata}. Downloads a file behind a shared link, including links from other accounts."},
-	createSharedLinkWithSettings = {route = "sharing/create_shared_link_with_settings", scope = "sharing.write", required = {path = "string"}, read = false,
+	createSharedLinkWithSettings = {route = "sharing/create_shared_link_with_settings", scope = "sharing.write", required = {path = "string"}, access = "sharing:write",
 		help = "({path, settings?={requested_visibility?, audience?, access?, expires?, link_password?, allow_download?}}) -> link metadata. Fails with shared_link_already_exists when a link exists; use listSharedLinks({path, direct_only=true})."},
-	modifySharedLinkSettings = {route = "sharing/modify_shared_link_settings", scope = "sharing.write", required = {url = "string", settings = "struct"}, read = false, help = "({url, settings, remove_expiration?}) -> link metadata."},
-	revokeSharedLink = {route = "sharing/revoke_shared_link", scope = "sharing.write", required = {url = "string"}, read = false, emptyResult = true, help = "({url}) -> {success=true}."},
+	modifySharedLinkSettings = {route = "sharing/modify_shared_link_settings", scope = "sharing.write", required = {url = "string", settings = "struct"}, access = "sharing:write", help = "({url, settings, remove_expiration?}) -> link metadata."},
+	revokeSharedLink = {route = "sharing/revoke_shared_link", scope = "sharing.write", required = {url = "string"}, access = "sharing:write", emptyResult = true, help = "({url}) -> {success=true}."},
 
 	-- Shared folders
-	listSharedFolders = {route = "sharing/list_folders", scope = "sharing.read", read = true, help = "({limit?}) -> {entries, cursor?}. Shared folders the account has joined."},
-	listSharedFoldersContinue = {route = "sharing/list_folders/continue", scope = "sharing.read", required = {cursor = "string"}, read = true, help = CURSOR},
-	listMountableFolders = {route = "sharing/list_mountable_folders", scope = "sharing.read", read = true, help = "({limit?}) -> {entries, cursor?}. Shared folders the account can add to its Dropbox."},
-	listMountableFoldersContinue = {route = "sharing/list_mountable_folders/continue", scope = "sharing.read", required = {cursor = "string"}, read = true, help = CURSOR},
-	getSharedFolderMetadata = {route = "sharing/get_folder_metadata", scope = "sharing.read", required = {shared_folder_id = "string"}, read = true,
+	listSharedFolders = {route = "sharing/list_folders", scope = "sharing.read", access = "sharing:read", help = "({limit?}) -> {entries, cursor?}. Shared folders the account has joined."},
+	listSharedFoldersContinue = {route = "sharing/list_folders/continue", scope = "sharing.read", required = {cursor = "string"}, access = "sharing:read", help = CURSOR},
+	listMountableFolders = {route = "sharing/list_mountable_folders", scope = "sharing.read", access = "sharing:read", help = "({limit?}) -> {entries, cursor?}. Shared folders the account can add to its Dropbox."},
+	listMountableFoldersContinue = {route = "sharing/list_mountable_folders/continue", scope = "sharing.read", required = {cursor = "string"}, access = "sharing:read", help = CURSOR},
+	getSharedFolderMetadata = {route = "sharing/get_folder_metadata", scope = "sharing.read", required = {shared_folder_id = "string"}, access = "sharing:read",
 		help = "({shared_folder_id}) -> shared folder metadata. The ID is a folder's shared_folder_id or sharing_info.shared_folder_id."},
-	listFolderMembers = {route = "sharing/list_folder_members", scope = "sharing.read", required = {shared_folder_id = "string"}, read = true, help = "({shared_folder_id, limit?}) -> {users, groups, invitees, cursor?}."},
-	listFolderMembersContinue = {route = "sharing/list_folder_members/continue", scope = "sharing.read", required = {cursor = "string"}, read = true, help = CURSOR},
-	shareFolder = {route = "sharing/share_folder", scope = "sharing.write", required = {path = "string"}, read = false,
+	listFolderMembers = {route = "sharing/list_folder_members", scope = "sharing.read", required = {shared_folder_id = "string"}, access = "sharing:read", help = "({shared_folder_id, limit?}) -> {users, groups, invitees, cursor?}."},
+	listFolderMembersContinue = {route = "sharing/list_folder_members/continue", scope = "sharing.read", required = {cursor = "string"}, access = "sharing:read", help = CURSOR},
+	shareFolder = {route = "sharing/share_folder", scope = "sharing.write", required = {path = "string"}, access = "sharing:write",
 		help = "({path, member_policy?, acl_update_policy?, shared_link_policy?, force_async?}) -> {['.tag']='complete', ...} or {['.tag']='async_job_id', ...}; poll checkShareJobStatus."},
-	checkShareJobStatus = {route = "sharing/check_share_job_status", scope = "sharing.write", required = {async_job_id = "string"}, read = false, help = job("shareFolder")},
-	addFolderMember = {route = "sharing/add_folder_member", scope = "sharing.write", required = {shared_folder_id = "string", members = "array"}, read = false, emptyResult = true,
+	checkShareJobStatus = {route = "sharing/check_share_job_status", scope = "sharing.write", required = {async_job_id = "string"}, access = "sharing:write", help = job("shareFolder")},
+	addFolderMember = {route = "sharing/add_folder_member", scope = "sharing.write", required = {shared_folder_id = "string", members = "array"}, access = "sharing:write", emptyResult = true,
 		help = "({shared_folder_id, members={{member={['.tag']='email', email}, access_level?='editor'|'viewer'}, ...}, quiet?, custom_message?}) -> {success=true}. Dropbox emails new members unless quiet=true."},
-	updateFolderMember = {route = "sharing/update_folder_member", scope = "sharing.write", required = {shared_folder_id = "string", member = "union", access_level = "union"}, read = false,
+	updateFolderMember = {route = "sharing/update_folder_member", scope = "sharing.write", required = {shared_folder_id = "string", member = "union", access_level = "union"}, access = "sharing:write",
 		help = "({shared_folder_id, member={['.tag']='dropbox_id', dropbox_id}, access_level}) -> member result. This route requires a Dropbox account ID, not an email selector."},
-	removeFolderMember = {route = "sharing/remove_folder_member", scope = "sharing.write", required = {shared_folder_id = "string", member = "union", leave_a_copy = "boolean"}, read = false,
+	removeFolderMember = {route = "sharing/remove_folder_member", scope = "sharing.write", required = {shared_folder_id = "string", member = "union", leave_a_copy = "boolean"}, access = "sharing:write",
 		help = "({shared_folder_id, member={['.tag']='email', email}, leave_a_copy}) -> {['.tag']='async_job_id', ...}; poll checkRemoveMemberJobStatus."},
-	checkRemoveMemberJobStatus = {route = "sharing/check_remove_member_job_status", scope = "sharing.write", required = {async_job_id = "string"}, read = false, help = job("removeFolderMember")},
-	unshareFolder = {route = "sharing/unshare_folder", scope = "sharing.write", required = {shared_folder_id = "string"}, read = false,
+	checkRemoveMemberJobStatus = {route = "sharing/check_remove_member_job_status", scope = "sharing.write", required = {async_job_id = "string"}, access = "sharing:write", help = job("removeFolderMember")},
+	unshareFolder = {route = "sharing/unshare_folder", scope = "sharing.write", required = {shared_folder_id = "string"}, access = "sharing:write",
 		help = "({shared_folder_id, leave_a_copy?}) -> {['.tag']='complete'} or {['.tag']='async_job_id', ...}; poll checkJobStatus."},
-	checkJobStatus = {route = "sharing/check_job_status", scope = "sharing.write", required = {async_job_id = "string"}, read = false, help = job("unshareFolder and relinquishFolderMembership")},
-	mountFolder = {route = "sharing/mount_folder", scope = "sharing.write", required = {shared_folder_id = "string"}, read = false, help = "({shared_folder_id}) -> shared folder metadata. Adds a shared folder to the account's Dropbox."},
-	unmountFolder = {route = "sharing/unmount_folder", scope = "sharing.write", required = {shared_folder_id = "string"}, read = false, emptyResult = true, help = "({shared_folder_id}) -> {success=true}. Removes it from the account's Dropbox without leaving it."},
-	relinquishFolderMembership = {route = "sharing/relinquish_folder_membership", scope = "sharing.write", required = {shared_folder_id = "string"}, read = false,
+	checkJobStatus = {route = "sharing/check_job_status", scope = "sharing.write", required = {async_job_id = "string"}, access = "sharing:write", help = job("unshareFolder and relinquishFolderMembership")},
+	mountFolder = {route = "sharing/mount_folder", scope = "sharing.write", required = {shared_folder_id = "string"}, access = "sharing:write", help = "({shared_folder_id}) -> shared folder metadata. Adds a shared folder to the account's Dropbox."},
+	unmountFolder = {route = "sharing/unmount_folder", scope = "sharing.write", required = {shared_folder_id = "string"}, access = "sharing:write", emptyResult = true, help = "({shared_folder_id}) -> {success=true}. Removes it from the account's Dropbox without leaving it."},
+	relinquishFolderMembership = {route = "sharing/relinquish_folder_membership", scope = "sharing.write", required = {shared_folder_id = "string"}, access = "sharing:write",
 		help = "({shared_folder_id, leave_a_copy?}) -> {['.tag']='complete'} or {['.tag']='async_job_id', ...}. Leaves a shared folder; poll checkJobStatus."},
 
 	-- Shared files
-	listReceivedFiles = {route = "sharing/list_received_files", scope = "sharing.read", read = true, help = "({limit?}) -> {entries, cursor?}. Files others shared with the account."},
-	listReceivedFilesContinue = {route = "sharing/list_received_files/continue", scope = "sharing.read", required = {cursor = "string"}, read = true, help = CURSOR},
-	getSharedFileMetadata = {route = "sharing/get_file_metadata", scope = "sharing.read", required = {file = "string"}, read = true, help = "({file}) -> shared file metadata. file is a path or 'id:...'."},
-	listFileMembers = {route = "sharing/list_file_members", scope = "sharing.read", required = {file = "string"}, read = true, help = "({file, include_inherited?, limit?}) -> {users, groups, invitees, cursor?}."},
-	listFileMembersContinue = {route = "sharing/list_file_members/continue", scope = "sharing.read", required = {cursor = "string"}, read = true, help = CURSOR},
-	addFileMember = {route = "sharing/add_file_member", scope = "sharing.write", required = {file = "string", members = "array"}, read = false,
+	listReceivedFiles = {route = "sharing/list_received_files", scope = "sharing.read", access = "sharing:read", help = "({limit?}) -> {entries, cursor?}. Files others shared with the account."},
+	listReceivedFilesContinue = {route = "sharing/list_received_files/continue", scope = "sharing.read", required = {cursor = "string"}, access = "sharing:read", help = CURSOR},
+	getSharedFileMetadata = {route = "sharing/get_file_metadata", scope = "sharing.read", required = {file = "string"}, access = "sharing:read", help = "({file}) -> shared file metadata. file is a path or 'id:...'."},
+	listFileMembers = {route = "sharing/list_file_members", scope = "sharing.read", required = {file = "string"}, access = "sharing:read", help = "({file, include_inherited?, limit?}) -> {users, groups, invitees, cursor?}."},
+	listFileMembersContinue = {route = "sharing/list_file_members/continue", scope = "sharing.read", required = {cursor = "string"}, access = "sharing:read", help = CURSOR},
+	addFileMember = {route = "sharing/add_file_member", scope = "sharing.write", required = {file = "string", members = "array"}, access = "sharing:write",
 		help = "({file, members={{['.tag']='email', email}, ...}, access_level?, quiet?, custom_message?}) -> one result per member. Dropbox emails them unless quiet=true."},
-	removeFileMember = {route = "sharing/remove_file_member_2", scope = "sharing.write", required = {file = "string", member = "union"}, read = false, help = "({file, member={['.tag']='email', email}}) -> {['.tag']='success'|'member_error', ...}."},
-	unshareFile = {route = "sharing/unshare_file", scope = "sharing.write", required = {file = "string"}, read = false, emptyResult = true, help = "({file}) -> {success=true}. Removes every member."},
-	relinquishFileMembership = {route = "sharing/relinquish_file_membership", scope = "sharing.write", required = {file = "string"}, read = false, emptyResult = true, help = "({file}) -> {success=true}. Leaves a file shared with the account."},
+	removeFileMember = {route = "sharing/remove_file_member_2", scope = "sharing.write", required = {file = "string", member = "union"}, access = "sharing:write", help = "({file, member={['.tag']='email', email}}) -> {['.tag']='success'|'member_error', ...}."},
+	unshareFile = {route = "sharing/unshare_file", scope = "sharing.write", required = {file = "string"}, access = "sharing:write", emptyResult = true, help = "({file}) -> {success=true}. Removes every member."},
+	relinquishFileMembership = {route = "sharing/relinquish_file_membership", scope = "sharing.write", required = {file = "string"}, access = "sharing:write", emptyResult = true, help = "({file}) -> {success=true}. Leaves a file shared with the account."},
 
 	-- File requests
-	listFileRequests = {route = "file_requests/list_v2", scope = "file_requests.read", read = true, help = "({limit?}) -> {file_requests, cursor, has_more}."},
-	listFileRequestsContinue = {route = "file_requests/list/continue", scope = "file_requests.read", required = {cursor = "string"}, read = true, help = CURSOR},
-	getFileRequest = {route = "file_requests/get", scope = "file_requests.read", required = {id = "string"}, read = true, help = "({id}) -> file request."},
-	createFileRequest = {route = "file_requests/create", scope = "file_requests.write", required = {title = "string", destination = "string"}, read = false,
+	listFileRequests = {route = "file_requests/list_v2", scope = "file_requests.read", access = "file_requests:read", help = "({limit?}) -> {file_requests, cursor, has_more}."},
+	listFileRequestsContinue = {route = "file_requests/list/continue", scope = "file_requests.read", required = {cursor = "string"}, access = "file_requests:read", help = CURSOR},
+	getFileRequest = {route = "file_requests/get", scope = "file_requests.read", required = {id = "string"}, access = "file_requests:read", help = "({id}) -> file request."},
+	createFileRequest = {route = "file_requests/create", scope = "file_requests.write", required = {title = "string", destination = "string"}, access = "file_requests:write",
 		help = "({title, destination, deadline?={deadline, allow_late_uploads?}, open?, description?}) -> file request with its url. Anyone with the url can upload into destination."},
-	updateFileRequest = {route = "file_requests/update", scope = "file_requests.write", required = {id = "string"}, read = false, help = "({id, title?, destination?, deadline?={['.tag']='update', deadline?, allow_late_uploads?}|'no_update', open?, description?}) -> file request. open=false closes it; deadline={['.tag']='update'} alone clears the deadline."},
-	deleteFileRequest = {route = "file_requests/delete", scope = "file_requests.write", required = {ids = "array"}, read = false, help = "({ids={id, ...}}) -> {file_requests}. Only closed requests can be deleted."},
+	updateFileRequest = {route = "file_requests/update", scope = "file_requests.write", required = {id = "string"}, access = "file_requests:write", help = "({id, title?, destination?, deadline?={['.tag']='update', deadline?, allow_late_uploads?}|'no_update', open?, description?}) -> file request. open=false closes it; deadline={['.tag']='update'} alone clears the deadline."},
+	deleteFileRequest = {route = "file_requests/delete", scope = "file_requests.write", required = {ids = "array"}, access = "file_requests:write", help = "({ids={id, ...}}) -> {file_requests}. Only closed requests can be deleted."},
 }
 
 local exports: {[string]: any} = {}
 local help: {[string]: string} = {}
 local policy: any = nil
-if config.access == "custom" then
+if config.folder_policy then
 	policy = require("lib/policy.luau")(config.path_access, function(path: string): Options?
 		local response = await(http.request({method = "POST", url = API .. "files/get_metadata",
 			headers = {["Content-Type"] = {"application/json"}}, body = json.encode({path = path, include_deleted = true})}))
@@ -280,11 +280,13 @@ local function invoke(name: string, endpoint: Endpoint, input: any): any
 	return if policy then policy.result(name, result, context) else result
 end
 
--- Exposes an operation when it only reads or the connection allows writes.
+-- Exposes an operation its access rows and known OAuth scopes allow; a folder policy keeps the file
+-- operations it checks, and writes only when a folder is read-write.
 local function export(name: string, endpoint: Endpoint, fn: (...any) -> any, doc: string)
 	local supported = policy == nil or (policy.supports(if name == "statFile" then "getMetadata" else name)
+		and (policy.writable or endpoint.access ~= "files:write")
 		and (auth.scopes == nil or table.find(auth.scopes, "files.metadata.read") ~= nil))
-	if supported and (endpoint.read or config.access == "read-write" or (policy and policy.writable)) and (auth.scopes == nil or table.find(auth.scopes, endpoint.scope) ~= nil) then
+	if supported and (endpoint.access == nil or houston.allows(endpoint.access)) and (auth.scopes == nil or table.find(auth.scopes, endpoint.scope) ~= nil) then
 		exports[name], help[name] = fn, if policy then policy.documentation(name, doc) else doc
 	end
 end
@@ -313,7 +315,7 @@ exports.help = function(): string
 	for name in help do table.insert(names, name) end
 	table.sort(names)
 	local lines = {
-		"Dropbox API v2. Each operation takes one options table with Dropbox's snake_case arguments, calls the route in brackets and returns Dropbox's JSON unchanged; routes without a result return {success=true}. Required top-level argument types are checked before requests; Dropbox validates nested values and provider-specific constraints. Read-only connections omit changes, and known OAuth scopes further restrict the operations listed below.",
+		"Dropbox API v2. Each operation takes one options table with Dropbox's snake_case arguments, calls the route in brackets and returns Dropbox's JSON unchanged; routes without a result return {success=true}. Required top-level argument types are checked before requests; Dropbox validates nested values and provider-specific constraints. The connection's access levels and known OAuth scopes restrict the operations listed below.",
 		"Every argument and result is documented by route under User endpoints at https://docs.dropboxapi.com/dropbox-api/api-reference/overview. Union values are a tag string or a table, e.g. mode='overwrite' or mode={['.tag']='update', update='<rev>'}. Pass json.decode('[]') for an empty list.",
 		"Paths start with '/', are case-insensitive and use '' for the root folder (not '/'). Most routes also accept 'id:...' from metadata and 'ns:<namespace_id>/...' for accessible namespaces. Ordinary paths remain rooted in the member's folder. This connector does not set Dropbox-API-Path-Root; full team-space traversal is not supported.",
 		"Lists return one page. While has_more is true, or a sharing list returns a cursor, pass cursor to the matching ...Continue operation; listSharedLinks takes its cursor back and listRevisions pages with before_rev.",

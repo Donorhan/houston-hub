@@ -185,7 +185,7 @@ Lists return one page: while ['@odata.nextLink'] is present, pass it back as nex
 Example: listContacts({filter="emailAddresses/any(a:a/address eq 'ana@example.com')", top=50}).
 Houston itself retries only a short 429 wait. Errors report the HTTP status and Graph's code and
 message, e.g. 'Microsoft Graph HTTP 404 (ErrorItemNotFound)'; 429 is retryable, and so are
-503 and other transient server errors on reads. Graph serves at most 4 concurrent requests per mailbox.]] .. (if config.access == "read-write" then [[
+503 and other transient server errors on reads. Graph serves at most 4 concurrent requests per mailbox.]] .. (if houston.allows("data:write") then [[
 
 Writes change only the user's own contacts and contact folders, and notify nobody. Deletes return
 {success=true}; Outlook normally keeps deleted contacts and folders in Deleted Items. A failed or
@@ -354,7 +354,7 @@ function exports.getContact(input: any): Options
 	return request("getContact", "GET", contact(args), args, {query = {"$select"}})
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	local NEW = with(CONTACT, {folderId = FOLDER})
 	local CHANGE = with(CONTACT, {id = ID, folderId = FOLDER})
 
