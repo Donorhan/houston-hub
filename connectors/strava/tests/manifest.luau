@@ -11,7 +11,7 @@ return {
 			local draft, err = m.draft(publisher, nil, nil, "")
 			assert(not err, tostring(err))
 			for _, field in draft.ConfigFields do
-				if field.name ~= "access" then m.fail("connection form asks for %s", field.name) end
+				m.fail("connection form asks for %s", field.name)
 			end
 			local available = m.count(publisher) == 2
 			if m.count(draft.Methods) ~= 1 or draft.Methods[1].available ~= available then
@@ -52,15 +52,15 @@ return {
 			"GET https://strava.com/api/v3/athlete", "GET https://www.strava.com.evil.test/api/v3/athlete",
 			"GET " .. API .. "/activities/1%2F..%2F2", "GET " .. API .. "/activities/%2e%2e%2fathlete",
 		}
-		for _, access in {"read-only", "read-write"} do
-			local r, err = m.resolve(PUBLISHER, {access = access}, nil, "oauth")
+		for _, level in {"read", "write"} do
+			local r, err = m.resolve(PUBLISHER, {}, nil, "oauth", {data = level})
 			assert(not err, tostring(err))
-			if r.PublicConfig.access ~= access or m.count(r.PublicConfig) ~= 1 then m.fail("unexpected public settings: %s", r.PublicConfig) end
-			local scopes = if access == "read-write" then m.concat(READ_SCOPES, {"profile:write", "activity:write"}) else READ_SCOPES
-			if not m.equal(r.Scopes, scopes) then m.fail("access=%s scopes %s", access, r.Scopes) end
+			if m.count(r.PublicConfig) ~= 0 then m.fail("unexpected public settings: %s", r.PublicConfig) end
+			local scopes = if level == "write" then m.concat(READ_SCOPES, {"profile:write", "activity:write"}) else READ_SCOPES
+			if not m.equal(r.Scopes, scopes) then m.fail("access.data=%s scopes %s", level, r.Scopes) end
 			r.Context.Auth.oauth.access_token = "fixture-token"
 			m.routes(r, "Bearer fixture-token", true, reads)
-			m.routes(r, "Bearer fixture-token", access == "read-write", writes)
+			m.routes(r, "Bearer fixture-token", level == "write", writes)
 			m.routes(r, "Bearer fixture-token", false, denied)
 			m.rejectOverrides(r, {"GET " .. API .. "/athlete", "GET " .. API .. "/activities/16532880011"})
 		end

@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Strava",
   "warning": "**Limited availability.** Strava caps how many athletes can connect Houston's Strava app until Strava reviews it. If Strava reports that the app has reached its athlete limit, try again later.",
   "connections": "personal-only",
@@ -7,23 +7,23 @@
     "connector.luau"
   ],
   "icon": "icon.svg",
-  "config": {
-    "access": {
-      "type": "string",
+  "access": [
+    {
+      "name": "data",
       "label": "Access",
-      "default": "read-only",
-      "options": [
+      "levels": [
         {
-          "label": "Read-only",
-          "value": "read-only"
+          "value": "read",
+          "label": "Read"
         },
         {
-          "label": "Read and write",
-          "value": "read-write"
+          "value": "write",
+          "label": "Write"
         }
-      ]
+      ],
+      "default": "read"
     }
-  },
+  ],
   "auth": {
     "oauth": {
       "type": "oauth2",
@@ -48,7 +48,7 @@
           ]
         },
         {
-          "if": "{{ is config.access \"read-write\" }}",
+          "if": "{{ allows access.data \"write\" }}",
           "values": [
             "profile:write",
             "activity:write"
@@ -127,7 +127,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -149,7 +149,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [
@@ -172,7 +172,7 @@
       }
     },
     {
-      "if": "{{ is config.access \"read-write\" }}",
+      "if": "{{ allows access.data \"write\" }}",
       "match": {
         "protocol": "http",
         "host": [

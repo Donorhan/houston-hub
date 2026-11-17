@@ -322,7 +322,7 @@ Errors read 'Strava HTTP <status>: <message> (<resource> <field> <code>)'. 404 m
 does not exist or is not visible to the athlete. A missing permission (field
 activity:read_permission, code missing) means the athlete unticked it when connecting: they must
 reconnect Strava with every permission ticked. Segment efforts need a Strava subscription, and
-activity zones a subscription feature; Strava refuses them otherwise.]] .. (if config.access == "read-write" then [[
+activity zones a subscription feature; Strava refuses them otherwise.]] .. (if houston.allows("data:write") then [[
 
 
 Writes: createActivity adds a manual activity, createUpload imports a FIT, TCX, GPX or JSON file
@@ -699,7 +699,7 @@ function exports.getSegmentEffortStreams(input: any): any
 	return get("getSegmentEffortStreams", path, {"keys=" .. url.encode(keys(args.keys, STREAM_KEYS)), "key_by_type=true"}, "either")
 end
 
-if config.access == "read-write" then
+if houston.allows("data:write") then
 	local WRITE = {readOnlyHint = false, destructiveHint = false, openWorldHint = true}
 	local IDEMPOTENT = {readOnlyHint = false, destructiveHint = false, idempotentHint = true, openWorldHint = true}
 

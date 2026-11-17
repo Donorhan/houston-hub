@@ -1,6 +1,6 @@
--- A read-write connection: manual activities, uploads, activity and athlete updates, starring.
+-- A connection with Write access: manual activities, uploads, activity and athlete updates, starring.
 return {
-	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {access = "read-write"}, auth_method = "oauth", auth_config = {}},
+	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, access = {data = "write"}, config = {}, auth_method = "oauth", auth_config = {}},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
@@ -39,7 +39,7 @@ return {
 			.. "getEffortsBySegmentId,getGearById,getKudoersByActivityId,getLapsByActivityId,getLoggedInAthlete,getLoggedInAthleteActivities,"
 			.. "getLoggedInAthleteClubs,getLoggedInAthleteStarredSegments,getLoggedInAthleteZones,getRouteAsGPX,getRouteAsTCX,getRouteById,"
 			.. "getRouteStreams,getRoutesByAthleteId,getSegmentById,getSegmentEffortById,getSegmentEffortStreams,getSegmentStreams,getStats,"
-			.. "getUploadById,getZonesByActivityId,starSegment,updateActivityById,updateLoggedInAthlete", "read-write got " .. table.concat(names, ","))
+			.. "getUploadById,getZonesByActivityId,starSegment,updateActivityById,updateLoggedInAthlete", "write got " .. table.concat(names, ","))
 
 		-- createActivity posts Strava's form fields; booleans become 1/0 and tags tags[Name]=bool.
 		responses = {{status = 201, body = '{"id":16532880099,"name":"Lunch run","sport_type":"Run"}'}, {status = 201, body = '{"id":16532880100}'}}

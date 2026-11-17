@@ -1,7 +1,7 @@
 -- Strava errors keep their message and details, explain missing permissions and rate limits, and
 -- are retryable only when repeating the call is safe. Nothing is retried by the connector.
 return {
-	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {access = "read-write"}, auth_method = "oauth", auth_config = {}},
+	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, access = {data = "write"}, config = {}, auth_method = "oauth", auth_config = {}},
 	configure = function()
 		calls = 0
 		fs = fixture.files()

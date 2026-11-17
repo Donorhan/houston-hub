@@ -9,7 +9,7 @@ and GPS data, your weekly and yearly totals, your training zones, and the commen
 your activities. Agents can also read your clubs, bikes and shoes, routes (and download them as
 GPX or TCX files), starred segments and your efforts on them.
 
-Read-only is the default. Read and write adds logging manual activities, importing activity
+**Read** is the default. **Write** adds logging manual activities, importing activity
 files from your devices, editing an activity's title, description, sport, gear and tags, updating
 your weight and starring segments.
 
