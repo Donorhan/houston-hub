@@ -494,6 +494,30 @@ Inactive fields are omitted from forms and runtime config; a save cannot submit
 values for them. Previously saved inactive values can be reused when reactivated.
 Unsaved edits to a field are discarded when its condition becomes inactive.
 
+### Re-authorization
+
+On an OAuth or Composio connection, every change a person makes to its access or
+settings asks the account holder to authorize again, so they approve each change made with
+their credentials. Renaming and pausing save directly, and manual methods save
+any change. A config field that cannot change what Houston does with the
+credential can opt out:
+
+```json
+"time_zone": {
+  "type": "string",
+  "label": "Time zone",
+  "reauthorize_on_change": false
+}
+```
+
+The validator accepts `reauthorize_on_change: false` only on config fields that
+no scope group, proxy rule, auth method or other field's `if` references, so an
+opted-out field can only reach connector code. Use it for presentation and
+defaults such as a time zone or page size, never for a setting that narrows what
+the connector may do: the connection's access rows always re-authorize. Release
+upgrades are not changes a person makes: a connection follows a new release's
+defaults and level mapping as described in [Access](#access).
+
 Updating settings must distinguish omission (retain), reset (apply a declared
 default), replacement, and explicit secret clearing. Saved secret values never
 round-trip through forms. A method switch completes the new authentication before
@@ -1008,8 +1032,8 @@ Predicates read rows two ways:
 
 - `{{ allows access.code "write" }}` holds when the row's level is at or above
   `write`. It is valid in every `if` except publisher fields, and it is the only
-  form for proxy rules, header values, auth methods and config fields. Lowering a
-  level can therefore only disable rules, never enable one.
+  form for proxy rules, header values, auth methods and config fields, so raising
+  a level can only enable rules and lowering one can only disable them.
 - `{{ is access.code "read" }}` holds at exactly that level. It is valid only on
   OAuth scope groups, for providers whose read and write scopes replace each other
   (`drive.readonly` or `drive`). Cumulative providers use `allows` on scopes too.
@@ -1036,8 +1060,9 @@ connector's own code then restricts. Without a row, native writes are refused.
 
 Houston enforces access in the proxy and, through the exports, in connector code.
 When a row selects OAuth scopes, the provider enforces it too, and the setup form
-says "Enforced by <provider>" for it. Raising any row on an OAuth connection asks
-the account holder to authorize again; lowering one saves immediately.
+says "Enforced by <provider>" for it. Any access change on an OAuth or Composio
+connection, up or down, asks the account holder to authorize again (see
+[Re-authorization](#re-authorization)).
 
 A manual method can link to the provider's token page with the chosen access
 filled in. `setup_url` is a literal HTTPS URL, which may carry fixed query

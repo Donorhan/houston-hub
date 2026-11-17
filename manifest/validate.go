@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net"
@@ -163,6 +164,8 @@ func BundlePath(s string) bool {
 	return s != "" && !strings.ContainsAny(s, "\\:\x00") && !strings.HasPrefix(s, "/") && path.Clean(s) == s && s != "." && s != ".." && !strings.HasPrefix(s, "../") && (strings.HasSuffix(s, ".lua") || strings.HasSuffix(s, ".luau"))
 }
 
+var errReauthorizeOutsideConfig = errors.New("reauthorize_on_change is only valid on config fields")
+
 func (m *Manifest) Validate() error {
 	if m.SchemaVersion != 1 && m.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("schema_version must be %d", SchemaVersion)
@@ -194,8 +197,8 @@ func (m *Manifest) Validate() error {
 		return err
 	}
 	if access, ok := m.Config["access"]; ok && m.SchemaVersion == 1 {
-		if access.Type != "string" || access.If != "" {
-			return fmt.Errorf("config.access must be an unconditional string field")
+		if access.Type != "string" || access.If != "" || access.ReauthorizeOnChange != nil {
+			return fmt.Errorf("config.access must be an unconditional string field that reauthorizes on change")
 		}
 		if access.Default != nil && access.Default != "read-only" && access.Default != "read-write" && access.Default != "custom" {
 			return fmt.Errorf("config.access default must be read-only, read-write, or custom")
@@ -213,6 +216,9 @@ func (m *Manifest) Validate() error {
 		for n, f := range fields {
 			if !nameRE.MatchString(n) {
 				return fmt.Errorf("invalid field name %s", n)
+			}
+			if source != "config" && f.ReauthorizeOnChange != nil {
+				return fmt.Errorf("%s.%s: %w", source, n, errReauthorizeOutsideConfig)
 			}
 			if e := validateField(f); e != nil {
 				return fmt.Errorf("%s.%s: %w", source, n, e)
@@ -252,6 +258,9 @@ func (m *Manifest) Validate() error {
 				if e := validateField(f); e != nil {
 					return fmt.Errorf("auth.%s.%s: %w", k, n, e)
 				}
+				if f.ReauthorizeOnChange != nil {
+					return fmt.Errorf("auth.%s.%s: %w", k, n, errReauthorizeOutsideConfig)
+				}
 				if e := m.validatePredicate(f.If, "manual", used); e != nil {
 					return e
 				}
@@ -290,6 +299,9 @@ func (m *Manifest) Validate() error {
 	for n, f := range m.Config {
 		if f.Type == "secret" && !used["config."+n] {
 			return fmt.Errorf("unused secret config field %s", n)
+		}
+		if !f.Reauthorizes() && used["config."+n] {
+			return fmt.Errorf("config.%s: reauthorize_on_change cannot be false on a field that scopes, proxy rules, auth methods or other fields reference", n)
 		}
 	}
 	for k, a := range m.Auth {
