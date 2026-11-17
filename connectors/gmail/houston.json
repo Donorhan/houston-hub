@@ -2,7 +2,7 @@
   "schema_version": 1,
   "name": "Gmail",
   "verification_key": "f8f70b3e9c1ae4e9b94e4cabb680db1c7ac85847721986fa399925cfdc79b980",
-  "warning": "**Direct Google sign-in is pending approval.**",
+  "warning": "**Pending Google approval.** Google is still reviewing Houston's access to Gmail. Until Google approves it, you will see a *Google hasn't verified this app* screen while connecting with Google: select **Advanced**, then continue to Houston.",
   "files": [
     "connector.luau"
   ],
@@ -41,7 +41,7 @@
       "auth_config_id": "{{publisher.composio_auth_config_id}}",
       "description": "Composio requires full Gmail access. Houston limits its use to the access level you select.",
       "label": "Connect with Composio",
-      "order": 1,
+      "order": 2,
       "type": "composio"
     },
     "oauth": {
@@ -61,16 +61,12 @@
         "prompt": "consent"
       },
       "authorize_url": "https://accounts.google.com/o/oauth2/v2/auth",
-      "availability": {
-        "message": "Waiting for Google approval",
-        "status": "preview"
-      },
       "brand": "google",
       "client_auth": "body",
       "client_id": "{{publisher.client_id}}",
       "client_secret": "{{publisher.client_secret}}",
       "label": "Connect with Google",
-      "order": 2,
+      "order": 1,
       "pkce": "S256",
       "require_refresh": true,
       "scopes": [
