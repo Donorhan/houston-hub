@@ -4,6 +4,7 @@ return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {access = "read-write"}, auth_method = "oauth", auth_config = {}},
 	configure = function()
 		calls = 0
+		fs = fixture.files()
 		status, payload, responseHeaders = 200, "{}", {}
 		http = {request = function(req)
 			calls += 1
@@ -54,6 +55,7 @@ return {
 		upstream(503, "", {}, c.updateLoggedInAthlete, {weight = 70}, {"Strava HTTP 503", '"retryable":true'})
 		upstream(500, "", {}, c.createActivity, RUN, {"Strava HTTP 500", '"retryable":false'})
 		upstream(502, "", {}, c.getRouteAsGPX, {id = 1, path = "route.gpx"}, {"Strava HTTP 502", '"retryable":true'})
+		assert(not await(fs.exists("route.gpx")), "a failed export wrote its file")
 
 		-- A success with an unexpected body is refused rather than returned.
 		for _, case in {{c.getLoggedInAthlete, nil, "[]", "object"}, {c.getLapsByActivityId, {id = 1}, "{}", "array"},

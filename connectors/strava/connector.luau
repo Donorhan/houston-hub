@@ -231,14 +231,15 @@ local function get(operation: string, path: string, query: {string}?, expect: st
 	return call(operation, {method = "GET", path = path, query = query, expect = expect or "object", idempotent = true})
 end
 
--- Streams a route export (GPX or TCX) to a session file, replacing it only when complete.
+-- Streams a route export (GPX or TCX) to a session file, replacing it only when complete. The file
+-- opens first, so an invalid path fails before any request.
 local function export(operation: string, args: Options, format: string): Options
 	local path = "/routes/" .. id(args.id, "id") .. "/export_" .. format
 	local target = text(args.path, "path")
-	local response = await(http.request({method = "GET", url = API .. path}))
-	if response.statusCode ~= 200 then fail(operation, response, true) end
 	local output = fs.open(target, "w")
 	local ok, err = pcall(function()
+		local response = await(http.request({method = "GET", url = API .. path}))
+		if response.statusCode ~= 200 then fail(operation, response, true) end
 		output:write(response.body)
 		await(output:close())
 	end)

@@ -112,6 +112,8 @@ return {
 		rejects("keys[1] must be one of distance, latlng, altitude", c.getSegmentStreams, {id = 1, keys = {"heartrate"}})
 		rejects("id must be a gear ID", c.getGearById, {id = "b1/../x"})
 		rejects("path must be a nonempty string", c.getRouteAsGPX, {id = 1})
+		rejects("session", c.getRouteAsGPX, {id = 1, path = "../x.gpx"})
+		rejects("session", c.getRouteAsTCX, {id = 1, path = "/abs.tcx"})
 		rejects("takes one options object", c.getRouteById, 7)
 		assert(#responses == 0)
 	end,
