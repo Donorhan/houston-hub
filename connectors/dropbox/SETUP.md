@@ -9,11 +9,12 @@ standard sign-in.
 ### Folder permissions
 
 **Limit to folders** applies to existing folders, with **Read** or **Write**
-for **Files**. Unlisted folders are denied and the most specific rule wins;
-`read-write` folders also need **Write** for **Files**. Houston enforces these
-limits; Dropbox itself grants broader app permissions. Sharing, file requests
-and batch operations are unavailable in this mode. Restart any ongoing file
-listing after changing permissions.
+for **Files**. Give each folder `read-only` or `read-write`; `read-write`
+folders also need **Write** for **Files**. Unlisted folders are denied, and the
+most specific rule wins. Houston enforces these limits; Dropbox itself grants
+broader app permissions. Sharing, file requests and batch operations are
+unavailable in this mode. Restart any ongoing file listing after changing
+permissions.
 
 ### Limits and reconnecting
 
