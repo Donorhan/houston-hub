@@ -123,6 +123,7 @@ return {
 		rejects("per_page must be an integer from 1 to 200", c.getLoggedInAthleteClubs, {per_page = 201})
 		rejects("include_all_efforts must be a boolean", c.getActivityById, {id = 1, include_all_efforts = "yes"})
 		rejects("keys[2] must be one of", c.getActivityStreams, {id = 1, keys = {"time", "power"}})
+		rejects("keys[3] repeats time", c.getActivityStreams, {id = 1, keys = {"time", "watts", "time"}})
 		rejects("keys must be an array", c.getSegmentStreams, {id = 1, keys = {}})
 		rejects("keys[1] must be one of distance, latlng, altitude", c.getSegmentStreams, {id = 1, keys = {"heartrate"}})
 		rejects("id must be a gear ID", c.getGearById, {id = "b1/../x"})

@@ -63,6 +63,7 @@ local function keys(value: any, allowed: {string}): string
 	assert(count == #value, "keys must be an array")
 	for index, key in value do
 		assert(type(key) == "string" and table.find(allowed, key) ~= nil, "keys[" .. tostring(index) .. "] must be one of " .. table.concat(allowed, ", "))
+		assert(table.find(value, key) == index, "keys[" .. tostring(index) .. "] repeats " .. key)
 	end
 	return table.concat(value, ",")
 end
@@ -127,7 +128,6 @@ local LONG_DIGITS = "%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d%d+"
 -- string state advances once over quotes and escapes, so the scan is linear and keeps only the
 -- positions to quote.
 local function decode(raw: string): any
-	if not string.find(raw, LONG_DIGITS) then return json.decode(raw) end
 	local splices: {number} = {}
 	local inString = false
 	local special = string.find(raw, '[\\"]')
@@ -261,8 +261,9 @@ local function call(operation: string, request: Call): any
 			message = "Strava's response is over 8 MiB: request fewer stream keys, a smaller per_page or a shorter period"})
 	end
 	local opening = if request.expect == "array" then "^%s*%[" elseif request.expect == "object" then "^%s*{" else "^%s*[{%[]"
-	local ok, value = pcall(decode, raw)
-	if not ok or type(value) ~= "table" or not string.match(raw, opening) then
+	local ok, value = false, nil
+	if string.match(raw, opening) then ok, value = pcall(decode, raw) end
+	if not ok or type(value) ~= "table" then
 		houston.fail({operation = operation, layer = "upstream", upstream_status = response.statusCode, retryable = false,
 			message = "Strava returned an unexpected response instead of JSON " .. (if request.expect == "either" then "data" else request.expect)})
 	end
@@ -336,7 +337,7 @@ local exports: {[string]: any} = {help = help}
 -- Schemas and hints shared by several operations.
 local ID = {oneOf = {
 	{type = "integer", minimum = 1, maximum = MAX_SAFE_INTEGER},
-	{type = "string", pattern = "^[1-9][0-9]{0,18}$", description = "IDs beyond 2^53 - 1, as results return them."},
+	{type = "string", pattern = "^[1-9][0-9]{0,18}$", description = "IDs beyond 2^53 - 1, as results return them, up to 9223372036854775807."},
 } :: {any}}
 local PAGE = {type = "integer", minimum = 1, maximum = MAX_PAGE, description = "Page number, from 1."}
 local PER_PAGE = {type = "integer", minimum = 1, maximum = 200, description = "Items per page; Strava's default is 30."}
@@ -829,7 +830,8 @@ is set. external_id defaults to the file name; Strava refuses a file it already 
 		if args.sport_type ~= nil then table.insert(fields, {"sport_type", sportType(args.sport_type)}) end
 		if args.external_id ~= nil then table.insert(fields, {"external_id", text(args.external_id, "external_id")}) end
 		activityFlags(fields, args)
-		assert(await(fs.exists(path)) and await(fs.stat(path)).isFile, "path " .. path .. " is not a session file")
+		local found, file = pcall(function() return await(fs.stat(path)) end)
+		assert(found and file.isFile, "path " .. path .. " is not a session file")
 		local filename = string.match(path, "[^/]+$") or path
 		local parts: {any} = {}
 		for _, field in fields do table.insert(parts, {name = field[1], body = field[2]}) end
