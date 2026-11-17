@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "name": "Strava",
+  "warning": "**Limited availability.** Strava caps how many athletes can connect Houston's Strava app until Strava reviews it. If Strava reports that the app has reached its athlete limit, try again later.",
+  "connections": "personal-only",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "config": {
+    "access": {
+      "type": "string",
+      "label": "Access",
+      "default": "read-only",
+      "options": [
+        {
+          "label": "Read-only",
+          "value": "read-only"
+        },
+        {
+          "label": "Read and write",
+          "value": "read-write"
+        }
+      ]
+    }
+  },
+  "auth": {
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with Strava",
+      "authorize_url": "https://www.strava.com/oauth/authorize",
+      "token_url": "https://www.strava.com/oauth/token",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "client_auth": "body",
+      "pkce": "none",
+      "require_refresh": true,
+      "authorize_params": {
+        "approval_prompt": "force"
+      },
+      "scopes": [
+        {
+          "values": [
+            "read",
+            "read_all",
+            "profile:read_all",
+            "activity:read_all"
+          ]
+        },
+        {
+          "if": "{{ is config.access \"read-write\" }}",
+          "values": [
+            "profile:write",
+            "activity:write"
+          ]
+        }
+      ],
+      "token_response": {
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/token_type",
+            "value": "Bearer"
+          }
+        ],
+        "label": "/athlete/firstname"
+      }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "type": "string",
+      "label": "Strava API application client ID",
+      "order": 1,
+      "required": true
+    },
+    "client_secret": {
+      "type": "secret",
+      "label": "Strava API application client secret",
+      "order": 2,
+      "required": true
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.strava.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/v3/athlete",
+          "/api/v3/athlete/zones",
+          "/api/v3/athlete/activities",
+          "/api/v3/athlete/clubs",
+          "/api/v3/athletes/{id}/stats",
+          "/api/v3/athletes/{id}/routes",
+          "/api/v3/activities/{id}",
+          "/api/v3/activities/{id}/laps",
+          "/api/v3/activities/{id}/zones",
+          "/api/v3/activities/{id}/comments",
+          "/api/v3/activities/{id}/kudos",
+          "/api/v3/activities/{id}/streams",
+          "/api/v3/clubs/{id}",
+          "/api/v3/gear/{id}",
+          "/api/v3/routes/{id}",
+          "/api/v3/routes/{id}/streams",
+          "/api/v3/routes/{id}/export_gpx",
+          "/api/v3/routes/{id}/export_tcx",
+          "/api/v3/segments/starred",
+          "/api/v3/segments/{id}",
+          "/api/v3/segments/{id}/streams",
+          "/api/v3/segment_efforts",
+          "/api/v3/segment_efforts/{id}",
+          "/api/v3/segment_efforts/{id}/streams"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.strava.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/api/v3/uploads/{uploadId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.strava.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/api/v3/activities",
+          "/api/v3/uploads"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ is config.access \"read-write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "www.strava.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/api/v3/athlete",
+          "/api/v3/activities/{id}",
+          "/api/v3/segments/{id}/starred"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    }
+  ]
+}
