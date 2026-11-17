@@ -5,16 +5,18 @@
      drafts and attachments.
    - **Read and draft** to also let agents create, edit and delete drafts. You
      review and send them yourself in Gmail; Houston refuses every send.
-   - **Read and write** to also let agents send mail and replies, and label,
-     archive and trash messages. Houston never deletes mail permanently.
+   - **Read and write** to also let agents send mail and replies, create,
+     rename, apply and delete labels, mark messages read or unread, archive
+     them, and move them to the trash and back.
 2. Choose an available sign-in option and select **Connect Gmail**.
-3. Choose your Google account and approve access. If Google shows a checkbox
-   per permission, tick them all: Houston refuses a partial grant. You will return
-   to Houston.
+3. Choose your Google account and approve access. With Connect with Google, if
+   Google shows a checkbox per permission, tick them all: Houston refuses a
+   partial grant. You will return to Houston.
 
 Houston calls Gmail only when your agent asks it to and never syncs your mailbox
-in the background. Each Gmail connection asks only for its own permissions, so
-connecting Gmail does not grant access to your other Google services.
+in the background. Connect with Google asks only for the permissions of the
+access level you choose and does not grant access to your other Google services.
+Houston never deletes messages permanently; deleted drafts are removed for good.
 
 > If you connect with Composio, it requires full Gmail access. Houston limits its use to the access level
 > you select.
