@@ -322,9 +322,11 @@ outside connector Luau; no Houston-owned Composio account or private connector
 registration is required.
 
 For Gmail, create an OAuth2 auth config using Composio-managed credentials with
-the `https://mail.google.com/` scope. This grants full Gmail access at Google.
-One auth config serves all Houston access choices: native method and path rules
-independently enforce read-only, read-and-draft, or read-and-write access.
+the `https://mail.google.com/` scope; for Google Drive, use the
+`https://www.googleapis.com/auth/drive` scope. Each grants full access to that
+service at Google. One auth config serves all of a connector's access choices:
+native method and path rules independently enforce the selected level, such as
+Gmail's read-only, read-and-draft or read-and-write access.
 Composio methods do not declare `scopes`: requested configuration is not evidence
 of the scopes Google actually granted. Explain the broad provider permission in
 the method description and user setup instructions without presenting Houston's
@@ -355,13 +357,20 @@ through Composio's proxy. Connector functions continue using ordinary
 `http.request` and receive provider responses without the proxy envelope. They do
 not receive Google tokens, Composio API keys or connected account IDs.
 
-Native transport preserves MIME uploads through `binary_body.base64` and buffers
-the proxy envelope. Check provider limits as well as Houston's limits. Composio's
+Native transport preserves MIME uploads and streamed files byte for byte through
+`binary_body.base64`, limits each request body to 36 MiB and buffers the proxy
+envelope. Composio stages binary responses, such as Drive downloads and
+exports, in temporary storage and returns a signed link; native transport streams
+those bytes from the link without credentials, so connector code still receives
+the provider's response body.
+
+Check provider limits as well as Houston's limits. Composio's
 [changelog](https://docs.composio.dev/reference/changelog) announced a 4 MB base64
 upload limit on December 30, 2025, then a 250 MB overall proxy payload cap on
 June 4, 2026. The latter does not explicitly retire the base64-specific limit.
-Gmail limits composed messages to 8 MiB, so validate an upload above 4 MB with
-the publisher's project before treating that full range as verified.
+Gmail limits composed messages to 8 MiB, and Drive accepts much larger files, so
+validate an upload above 4 MB with the publisher's project before treating that
+range as verified.
 
 An optional `account` GET request obtains a label through its JSON pointer. As
 with OAuth account lookup, this fixed manifest-declared request runs only during
