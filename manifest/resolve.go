@@ -200,14 +200,33 @@ func (m *Manifest) resolveFields(source string, fields map[string]Field, input m
 // contexts. OAuth tokens are lifecycle-owned; call RequireCredentials before
 // native header preparation.
 func (m *Manifest) Resolve(in Inputs) (*Resolved, error) {
-	return m.resolve(in, false)
+	return m.resolve(in, false, false)
 }
 
 // ResolveDraft returns active form metadata even when required inputs are not
 // supplied, and gives missing access rows their defaults. Context.Errors records
 // failures and no failed prerequisite is false.
 func (m *Manifest) ResolveDraft(in Inputs) (*Resolved, error) {
-	return m.resolve(in, true)
+	return m.resolve(in, true, false)
+}
+
+// ResolveFederated resolves connection-owned inputs without publisher settings.
+// Broker authorization remains the caller's responsibility.
+func (m *Manifest) ResolveFederated(in Inputs, draft bool) (*Resolved, error) {
+	in.Publisher = nil
+	return m.resolve(in, draft, true)
+}
+
+// ResolveHosted retains local policy predicates while applying credential actions
+// only on the hosted instance. Its result cannot authorize credential injection.
+func (m *Manifest) ResolveHosted(in Inputs, draft bool) (*Resolved, error) {
+	projected := *m
+	projected.Proxy = append(ProxyRules(nil), m.Proxy...)
+	for i := range projected.Proxy {
+		projected.Proxy[i].Action = ProxyAction{}
+	}
+	in.Publisher = nil
+	return projected.resolve(in, draft, true)
 }
 
 // resolveAccess records every row's level. Only drafts fall back to defaults,
@@ -262,14 +281,16 @@ func (m *Manifest) AccessLevels(levels map[string]string) map[string]AccessLevel
 	return out
 }
 
-func (m *Manifest) resolve(in Inputs, draft bool) (*Resolved, error) {
+func (m *Manifest) resolve(in Inputs, draft, federated bool) (*Resolved, error) {
 	publisher, config, auth, selected := in.Publisher, in.Config, in.Auth, in.Method
 	r := &Resolved{Context: Context{Publisher: map[string]any{}, Access: map[string]AccessLevel{}, Config: map[string]any{}, Auth: map[string]map[string]any{}, SelectedAuth: selected, Errors: map[string]error{}}, PublicConfig: map[string]any{}}
 	c := &r.Context
 	var e error
-	r.PublisherFields, e = m.resolveFields("publisher", m.Publisher, publisher, c, false)
-	if e != nil {
-		return r, e
+	if !federated {
+		r.PublisherFields, e = m.resolveFields("publisher", m.Publisher, publisher, c, false)
+		if e != nil {
+			return r, e
+		}
 	}
 	if r.Access, e = m.resolveAccess(in.Access, c, draft); e != nil {
 		return r, e
@@ -294,7 +315,7 @@ func (m *Manifest) resolve(in Inputs, draft bool) (*Resolved, error) {
 			continue
 		}
 		if yes {
-			if a.RequiresAuthorization() {
+			if a.RequiresAuthorization() && (!federated || !a.PublisherClient()) {
 				for _, s := range a.AuthorizationSettings() {
 					if s == "" {
 						continue
