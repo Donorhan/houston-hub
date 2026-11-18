@@ -1,6 +1,6 @@
 # FamilySearch API coverage
 
-The connector follows the [public API reference](https://developers.familysearch.org/main/reference) and [official examples](https://developers.familysearch.org/main/llms.txt), reviewed on November 18, 2026. Named operations preserve FamilySearch operation IDs and GEDCOM X request/response shapes. The callable reference is the connection's `help()`.
+The connector follows the [public API reference](https://developers.familysearch.org/main/reference) and [official examples](https://developers.familysearch.org/main/llms.txt), reviewed on November 18, 2026. Named operations preserve FamilySearch operation IDs within resource namespaces and retain GEDCOM X request/response shapes. Root `help()` lists API areas; each namespace has its own operation index and focused function help. Only operations enabled by the connection's access are listed.
 
 | API family | Coverage |
 | --- | --- |

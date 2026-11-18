@@ -1,11 +1,10 @@
 return {
 	contract = function(m)
 		local endpoints = {}
-		for name, method, path, read in string.gmatch(m.modules["catalog.luau"], '\n\t([%w_]+) = %{method = "([A-Z]+)", path = "([^"]+)", read = (%a+)') do
-			table.insert(endpoints, {name = name, method = method, path = path, read = read == "true"})
+		for name, method, path, read, qualified in string.gmatch(m.modules["catalog.luau"], '\n\t([%w_]+) = %{method = "([A-Z]+)", path = "([^"]+)", read = (%a+), export = "([^"]+)"') do
+			table.insert(endpoints, {name = qualified, method = method, path = path, read = read == "true"})
 		end
-		assert(#endpoints == 215, "exercise the full documented FamilySearch API catalog")
-		table.insert(endpoints, {name = "downloadMemoryArtifact", method = "GET", path = "/platform/memories/artifacts/{mid}", read = true})
+		assert(#endpoints == 216, "exercise the full documented FamilySearch API catalog")
 		assert(m.raw.connections == "personal-only", "each user must authorize their own FamilySearch account")
 		for _, environment in {"production", "beta"} do
 			local host = if environment == "production" then "api.familysearch.org" else "apibeta.familysearch.org"

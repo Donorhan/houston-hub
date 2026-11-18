@@ -3,11 +3,12 @@
 type Object = {[string]: any}
 type Parameter = {location: string, schema: Object, required: boolean?}
 type Endpoint = {
-	method: string, path: string, read: boolean, description: string, doc: string,
+	export: string, method: string, path: string, read: boolean, description: string, doc: string,
 	accept: string, params: {[string]: Parameter}, example: Object, success: {number},
 	body: {contentType: string, schema: Object, required: boolean}?, custom: boolean?, dynamicQuery: boolean?,
 }
 local catalog: {[string]: Endpoint} = require("catalog.luau")
+local namespaceDescriptions: {[string]: string} = require("namespaces.luau")
 local API = if config.environment == "beta" then "https://apibeta.familysearch.org" else "https://api.familysearch.org"
 local NULL = json.decode("null")
 local MAX_COUNT = 1000
@@ -30,11 +31,30 @@ local resultSchema = {
 		headers = {type = "object", additionalProperties = {type = "array", items = {type = "string"}}},
 	}, required = {"statusCode", "headers"}, additionalProperties = false,
 }
-local help = {
-	text = "FamilySearch " .. (if config.environment == "beta" then "Beta" else "production") .. ": published Family Tree, memories, sources, discussions, user trees/groups, genealogies, places, dates, names and vocabulary operations. Calls return completed values; do not await them. Each operation accepts one named object. Read-only connections also allow POST-based name composition, matching and change queries. FamilySearch application approval and account permissions remain authoritative.",
-	functions = {} :: {[string]: any},
-}
-local exports: {[string]: any} = {help = help}
+local usage = "Calls return completed values; do not await them. Each operation accepts one named object. Read a resource namespace's help(), then help('functionName') for full parameters and examples. Only configured operations are listed. Read-only connections also allow POST-based name composition, matching and change queries. FamilySearch application approval and account permissions remain authoritative."
+local exports: Object = {help = {
+	text = "FamilySearch " .. (if config.environment == "beta" then "Beta" else "production") .. ". Explore resource namespaces with help(); use a resource's help('functionName') for parameters and examples.",
+	functions = {}, namespaces = {}, sections = {usage = usage},
+}}
+
+-- Only enabled operations create scope nodes, so every listed namespace is usable.
+local function namespace(path: string): (Object, string)
+	local parts = string.split(path, ".")
+	local node = exports
+	local prefix = ""
+	for index = 1, #parts - 1 do
+		local part = parts[index]
+		prefix = if prefix == "" then part else prefix .. "." .. part
+		if node[part] == nil then
+			local description = namespaceDescriptions[prefix]
+			assert(description ~= nil, "missing namespace summary: " .. prefix)
+			node[part] = {help = {text = description, functions = {}, namespaces = {}, sections = {usage = usage}}}
+			node.help.namespaces[part] = description
+		end
+		node = node[part]
+	end
+	return node, parts[#parts]
+end
 
 local function options(input: Object?): Object
 	if input == nil then return {} end
@@ -233,14 +253,15 @@ end
 
 for name, endpoint in catalog do
 	if not endpoint.custom and (endpoint.read or houston.allows("data:write")) then
-		help.functions[name] = {
+		local node, localName = namespace(endpoint.export)
+		node.help.functions[localName] = {
 			description = endpoint.description .. "\n" .. endpoint.method .. " " .. endpoint.path .. "\n" .. endpoint.doc
 				.. "\nReturns {statusCode, data?, headers}; data is the unmodified JSON document, including any errors or partial results: inspect those before assuming every requested resource succeeded. Headers use lowercase names and string arrays. Empty 204/304/HEAD and documented redirects have no data; inspect Location for moved/current resources. One provider page per call: use its returned links and the named offset/start/from/count options for the next call; no automatic traversal. count defaults to 100 when supported, maximum 1000 (or the endpoint's smaller limit). Preserve all filters when paging. JSON null is truthy in Luau."
 				.. (if endpoint.read then "" else "\nChanges FamilySearch data. Inspect HTTP status and returned Location/X-Entity-Id; 204 confirms a completed update/deletion. Do not automatically replay an interrupted or failed write: it may have applied."),
 			inputSchema = inputSchema(endpoint), outputSchema = resultSchema,
 			annotations = {readOnlyHint = endpoint.read, openWorldHint = true},
 		}
-		exports[name] = function(input: Object?): Object return request(name, endpoint, input) end
+		node[localName] = function(input: Object?): Object return request(name, endpoint, input) end
 	end
 end
 
@@ -308,20 +329,25 @@ local function uploadHelp(name: string): Object
 end
 
 if houston.allows("data:write") then
-	help.functions.createMemories = uploadHelp("createMemories")
-	function exports.createMemories(input: Object): Object return upload("createMemories", input) end
+	local memories = namespace(catalog.createMemories.export)
+	memories.help.functions.createMemories = uploadHelp("createMemories")
+	function memories.createMemories(input: Object): Object return upload("createMemories", input) end
 
-	help.functions.createPersonMemory = uploadHelp("createPersonMemory")
-	function exports.createPersonMemory(input: Object): Object return upload("createPersonMemory", input) end
+	local personMemories = namespace(catalog.createPersonMemory.export)
+	personMemories.help.functions.createPersonMemory = uploadHelp("createPersonMemory")
+	function personMemories.createPersonMemory(input: Object): Object return upload("createPersonMemory", input) end
 
-	help.functions.updateMemoryArtifact = uploadHelp("updateMemoryArtifact")
-	function exports.updateMemoryArtifact(input: Object): Object return upload("updateMemoryArtifact", input) end
+	local artifacts = namespace(catalog.updateMemoryArtifact.export)
+	artifacts.help.functions.updateMemoryArtifact = uploadHelp("updateMemoryArtifact")
+	function artifacts.updateMemoryArtifact(input: Object): Object return upload("updateMemoryArtifact", input) end
 
-	help.functions.createGenealogiesMedia = uploadHelp("createGenealogiesMedia")
-	function exports.createGenealogiesMedia(input: Object): Object return upload("createGenealogiesMedia", input) end
+	local media = namespace(catalog.createGenealogiesMedia.export)
+	media.help.functions.createGenealogiesMedia = uploadHelp("createGenealogiesMedia")
+	function media.createGenealogiesMedia(input: Object): Object return upload("createGenealogiesMedia", input) end
 
-	help.functions.updateGenealogiesMedia = uploadHelp("updateGenealogiesMedia")
-	function exports.updateGenealogiesMedia(input: Object): Object return upload("updateGenealogiesMedia", input) end
+	local updatedMedia = namespace(catalog.updateGenealogiesMedia.export)
+	updatedMedia.help.functions.updateGenealogiesMedia = uploadHelp("updateGenealogiesMedia")
+	function updatedMedia.updateGenealogiesMedia(input: Object): Object return upload("updateGenealogiesMedia", input) end
 end
 
 local function download(name: string, endpoint: Endpoint, target: string, headers: {[string]: {string}}, path: string): Object
@@ -344,11 +370,12 @@ local downloadSchema = {type = "object", properties = {
 local mediaSchema = inputSchema(catalog.readGenealogiesMedia)
 mediaSchema.properties.path = {type = "string", minLength = 1}
 table.insert(mediaSchema.required, "path")
-help.functions.readGenealogiesMedia = {
+local media = namespace(catalog.readGenealogiesMedia.export)
+media.help.functions.readGenealogiesMedia = {
 	description = catalog.readGenealogiesMedia.description .. " Returns {statusCode, headers, path?, url?, size?}; url is a signed Houston download link. Redirects are returned with their Location and are not followed. " .. catalog.readGenealogiesMedia.doc,
 	inputSchema = mediaSchema, outputSchema = downloadSchema, annotations = {readOnlyHint = true, openWorldHint = true},
 }
-function exports.readGenealogiesMedia(input: Object): Object
+function media.readGenealogiesMedia(input: Object): Object
 	local endpoint = catalog.readGenealogiesMedia
 	local target, headers, args = prepare(endpoint, input)
 	local path = args.path
@@ -358,7 +385,8 @@ function exports.readGenealogiesMedia(input: Object): Object
 	return download("readGenealogiesMedia", endpoint, target, headers, path)
 end
 
-help.functions.downloadMemoryArtifact = {
+local artifacts = namespace(catalog.downloadMemoryArtifact.export)
+artifacts.help.functions.downloadMemoryArtifact = {
 	description = "Stream a memory's artifact from the documented /platform/memories/artifacts/{mid} route to a session file. variant selects original (default), thumbnail or icon. Returns {statusCode, headers, path?, url?, size?}; url is a signed Houston download link. If the provider redirects, returns only statusCode and headers so the caller can inspect Location; external hosts are never followed. Documentation: https://developers.familysearch.org/main/docs/read-memory",
 	inputSchema = {type = "object", properties = {
 		mid = {type = "string", minLength = 1}, path = {type = "string", minLength = 1},
@@ -367,16 +395,17 @@ help.functions.downloadMemoryArtifact = {
 	outputSchema = downloadSchema,
 	annotations = {readOnlyHint = true, openWorldHint = true},
 }
-function exports.downloadMemoryArtifact(input: Object): Object
+function artifacts.downloadMemoryArtifact(input: Object): Object
 	local args = options(input)
 	local mid, path, variant = args.mid, args.path, args.variant or "original"
 	args.mid, args.path, args.variant = nil, nil, nil
 	noExtra(args)
 	assert(type(path) == "string" and #path > 0, "path must name a session file")
 	assert(table.find({"original", "thumbnail", "icon"}, variant), "variant must be original, thumbnail or icon")
-	local target = API .. "/platform/memories/artifacts/" .. url.segment(mid, "mid") .. (if variant == "original" then "" else "?" .. variant)
-	local endpoint: Endpoint = {method = "GET", path = "", read = true, description = "", doc = "", accept = "", params = {}, example = {}, success = {200, 301, 302, 303, 307, 308}}
-	return download("downloadMemoryArtifact", endpoint, target, {Accept = {"*/*"}}, path)
+	local endpoint = catalog.downloadMemoryArtifact
+	local target, headers = prepare(endpoint, {mid = mid})
+	if variant ~= "original" then target ..= "?" .. variant end
+	return download("downloadMemoryArtifact", endpoint, target, headers, path)
 end
 
 return exports

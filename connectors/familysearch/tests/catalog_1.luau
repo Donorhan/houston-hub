@@ -34,7 +34,7 @@ return {
 	for index, name in names do
 		if (index - 1) % 4 == bucket then
 			expected, operationName = catalog[name], name
-			local result = fixture.example(name)
+			local result = fixture.example(expected.export)
 			assert(result.statusCode == expected.success[1], name .. " lost provider status")
 			local sent = requests[#requests]
 			local path = string.gsub(expected.path, "{([%w_]+)}", function(field: string): string return url.segment(expected.example[field], field) end)

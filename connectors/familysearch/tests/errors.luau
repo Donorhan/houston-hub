@@ -12,22 +12,22 @@ return {
 	run = function(c)
 		for _, case in {{401, "Reconnect", false}, {403, "permission", false}, {404, "Not found", false}, {429, "Retry-After: 60", true}, {500, "upstream", true}} do
 			responses = {{status = case[1], headers = {["retry-after"] = {"60"}}, body = '{"errors":[{"message":"Not found upstream"}]}'}}
-			local ok, err = pcall(c.readPerson, {pid = "P1"})
+			local ok, err = pcall(c.tree.persons.readPerson, {pid = "P1"})
 			local message = tostring(err)
 			assert(not ok and string.find(message, '"upstream_status":' .. tostring(case[1]), 1, true) and string.find(message, '"retryable":' .. tostring(case[3]), 1, true), message)
 			assert(string.find(message, case[2], 1, true), message)
 		end
 		responses = {{status = 500, body = '{"errors":[{"message":"Write failed"}]}'}}
-		local ok, err = pcall(c.updatePerson, {pid = "P1", body = {persons = {{id = "P1"}}}})
+		local ok, err = pcall(c.tree.persons.updatePerson, {pid = "P1", body = {persons = {{id = "P1"}}}})
 		assert(not ok and string.find(tostring(err), '"retryable":false', 1, true) and string.find(tostring(err), "may already have applied", 1, true))
 		responses = {{status = 304}}
-		ok, err = pcall(c.deletePerson, {pid = "P1"})
+		ok, err = pcall(c.tree.persons.deletePerson, {pid = "P1"})
 		assert(not ok and string.find(tostring(err), '"upstream_status":304', 1, true))
 		responses = {{status = 200, body = "<html>sign in</html>"}}
-		ok, err = pcall(c.readPerson, {pid = "P1"})
+		ok, err = pcall(c.tree.persons.readPerson, {pid = "P1"})
 		assert(not ok and string.find(tostring(err), "invalid JSON", 1, true))
 		responses = {{status = 302, headers = {location = {"https://untrusted.invalid/"}}}}
-		ok, err = pcall(c.readPerson, {pid = "P1"})
+		ok, err = pcall(c.tree.persons.readPerson, {pid = "P1"})
 		assert(not ok and string.find(tostring(err), '"upstream_status":302', 1, true))
 		assert(#requests == 9, "unexpected retries or redirects")
 		for _, request in requests do assert(string.find(request.url, "https://apibeta.familysearch.org/platform/", 1, true) == 1) end
