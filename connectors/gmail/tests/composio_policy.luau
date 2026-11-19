@@ -26,14 +26,22 @@ return {
 		end
 		local api = "https://gmail.googleapis.com/gmail/v1/users/me"
 		local upload = "https://gmail.googleapis.com/upload/gmail/v1/users/me"
-		for _, access in {"read", "draft", "write"} do
-			local r, err = m.resolve(publisher, {}, nil, "composio", {data = access})
+		for _, access in {
+			{messages = "read", drafts = "none", sending = "none"}, {messages = "none", drafts = "manage", sending = "none"},
+			{messages = "read", drafts = "create", sending = "none"}, {messages = "organize", drafts = "manage", sending = "send"},
+		} do
+			local r, err = m.resolve(publisher, {}, nil, "composio", access)
 			assert(r and not err, tostring(err))
-			m.routes(r, "", true, {"GET " .. api .. "/profile", "GET " .. api .. "/messages?q=is%3Aunread", "GET " .. api .. "/settings/sendAs"})
-			m.routes(r, "", access ~= "read", {"POST " .. upload .. "/drafts?uploadType=multipart", "PUT " .. upload .. "/drafts/d1?uploadType=multipart", "DELETE " .. api .. "/drafts/d1"})
-			m.routes(r, "", access == "write", {"POST " .. upload .. "/messages/send?uploadType=multipart", "POST " .. api .. "/drafts/send", "POST " .. api .. "/messages/m1/trash"})
-			m.rejectOverrides(r, {"GET " .. api .. "/messages/m1"})
-			m.refused(r, "", {"POST https://backend.composio.dev/api/v3.1/tools/execute/proxy", "GET https://gmail.googleapis.com/gmail/v1/users/someone@example.com/profile"})
+			m.routes(r, "", access.messages ~= "none", {"GET " .. api .. "/profile", "GET " .. api .. "/messages?q=is%3Aunread"})
+			m.routes(r, "", access.drafts ~= "none", {"GET " .. api .. "/drafts", "POST " .. upload .. "/drafts?uploadType=multipart"})
+			m.routes(r, "", access.drafts == "manage", {"PUT " .. upload .. "/drafts/d1?uploadType=multipart", "DELETE " .. api .. "/drafts/d1"})
+			m.routes(r, "", access.messages == "organize", {"POST " .. api .. "/messages/m1/modify", "POST " .. api .. "/labels"})
+			m.routes(r, "", access.sending == "send", {"POST " .. upload .. "/messages/send?uploadType=multipart"})
+			if access.messages ~= "none" then m.rejectOverrides(r, {"GET " .. api .. "/messages/m1"}) end
+			m.refused(r, "", {
+				"POST https://backend.composio.dev/api/v3.1/tools/execute/proxy", "GET https://gmail.googleapis.com/gmail/v1/users/someone@example.com/profile",
+				"GET https://www.googleapis.com/oauth2/v2/userinfo", "POST " .. api .. "/drafts/send", "POST " .. api .. "/messages/m1/trash", "GET " .. api .. "/settings/sendAs",
+			})
 		end
 	end,
 }

@@ -25,7 +25,7 @@ local function uploaded(req)
 end
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	access = {data = "write"},
+	access = {messages = "read", drafts = "manage", sending = "send"},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
@@ -75,11 +75,11 @@ return {
 			{name = "From", value = "Ana <ana@example.com>"}, {name = "To", value = "me@example.com, Bo <bo@example.com>"}, {name = "Cc", value = "cy@example.com, ana@example.com"},
 			{name = "Subject", value = "Plans"}, {name = "Message-ID", value = "<o1@example.com>"}, {name = "References", value = "<o0@example.com>"},
 		}}}
-		responses = {{body = json.encode(original)}, {body = '{"emailAddress":"Me@example.com"}'}, {body = '{"id":"d1","message":{"id":"m","threadId":"t9"}}'}}
+		responses = {{body = json.encode(original)}, {body = '{"email":"Me@example.com"}'}, {body = '{"id":"d1","message":{"id":"m","threadId":"t9"}}'}}
 		local draft = c.createDraft({inReplyTo = "o1", replyAll = true, text = "Sounds good", attachments = {}})
 		assert(draft.id == "d1")
 		assert(string.find(requests[#requests - 2].url, API .. "/messages/o1?format=metadata&metadataHeaders=From&metadataHeaders=Reply-To", 1, true), requests[#requests - 2].url)
-		assert(requests[#requests - 1].url == API .. "/profile" and requests[#requests].url == UPLOAD .. "/drafts?uploadType=multipart")
+		assert(requests[#requests - 1].url == "https://www.googleapis.com/oauth2/v2/userinfo" and requests[#requests].url == UPLOAD .. "/drafts?uploadType=multipart")
 		metadata, mime = uploaded(requests[#requests])
 		assert(metadata.message.threadId == "t9")
 		head, content = entity(mime)
@@ -94,10 +94,6 @@ return {
 		assert(requests[#requests].method == "PUT" and requests[#requests].url == UPLOAD .. "/drafts/d1?uploadType=multipart")
 		head = entity(select(2, uploaded(requests[#requests])))
 		assert(string.find(head, "Subject: RE: Plans\r\n", 1, true) and not string.find(head, "Cc:", 1, true) and string.find(head, "text/html", 1, true))
-
-		responses = {{body = '{"id":"s2"}'}}
-		c.sendDraft({id = "d1"})
-		assert(requests[#requests].url == API .. "/drafts/send" and json.decode(requests[#requests].body).id == "d1")
 
 		local count = #requests
 		for _, args in {

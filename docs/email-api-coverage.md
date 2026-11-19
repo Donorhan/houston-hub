@@ -95,6 +95,8 @@ API tokens need a plan above Basic. Email scope permits changes; the Read-only t
 
 ## Gmail: all omissions
 
+Since this audit, Connect with Google requests Google's narrow Gmail scopes for each access row (Messages, Drafts, Sending) instead of gmail.readonly, gmail.compose and gmail.modify. No narrow scope covers them, so the connector no longer offers getProfile, listSendAs, sendDraft or the trash and untrash operations. The inventory below is the audited state.
+
 The retrieved official Discovery document contains **79 methods**, of which the connector reaches **27**, leaving **52 unexposed methods**. This is a method count, not 52 distinct user features: labels.update PUT duplicates the label-edit feature already supported with labels.patch. The Gmail appendix below lists every method, path, accepted scopes, parameter names, request schema and official link; the linked official Discovery document supplies complete request/response schemas and field constraints.
 
 | Area | Missing methods/features | Permission/availability |

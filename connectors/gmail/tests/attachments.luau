@@ -1,6 +1,6 @@
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	access = {data = "read"},
+	access = {messages = "read", drafts = "none", sending = "none"},
 	configure = function()
 		requests, responses = {}, {}
 		fs = fixture.files()
