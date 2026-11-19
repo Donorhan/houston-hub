@@ -157,7 +157,7 @@ local endpoints: {[string]: Endpoint} = {
 		help = "listMessages({q?, labelIds?, maxResults?, pageToken?, includeSpamTrash?}) -> {messages={{id, threadId}}, nextPageToken?, resultSizeEstimate}. IDs only: read them with getMessages. q uses Gmail search syntax, e.g. 'from:ana@example.com after:2026/10/01 has:attachment'. maxResults ≤500 (default 100). resultSizeEstimate is not a count."},
 	listThreads = {method = "GET", path = "/threads", access = "messages:read", list = "threads", query = SEARCH,
 		help = "listThreads({q?, labelIds?, maxResults?, pageToken?, includeSpamTrash?}) -> {threads={{id, snippet, historyId}}, nextPageToken?}. Read a conversation with getThread."},
-	listDrafts = {method = "GET", path = "/drafts", access = "drafts:create", list = "drafts", query = {"q", "maxResults", "pageToken", "includeSpamTrash"},
+	listDrafts = {method = "GET", path = "/drafts", access = "drafts:manage", list = "drafts", query = {"q", "maxResults", "pageToken", "includeSpamTrash"},
 		help = "listDrafts({q?, maxResults?, pageToken?}) -> {drafts={{id, message={id, threadId}}}, nextPageToken?}."},
 	listHistory = {method = "GET", path = "/history", access = "messages:read", list = "history", query = {"startHistoryId", "labelId", "historyTypes", "maxResults", "pageToken"},
 		help = "listHistory({startHistoryId, historyTypes?, labelId?, maxResults?, pageToken?}) -> {history, historyId, nextPageToken?}. Changes since the historyId of a message or thread; 404 means it expired: resync with listMessages."},
@@ -501,7 +501,7 @@ export("getThread", "messages:read", function(input: any): Options
 	thread.messages = messages
 	return thread
 end, "getThread({id, format?, metadataHeaders?, maxBodyBytes?, bodyFormat?}) -> {id, historyId, messages} with every message of the conversation, oldest first, shaped like getMessage.")
-export("getDraft", "drafts:create", function(input: any): Options
+export("getDraft", "drafts:manage", function(input: any): Options
 	local draft, limit, bodyFormat = read("getDraft", "drafts", input)
 	draft.message = message(draft.message or {}, limit, bodyFormat)
 	return draft

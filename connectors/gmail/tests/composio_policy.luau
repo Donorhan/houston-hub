@@ -33,8 +33,8 @@ return {
 			local r, err = m.resolve(publisher, {}, nil, "composio", access)
 			assert(r and not err, tostring(err))
 			m.routes(r, "", access.messages ~= "none", {"GET " .. api .. "/profile", "GET " .. api .. "/messages?q=is%3Aunread"})
-			m.routes(r, "", access.drafts ~= "none", {"GET " .. api .. "/drafts", "POST " .. upload .. "/drafts?uploadType=multipart"})
-			m.routes(r, "", access.drafts == "manage", {"PUT " .. upload .. "/drafts/d1?uploadType=multipart", "DELETE " .. api .. "/drafts/d1"})
+			m.routes(r, "", access.drafts ~= "none", {"POST " .. upload .. "/drafts?uploadType=multipart"})
+			m.routes(r, "", access.drafts == "manage", {"GET " .. api .. "/drafts", "GET " .. api .. "/drafts/d1", "PUT " .. upload .. "/drafts/d1?uploadType=multipart", "DELETE " .. api .. "/drafts/d1"})
 			m.routes(r, "", access.messages == "organize", {"POST " .. api .. "/messages/m1/modify", "POST " .. api .. "/labels"})
 			m.routes(r, "", access.sending == "send", {"POST " .. upload .. "/messages/send?uploadType=multipart"})
 			if access.messages ~= "none" then m.rejectOverrides(r, {"GET " .. api .. "/messages/m1"}) end

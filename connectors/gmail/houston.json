@@ -31,7 +31,7 @@
     {
       "name": "drafts",
       "label": "Drafts",
-      "description": "Create lets agents read your drafts and write new ones for you to review and send in Gmail. Manage also lets them edit and delete drafts.",
+      "description": "Create lets agents write new drafts for you to review and send in Gmail. Manage also lets them read, edit and delete your drafts.",
       "levels": [
         {
           "value": "none",
@@ -130,7 +130,6 @@
           "if": "{{ is access.drafts \"create\" }}",
           "values": [
             "https://www.googleapis.com/auth/userinfo.email",
-            "https://www.googleapis.com/auth/gmail.drafts.readonly",
             "https://www.googleapis.com/auth/gmail.drafts.create"
           ]
         },
@@ -270,7 +269,7 @@
       }
     },
     {
-      "if": "{{ allows access.drafts \"create\" }}",
+      "if": "{{ allows access.drafts \"manage\" }}",
       "action": {
         "headers": {
           "remove": [

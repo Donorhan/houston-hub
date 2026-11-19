@@ -12,9 +12,9 @@ may do in three separate areas:
   - **Organize**: also archive, mark read or unread, apply labels, and create,
     rename and delete labels.
 - **Drafts**
-  - **Create**: read your drafts and prepare new drafts and replies (with
-    attachments) for you to review and send from Gmail.
-  - **Manage**: also edit and delete drafts.
+  - **Create**: prepare new drafts and replies (with attachments) for you to
+    review and send from Gmail.
+  - **Manage**: also read, edit and delete your drafts.
 - **Sending**
   - **Send**: send new mail and replies (with attachments) from your address.
 

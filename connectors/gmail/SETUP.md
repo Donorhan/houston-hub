@@ -4,9 +4,9 @@
    - **Messages**: **Read** lets agents search and read your mail, threads,
      attachments and labels. **Organize** also lets them archive, mark messages
      read or unread, apply labels, and create, rename and delete labels.
-   - **Drafts**: **Create** lets agents read your drafts and write new ones.
-     You review and send them yourself in Gmail. **Manage** also lets them edit
-     and delete drafts.
+   - **Drafts**: **Create** lets agents write new drafts. You review and send
+     them yourself in Gmail. **Manage** also lets them read, edit and delete
+     your drafts.
    - **Sending**: **Send** lets agents send new mail and replies from your
      address.
 

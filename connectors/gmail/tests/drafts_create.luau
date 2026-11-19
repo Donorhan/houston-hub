@@ -14,7 +14,7 @@ return {
 		local names = {}
 		for name in c do table.insert(names, name) end
 		table.sort(names)
-		assert(table.concat(names, ",") == "createDraft,getDraft,listDrafts,sendMessage", "got " .. table.concat(names, ","))
+		assert(table.concat(names, ",") == "createDraft,sendMessage", "got " .. table.concat(names, ","))
 
 		responses = {'{"id":"d1","message":{"id":"m1"}}', '{"id":"s1"}'}
 		assert(c.createDraft({to = "ana@example.com", subject = "Hello", text = "Hi Ana"}).id == "d1")
@@ -27,9 +27,5 @@ return {
 			assert(not ok and string.find(tostring(err), "needs Messages access set to Read", 1, true), tostring(err))
 		end
 		assert(#requests == 2 and #responses == 0, "a reply without Messages access reached Google")
-
-		responses = {'{"id":"d2","message":{"id":"m2","snippet":"Long draft","payload":{"mimeType":"text/plain","body":{"attachmentId":"body1","size":900000}}}}'}
-		local long = c.getDraft({id = "d2"})
-		assert(long.message.body == "Long draft" and #requests == 3, "a body stored as an attachment falls back to the snippet without Messages access")
 	end,
 }

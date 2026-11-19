@@ -31,12 +31,12 @@ return {
 					access = { messages = "organize", drafts = "none", sending = "none" },
 					scopes = { "gmail.messages.readonly", "gmail.messages.modify", "gmail.labels" },
 				},
-				{ access = { messages = "none", drafts = "create", sending = "none" }, scopes = { "gmail.drafts.readonly", "gmail.drafts.create" } },
+				{ access = { messages = "none", drafts = "create", sending = "none" }, scopes = { "gmail.drafts.create" } },
 				{ access = { messages = "none", drafts = "manage", sending = "none" }, scopes = { "gmail.drafts" } },
 				{ access = { messages = "none", drafts = "none", sending = "send" }, scopes = { "gmail.send" } },
 				{
 					access = { messages = "read", drafts = "create", sending = "send" },
-					scopes = { "gmail.messages.readonly", "gmail.labels.readonly", "gmail.drafts.readonly", "gmail.drafts.create", "gmail.send" },
+					scopes = { "gmail.messages.readonly", "gmail.labels.readonly", "gmail.drafts.create", "gmail.send" },
 				},
 				{
 					access = { messages = "organize", drafts = "manage", sending = "send" },
@@ -65,12 +65,10 @@ return {
 				"PATCH " .. api .. "/labels/Label_1",
 				"DELETE " .. api .. "/labels/Label_1",
 			})
-			gated(r, access.drafts ~= "none", {
+			gated(r, access.drafts ~= "none", { "POST " .. upload .. "/drafts?uploadType=multipart" })
+			gated(r, access.drafts == "manage", {
 				"GET " .. api .. "/drafts",
 				"GET " .. api .. "/drafts/d1",
-				"POST " .. upload .. "/drafts?uploadType=multipart",
-			})
-			gated(r, access.drafts == "manage", {
 				"PUT " .. upload .. "/drafts/d1?uploadType=multipart",
 				"DELETE " .. api .. "/drafts/d1",
 			})
