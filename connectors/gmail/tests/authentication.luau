@@ -4,7 +4,7 @@ return {
 			{
 				auth = {},
 				config = {},
-				endpoint = { "GET", "https://gmail.googleapis.com/gmail/v1/users/me/profile" },
+				endpoint = { "GET", "https://gmail.googleapis.com/gmail/v1/users/me/labels" },
 				expected = "Bearer synthetic-oauth-token",
 				header = "Authorization",
 				method = "oauth",

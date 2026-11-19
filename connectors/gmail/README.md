@@ -3,16 +3,22 @@ description: Search, read and answer Gmail, with attachments and drafts.
 ---
 # Gmail
 
-Give agents the context they need from your Gmail inbox.
+Give agents the context they need from your Gmail inbox. You choose what they
+may do in three separate areas:
 
-- Search mail with Gmail's own search syntax and read whole conversations.
-- Download attachments to work with alongside your other files.
-- With **Draft** access: prepare drafts and replies (with attachments) for you
-  to review and send from Gmail.
-- With **Write** access: send and reply (with attachments), prepare drafts for
-  you to review, mark messages read or unread, and organize mail with labels,
-  archive and trash.
+- **Messages**
+  - **Read**: search mail with Gmail's own search syntax, read whole
+    conversations, download attachments and see your labels.
+  - **Organize**: also archive, mark read or unread, apply labels, and create,
+    rename and delete labels.
+- **Drafts**
+  - **Create**: prepare new drafts and replies (with attachments) for you to
+    review and send from Gmail.
+  - **Manage**: also read, edit and delete your drafts.
+- **Sending**
+  - **Send**: send new mail and replies (with attachments) from your address.
 
-> **Read** cannot change your inbox or send mail. **Draft** can also edit or
-> delete existing drafts, but cannot send them. Trashed messages stay in Gmail
-> for 30 days; deleted drafts are removed permanently.
+> Each area can be set to **None**. Agents can never delete mail or move it to
+> Trash or Spam. Deleted drafts are removed permanently. Gmail stores drafts as
+> messages, so Messages at Read can also show your drafts. Replying in a conversation
+> needs Messages at Read or above, so the agent can read the message it answers.

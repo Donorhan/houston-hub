@@ -9,24 +9,60 @@
   "icon": "icon.svg",
   "access": [
     {
-      "name": "data",
-      "label": "Access",
-      "description": "Draft lets agents create, edit and delete drafts. You review and send them yourself in Gmail.",
+      "name": "messages",
+      "label": "Messages",
+      "description": "Read lets agents search and read your mail, threads, attachments and labels. Organize also lets them archive, mark read or unread, apply labels, and create, rename and delete labels. Agents can never delete mail.",
       "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
         {
           "value": "read",
           "label": "Read"
         },
         {
-          "value": "draft",
-          "label": "Draft"
-        },
-        {
-          "value": "write",
-          "label": "Write"
+          "value": "organize",
+          "label": "Organize"
         }
       ],
       "default": "read"
+    },
+    {
+      "name": "drafts",
+      "label": "Drafts",
+      "description": "Create lets agents write new drafts for you to review and send in Gmail. Manage also lets them read, edit and delete your drafts.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "create",
+          "label": "Create"
+        },
+        {
+          "value": "manage",
+          "label": "Manage"
+        }
+      ],
+      "default": "none"
+    },
+    {
+      "name": "sending",
+      "label": "Sending",
+      "description": "Send lets agents send new mail and replies from your address.",
+      "levels": [
+        {
+          "value": "none",
+          "label": "None"
+        },
+        {
+          "value": "send",
+          "label": "Send"
+        }
+      ],
+      "default": "none"
     }
   ],
   "auth": {
@@ -71,27 +107,44 @@
       "require_refresh": true,
       "scopes": [
         {
+          "if": "{{ allows access.messages \"read\" }}",
           "values": [
-            "https://www.googleapis.com/auth/userinfo.email"
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/gmail.messages.readonly"
           ]
         },
         {
-          "if": "{{ is access.data \"read\" }}",
+          "if": "{{ is access.messages \"read\" }}",
           "values": [
-            "https://www.googleapis.com/auth/gmail.readonly"
+            "https://www.googleapis.com/auth/gmail.labels.readonly"
           ]
         },
         {
-          "if": "{{ is access.data \"draft\" }}",
+          "if": "{{ allows access.messages \"organize\" }}",
           "values": [
-            "https://www.googleapis.com/auth/gmail.readonly",
-            "https://www.googleapis.com/auth/gmail.compose"
+            "https://www.googleapis.com/auth/gmail.messages.modify",
+            "https://www.googleapis.com/auth/gmail.labels"
           ]
         },
         {
-          "if": "{{ is access.data \"write\" }}",
+          "if": "{{ is access.drafts \"create\" }}",
           "values": [
-            "https://www.googleapis.com/auth/gmail.modify"
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/gmail.drafts.create"
+          ]
+        },
+        {
+          "if": "{{ allows access.drafts \"manage\" }}",
+          "values": [
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/gmail.drafts"
+          ]
+        },
+        {
+          "if": "{{ allows access.sending \"send\" }}",
+          "values": [
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/gmail.send"
           ]
         }
       ],
@@ -125,6 +178,7 @@
   },
   "proxy": [
     {
+      "if": "{{ allows access.messages \"read\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -146,7 +200,6 @@
           "GET"
         ],
         "path": [
-          "/gmail/v1/users/me/profile",
           "/gmail/v1/users/me/labels",
           "/gmail/v1/users/me/labels/{id}",
           "/gmail/v1/users/me/messages",
@@ -154,16 +207,98 @@
           "/gmail/v1/users/me/messages/{id}/attachments/{attachmentId}",
           "/gmail/v1/users/me/threads",
           "/gmail/v1/users/me/threads/{id}",
-          "/gmail/v1/users/me/drafts",
-          "/gmail/v1/users/me/drafts/{id}",
-          "/gmail/v1/users/me/history",
-          "/gmail/v1/users/me/settings/sendAs"
+          "/gmail/v1/users/me/history"
         ],
         "protocol": "http"
       }
     },
     {
-      "if": "{{ allows access.data \"draft\" }}",
+      "if": "{{ and (isDefined auth.oauth) (allows access.messages \"read\") }}",
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "www.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/oauth2/v2/userinfo"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "if": "{{ and (isDefined auth.composio) (allows access.messages \"read\") }}",
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/gmail/v1/users/me/profile"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "if": "{{ allows access.drafts \"manage\" }}",
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/gmail/v1/users/me/drafts",
+          "/gmail/v1/users/me/drafts/{id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "if": "{{ allows access.drafts \"create\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -191,35 +326,7 @@
       }
     },
     {
-      "if": "{{ allows access.data \"draft\" }}",
-      "action": {
-        "headers": {
-          "remove": [
-            "Authorization"
-          ],
-          "set": {
-            "Authorization": {
-              "if": "{{ isDefined auth.oauth }}",
-              "value": "Bearer {{auth.oauth.access_token}}"
-            }
-          }
-        }
-      },
-      "match": {
-        "host": [
-          "gmail.googleapis.com"
-        ],
-        "method": [
-          "DELETE"
-        ],
-        "path": [
-          "/gmail/v1/users/me/drafts/{id}"
-        ],
-        "protocol": "http"
-      }
-    },
-    {
-      "if": "{{ allows access.data \"draft\" }}",
+      "if": "{{ allows access.drafts \"manage\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -247,7 +354,35 @@
       }
     },
     {
-      "if": "{{ allows access.data \"write\" }}",
+      "if": "{{ allows access.drafts \"manage\" }}",
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/gmail/v1/users/me/drafts/{id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "if": "{{ allows access.messages \"organize\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -271,20 +406,14 @@
         "path": [
           "/gmail/v1/users/me/messages/batchModify",
           "/gmail/v1/users/me/messages/{id}/modify",
-          "/gmail/v1/users/me/messages/{id}/trash",
-          "/gmail/v1/users/me/messages/{id}/untrash",
           "/gmail/v1/users/me/threads/{id}/modify",
-          "/gmail/v1/users/me/threads/{id}/trash",
-          "/gmail/v1/users/me/threads/{id}/untrash",
-          "/gmail/v1/users/me/labels",
-          "/gmail/v1/users/me/drafts/send",
-          "/upload/gmail/v1/users/me/messages/send"
+          "/gmail/v1/users/me/labels"
         ],
         "protocol": "http"
       }
     },
     {
-      "if": "{{ allows access.data \"write\" }}",
+      "if": "{{ allows access.messages \"organize\" }}",
       "action": {
         "headers": {
           "remove": [
@@ -308,6 +437,34 @@
         ],
         "path": [
           "/gmail/v1/users/me/labels/{id}"
+        ],
+        "protocol": "http"
+      }
+    },
+    {
+      "if": "{{ allows access.sending \"send\" }}",
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ],
+          "set": {
+            "Authorization": {
+              "if": "{{ isDefined auth.oauth }}",
+              "value": "Bearer {{auth.oauth.access_token}}"
+            }
+          }
+        }
+      },
+      "match": {
+        "host": [
+          "gmail.googleapis.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/upload/gmail/v1/users/me/messages/send"
         ],
         "protocol": "http"
       }

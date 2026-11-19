@@ -326,7 +326,7 @@ the `https://mail.google.com/` scope; for Google Drive, use the
 `https://www.googleapis.com/auth/drive` scope. Each grants full access to that
 service at Google. One auth config serves all of a connector's access choices:
 native method and path rules independently enforce the selected level, such as
-Gmail's read-only, read-and-draft or read-and-write access.
+Gmail's Messages, Drafts and Sending rows.
 Composio methods do not declare `scopes`: requested configuration is not evidence
 of the scopes Google actually granted. Explain the broad provider permission in
 the method description and user setup instructions without presenting Houston's

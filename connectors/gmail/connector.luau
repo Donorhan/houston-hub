@@ -147,49 +147,33 @@ local function helpWith(overview: {string}): () -> string
 end
 -- End of the shared request layer.
 
--- Draft connections save drafts; the proxy refuses every send.
-local DRAFTS = access.data == "draft"
 local SEARCH = {"q", "labelIds", "maxResults", "pageToken", "includeSpamTrash"}
 local endpoints: {[string]: Endpoint} = {
-	getProfile = {method = "GET", path = "/profile",
-		help = "getProfile() -> {emailAddress, messagesTotal, threadsTotal, historyId}."},
-	listLabels = {method = "GET", path = "/labels", list = "labels",
+	listLabels = {method = "GET", path = "/labels", access = "messages:read", list = "labels",
 		help = "listLabels() -> {labels={{id, name, type}}}. System labels include INBOX, SENT, DRAFT, SPAM, TRASH, UNREAD, STARRED and IMPORTANT."},
-	getLabel = {method = "GET", path = "/labels/{id}",
+	getLabel = {method = "GET", path = "/labels/{id}", access = "messages:read",
 		help = "getLabel({id}) -> label with message and thread counts."},
-	listMessages = {method = "GET", path = "/messages", list = "messages", query = SEARCH,
+	listMessages = {method = "GET", path = "/messages", access = "messages:read", list = "messages", query = SEARCH,
 		help = "listMessages({q?, labelIds?, maxResults?, pageToken?, includeSpamTrash?}) -> {messages={{id, threadId}}, nextPageToken?, resultSizeEstimate}. IDs only: read them with getMessages. q uses Gmail search syntax, e.g. 'from:ana@example.com after:2026/10/01 has:attachment'. maxResults ≤500 (default 100). resultSizeEstimate is not a count."},
-	listThreads = {method = "GET", path = "/threads", list = "threads", query = SEARCH,
+	listThreads = {method = "GET", path = "/threads", access = "messages:read", list = "threads", query = SEARCH,
 		help = "listThreads({q?, labelIds?, maxResults?, pageToken?, includeSpamTrash?}) -> {threads={{id, snippet, historyId}}, nextPageToken?}. Read a conversation with getThread."},
-	listDrafts = {method = "GET", path = "/drafts", list = "drafts", query = {"q", "maxResults", "pageToken", "includeSpamTrash"},
+	listDrafts = {method = "GET", path = "/drafts", access = "drafts:manage", list = "drafts", query = {"q", "maxResults", "pageToken", "includeSpamTrash"},
 		help = "listDrafts({q?, maxResults?, pageToken?}) -> {drafts={{id, message={id, threadId}}}, nextPageToken?}."},
-	listHistory = {method = "GET", path = "/history", list = "history", query = {"startHistoryId", "labelId", "historyTypes", "maxResults", "pageToken"},
-		help = "listHistory({startHistoryId, historyTypes?, labelId?, maxResults?, pageToken?}) -> {history, historyId, nextPageToken?}. Changes since a historyId from getProfile or a message; 404 means it expired: resync with listMessages."},
-	listSendAs = {method = "GET", path = "/settings/sendAs", list = "sendAs",
-		help = "listSendAs() -> {sendAs={{sendAsEmail, displayName, isDefault, ...}}}. Addresses usable as from."},
-	modifyMessage = {method = "POST", path = "/messages/{id}/modify", access = "data:write", body = true,
-		help = "modifyMessage({id, addLabelIds?, removeLabelIds?}) -> message. removeLabelIds={'UNREAD'} marks read; addLabelIds={'UNREAD'} marks unread; removeLabelIds={'INBOX'} archives. Other labels are preserved."},
-	batchModifyMessages = {method = "POST", path = "/messages/batchModify", access = "data:write", body = true,
+	listHistory = {method = "GET", path = "/history", access = "messages:read", list = "history", query = {"startHistoryId", "labelId", "historyTypes", "maxResults", "pageToken"},
+		help = "listHistory({startHistoryId, historyTypes?, labelId?, maxResults?, pageToken?}) -> {history, historyId, nextPageToken?}. Changes since the historyId of a message or thread; 404 means it expired: resync with listMessages."},
+	modifyMessage = {method = "POST", path = "/messages/{id}/modify", access = "messages:organize", body = true,
+		help = "modifyMessage({id, addLabelIds?, removeLabelIds?}) -> message. removeLabelIds={'UNREAD'} marks read; addLabelIds={'UNREAD'} marks unread; removeLabelIds={'INBOX'} archives. Other labels are preserved. Adding TRASH or SPAM is refused: nothing moves mail to Trash or Spam."},
+	batchModifyMessages = {method = "POST", path = "/messages/batchModify", access = "messages:organize", body = true,
 		help = "batchModifyMessages({ids, addLabelIds?, removeLabelIds?}) -> {success=true}. Up to 1000 IDs."},
-	trashMessage = {method = "POST", path = "/messages/{id}/trash", access = "data:write",
-		help = "trashMessage({id}) -> message. Moves to Trash; Gmail deletes it after 30 days."},
-	untrashMessage = {method = "POST", path = "/messages/{id}/untrash", access = "data:write",
-		help = "untrashMessage({id}) -> message."},
-	modifyThread = {method = "POST", path = "/threads/{id}/modify", access = "data:write", body = true,
+	modifyThread = {method = "POST", path = "/threads/{id}/modify", access = "messages:organize", body = true,
 		help = "modifyThread({id, addLabelIds?, removeLabelIds?}) -> thread. Applies to every message in the conversation."},
-	trashThread = {method = "POST", path = "/threads/{id}/trash", access = "data:write",
-		help = "trashThread({id}) -> thread."},
-	untrashThread = {method = "POST", path = "/threads/{id}/untrash", access = "data:write",
-		help = "untrashThread({id}) -> thread."},
-	createLabel = {method = "POST", path = "/labels", access = "data:write", body = true,
+	createLabel = {method = "POST", path = "/labels", access = "messages:organize", body = true,
 		help = "createLabel({name, labelListVisibility?, messageListVisibility?, color?}) -> label. Nest with 'Parent/Child' names."},
-	updateLabel = {method = "PATCH", path = "/labels/{id}", access = "data:write", body = true,
+	updateLabel = {method = "PATCH", path = "/labels/{id}", access = "messages:organize", body = true,
 		help = "updateLabel({id, name?, labelListVisibility?, messageListVisibility?, color?}) -> label."},
-	deleteLabel = {method = "DELETE", path = "/labels/{id}", access = "data:write",
+	deleteLabel = {method = "DELETE", path = "/labels/{id}", access = "messages:organize",
 		help = "deleteLabel({id}) -> {success=true}. Removes the label from its messages; the messages remain."},
-	sendDraft = {method = "POST", path = "/drafts/send", access = "data:write", body = true,
-		help = "sendDraft({id}) -> sent message {id, threadId, labelIds}."},
-	deleteDraft = {method = "DELETE", path = "/drafts/{id}", access = "data:draft",
+	deleteDraft = {method = "DELETE", path = "/drafts/{id}", access = "drafts:manage",
 		help = "deleteDraft({id}) -> {success=true}. Permanently deletes the draft."},
 }
 
@@ -253,14 +237,18 @@ local function message(raw: Options, limit: number, bodyFormat: string): Options
 	local headers = payload.headers or json.decode("[]")
 	local found: Options = {attachments = json.decode("[]")}
 	collect(payload, found)
-	local body = ""
+	local body, unread = "", false
 	local mimeTypes: {string} = if bodyFormat == "auto" then {"text/plain", "text/html"} else {if bodyFormat == "text" then "text/plain" else "text/html"}
 	for _, mimeType in mimeTypes do
 		local parts: {Options} = found[mimeType] or {}
 		for _, part in parts do
 			local data = part.data
 			if (data == nil or data == "") and type(part.attachmentId) == "string" then
-				data = call("getMessage", "GET", API .. "/messages/" .. url.segment(raw.id, "id") .. "/attachments/" .. url.segment(part.attachmentId, "attachmentId")).data
+				if houston.allows("messages:read") then
+					data = call("getMessage", "GET", API .. "/messages/" .. url.segment(raw.id, "id") .. "/attachments/" .. url.segment(part.attachmentId, "attachmentId")).data
+				else
+					unread = true
+				end
 			end
 			if type(data) == "string" then body = bodyText(data) end
 			if bodyFormat ~= "auto" or hasContent(body) then break end
@@ -271,6 +259,7 @@ local function message(raw: Options, limit: number, bodyFormat: string): Options
 	if bodyFormat == "auto" and body == "" then body = raw.snippet or "" end
 	local truncated: boolean
 	body, truncated = limitBody(body, limit)
+	truncated = truncated or unread
 	return {
 		id = raw.id, threadId = raw.threadId, labelIds = raw.labelIds or json.decode("[]"), snippet = raw.snippet,
 		historyId = raw.historyId, internalDate = raw.internalDate, sizeEstimate = raw.sizeEstimate,
@@ -405,6 +394,13 @@ local function attachment(out: {string}, item: any)
 	part(out, text(spec.mimeType or "application/octet-stream", "attachment mimeType"), data, "attachment; " .. name)
 end
 
+-- The mailbox's own address, which a reply to all leaves out. Google sign-in grants only narrow
+-- Gmail scopes, none of which reads the profile, so it asks the userinfo endpoint instead.
+local function ownAddress(name: string): string
+	if auth.method == "oauth" then return call(name, "GET", "https://www.googleapis.com/oauth2/v2/userinfo").email or "" end
+	return call(name, "GET", API .. "/profile").emailAddress or ""
+end
+
 -- Builds the MIME message as pieces and returns them with the thread to post into. inReplyTo
 -- threads a reply to that message: recipients, subject and references default from the original.
 local function compose(name: string, args: Options): ({string}, string?)
@@ -413,6 +409,7 @@ local function compose(name: string, args: Options): ({string}, string?)
 	for key in args do assert(known[key], name .. " received an unknown option " .. key) end
 	local to, cc, subject, threadId, references, inReplyTo = addresses(args.to, "to"), addresses(args.cc, "cc"), args.subject, nil, nil, nil
 	if args.inReplyTo ~= nil then
+		assert(houston.allows("messages:read"), name .. " with inReplyTo needs Messages access set to Read, to read the message it answers")
 		local metadata = {format = "metadata", metadataHeaders = {"From", "Reply-To", "To", "Cc", "Subject", "Message-ID", "References"}}
 		local original = call(name, "GET", API .. "/messages/" .. url.segment(text(args.inReplyTo, "inReplyTo"), "inReplyTo") .. query(metadata, {"format", "metadataHeaders"}))
 		local headers = original.payload and original.payload.headers
@@ -424,7 +421,7 @@ local function compose(name: string, args: Options): ({string}, string?)
 			subject = if string.match(string.lower(previous), "^re:") then previous else "Re: " .. previous
 		end
 		if args.replyAll == true and cc == nil then
-			local seen = {[string.lower(call(name, "GET", API .. "/profile").emailAddress or "")] = true}
+			local seen = {[string.lower(ownAddress(name))] = true}
 			for email in string.gmatch(string.lower(to or ""), EMAIL) do seen[email] = true end
 			local copied: {string} = {}
 			for email in string.gmatch(string.lower((header(headers, "to") or "") .. "," .. (header(headers, "cc") or "")), EMAIL) do
@@ -480,28 +477,43 @@ end
 
 exportEndpoints(endpoints)
 
+-- Gmail moves a message that gains one of these labels to Trash or Spam, where it is deleted
+-- after 30 days. The proxy cannot read request bodies, so the modify operations refuse them here.
+for _, name in {"modifyMessage", "batchModifyMessages", "modifyThread"} do
+	local modify = exports[name]
+	if modify then
+		exports[name] = function(input: any): any
+			local added: {any} = if type(input) == "table" and type(input.addLabelIds) == "table" then input.addLabelIds else {}
+			for _, label in added do
+				assert(string.upper(tostring(label)) ~= "TRASH" and string.upper(tostring(label)) ~= "SPAM", name .. " cannot add " .. tostring(label) .. ": nothing moves mail to Trash or Spam")
+			end
+			return modify(input)
+		end
+	end
+end
+
 local READ_OPTIONS = "bodyFormat: auto (default) chooses the first nonblank decoded plain text, HTML, then snippet; text or html selects only that format, preserving whitespace and returning an empty string if missing. Whitespace is ignored only when deciding emptiness. format: full (default), metadata (headers only) or minimal; metadataHeaders limits metadata headers; maxBodyBytes caps the selected body (default 65536, 0 for no cap) and sets bodyTruncated."
-export("getMessage", nil, function(input: any): Options
+export("getMessage", "messages:read", function(input: any): Options
 	local raw, limit, bodyFormat = read("getMessage", "messages", input)
 	return message(raw, limit, bodyFormat)
 end, "getMessage({id, format?, metadataHeaders?, maxBodyBytes?, bodyFormat?}) -> {id, threadId, labelIds, snippet, internalDate, from, to, cc, bcc, replyTo, subject, date, messageId, body, bodyTruncated, attachments={{id, filename, mimeType, size, inline, contentId}}, headers}. " .. READ_OPTIONS)
-export("getMessages", nil, getMessages,
+export("getMessages", "messages:read", getMessages,
 	"getMessages({ids, format?, metadataHeaders?, maxBodyBytes?, bodyFormat?}) -> messages in the order of ids, each shaped like getMessage. 1 to 100 IDs; use format='metadata' to scan many messages cheaply.")
-export("getThread", nil, function(input: any): Options
+export("getThread", "messages:read", function(input: any): Options
 	local thread, limit, bodyFormat = read("getThread", "threads", input)
 	local messages: {Options} = json.decode("[]")
 	for _, raw in thread.messages or {} do table.insert(messages, message(raw, limit, bodyFormat)) end
 	thread.messages = messages
 	return thread
 end, "getThread({id, format?, metadataHeaders?, maxBodyBytes?, bodyFormat?}) -> {id, historyId, messages} with every message of the conversation, oldest first, shaped like getMessage.")
-export("getDraft", nil, function(input: any): Options
+export("getDraft", "drafts:manage", function(input: any): Options
 	local draft, limit, bodyFormat = read("getDraft", "drafts", input)
 	draft.message = message(draft.message or {}, limit, bodyFormat)
 	return draft
-end, "getDraft({id, format?, maxBodyBytes?, bodyFormat?}) -> {id, message} with message shaped like getMessage.")
-export("getAttachment", nil, getAttachment,
+end, "getDraft({id, format?, maxBodyBytes?, bodyFormat?}) -> {id, message} with message shaped like getMessage. A long body that Gmail stores as an attachment is read only with Messages access at Read; without it, body is the snippet and bodyTruncated is true, so never pass it to updateDraft.")
+export("getAttachment", "messages:read", getAttachment,
 	"getAttachment({messageId, attachmentId, path}) -> {path, url, size}. Saves an attachment (id from a message's attachments) to a session path; url is a signed Houston download link. Never inline attachment bytes.")
-export("listMailFolders", nil, function(...: any): {{id: string, name: string}}
+export("listMailFolders", "messages:read", function(...: any): {{id: string, name: string}}
 	assert(select("#", ...) == 0, "listMailFolders takes no arguments")
 	local labels = call("listMailFolders", "GET", API .. "/labels").labels or {}
 	local folders: {{id: string, name: string}} = json.decode("[]")
@@ -517,16 +529,15 @@ export("listMailFolders", nil, function(...: any): {{id: string, name: string}}
 	return folders
 end, "listMailFolders() -> {{id, name}} sorted by ID. No arguments; every label of the mailbox.")
 
-local COMPOSE = "to, cc, bcc and replyTo take an address ('Ana <ana@example.com>') or an array of them; from must be one of listSendAs. text and/or html are required. attachments={'path' or {path, filename?, mimeType?}} reads session files; the message must stay under 8 MiB (about 5 MiB of attachments), so share larger files from Drive. inReplyTo=<Gmail message id> replies in that thread: to, subject (Re:) and threading headers default from the original; replyAll=true also copies its To and Cc (except you) into cc."
+local COMPOSE = "to, cc, bcc and replyTo take an address ('Ana <ana@example.com>') or an array of them; from is only for a Gmail send-as address the person names; Gmail replaces any other address with the mailbox's own, which is also the default. text and/or html are required. attachments={'path' or {path, filename?, mimeType?}} reads session files; the message must stay under 8 MiB (about 5 MiB of attachments), so share larger files from Drive. inReplyTo=<Gmail message id> replies in that thread and needs Messages access at Read: to, subject (Re:) and threading headers default from the original; replyAll=true also copies its To and Cc (except you) into cc."
 local FIELDS = "to, subject?, text?, html?, cc?, bcc?, replyTo?, from?, attachments?, inReplyTo?, replyAll?"
-export("sendMessage", "data:write", function(input: any): any
+export("sendMessage", "sending:send", function(input: any): any
 	return submit("sendMessage", "POST", "/messages/send", options(input), false)
-end, "sendMessage({" .. FIELDS .. "}) -> {id, threadId, labelIds}. " .. COMPOSE .. " A timeout may still have sent the mail: check the SENT label before retrying.")
-export("createDraft", "data:draft", function(input: any): any
+end, "sendMessage({" .. FIELDS .. "}) -> {id, threadId, labelIds}. " .. COMPOSE .. " A timeout may still have sent the mail: " .. (if houston.allows("messages:read") then "check the SENT label before retrying." else "this connection cannot read the SENT label, so tell the person before retrying."))
+export("createDraft", "drafts:create", function(input: any): any
 	return submit("createDraft", "POST", "/drafts", options(input), true)
-end, "createDraft({" .. FIELDS .. "}) -> {id, message={id, threadId}}. Saves without sending; "
-	.. (if DRAFTS then "the person reviews and sends it from Gmail. " .. COMPOSE else "send later with sendDraft. Options as for sendMessage."))
-export("updateDraft", "data:draft", function(input: any): any
+end, "createDraft({" .. FIELDS .. "}) -> {id, message={id, threadId}}. Saves without sending; the person reviews and sends it from Gmail. " .. COMPOSE)
+export("updateDraft", "drafts:manage", function(input: any): any
 	local args = options(input)
 	local id = text(args.id, "id")
 	args.id = nil
@@ -535,13 +546,15 @@ end, "updateDraft({id, ...createDraft options}) -> draft. Replaces the draft's w
 
 local overview = {
 	"Gmail API v1 for the connected mailbox. Operations take one named options object with Google's camelCase fields. Lists and label operations return Google's JSON unchanged; deletes return {success=true}.",
+	"This connection's access: messages " .. access.messages .. ", drafts " .. access.drafts .. ", sending " .. access.sending .. ". Only the operations it allows are listed, and none deletes or trashes mail."
+		.. (if houston.allows("drafts:create") and not houston.allows("sending:send") then " It cannot send: save drafts for the person to review and send from Gmail." else ""),
 	"Message reads decode bodies and list attachment metadata; attachments download to session files. Composing builds the MIME message from plain fields: never base64-encode anything yourself.",
-	"Lists return one page: pass nextPageToken as pageToken until it is absent. List results carry IDs only; fetch details with getMessages or getThread.",
+	"Lists return one page: pass nextPageToken as pageToken until it is absent.",
 	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason. A failed or timed-out write may already have succeeded; check before repeating.",
-	"Example: local page = listMessages({q='is:unread in:inbox', maxResults=20}); local ids = {}; for _, m in page.messages do table.insert(ids, m.id) end; getMessages({ids=ids, format='metadata', metadataHeaders={'From','Subject'}}).",
 }
-if DRAFTS then
-	table.insert(overview, 2, "Draft connection: Houston refuses every send. Save drafts for the person to review and send from Gmail.")
+if houston.allows("messages:read") then
+	table.insert(overview, "Message and thread lists carry IDs only; fetch details with getMessages or getThread.")
+	table.insert(overview, "Example: local page = listMessages({q='is:unread in:inbox', maxResults=20}); local ids = {}; for _, m in page.messages do table.insert(ids, m.id) end; getMessages({ids=ids, format='metadata', metadataHeaders={'From','Subject'}}).")
 end
 exports.help = helpWith(overview)
 return exports

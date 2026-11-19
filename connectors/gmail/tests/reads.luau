@@ -4,7 +4,7 @@ local function b64(s)
 end
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
-	access = {data = "read"},
+	access = {messages = "read", drafts = "manage", sending = "none"},
 	configure = function()
 		requests, responses = {}, {}
 		http = {request = function(req)
@@ -95,7 +95,7 @@ return {
 		assert(#requests == count, "invalid input reached Google")
 
 		responses = {{status = 403, body = '{"error":{"code":403,"message":"Request had insufficient authentication scopes.","status":"PERMISSION_DENIED","errors":[{"reason":"insufficientPermissions"}]}}'}}
-		local ok, err = pcall(c.getProfile)
+		local ok, err = pcall(c.listLabels)
 		assert(not ok and string.find(tostring(err), "insufficient authentication scopes", 1, true) and string.find(tostring(err), "PERMISSION_DENIED", 1, true), tostring(err))
 		assert(#responses == 0)
 	end,
