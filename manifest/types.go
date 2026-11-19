@@ -10,8 +10,7 @@ import (
 	"unicode/utf8"
 )
 
-// SchemaVersion is the manifest version new publications must declare.
-// Version 1 snapshots stay readable until no connection pins them.
+// SchemaVersion is the only manifest version Houston reads.
 const SchemaVersion = 2
 
 type Manifest struct {
@@ -307,13 +306,9 @@ func decode(data []byte, v any) error {
 }
 
 // Parse reads a manifest for publication. It rejects duplicate keys, nulls,
-// unknown properties, invalid semantics and every schema version but the current one.
+// unknown properties and invalid semantics.
 func Parse(data []byte) (*Manifest, error) {
-	m, err := parseManifest(data, true)
-	if err == nil && m.SchemaVersion != SchemaVersion {
-		return nil, fmt.Errorf("schema_version %d is no longer supported; declare schema_version %d (see the v1 to v2 migration guide in AUTHORING.md)", m.SchemaVersion, SchemaVersion)
-	}
-	return m, err
+	return parseManifest(data, true)
 }
 
 // UnmarshalJSON keeps pinned snapshots and catalog readers on the same strict

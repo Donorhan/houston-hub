@@ -1083,28 +1083,6 @@ row's level except `none`. Level values must therefore match the provider's valu
 "setup_params": {"contents": "code", "issues": "conversations"}
 ```
 
-### Migrating from schema version 1
-
-Houston publishes only `schema_version: 2`. Version 1 releases stay readable only
-while connections still use them.
-
-1. Set `"schema_version": 2`.
-2. Replace the `config.access` field with `access` rows. A connector with one kind
-   of access declares the single `data` row (`read`, `write`); mail connectors that
-   offered "Read and draft" add a `draft` level between them.
-3. Replace `{{ is config.access "read-write" }}` with `{{ allows access.data
-   "write" }}`. Keep `is` only on scope groups whose read and write scopes are
-   exclusive, as `{{ is access.data "read" }}` and `{{ is access.data "write" }}`.
-4. In Luau, replace `config.access == "read-write"` with
-   `houston.allows("data:write")`, and endpoint-table `write = true` flags with
-   `access = "data:write"`.
-5. In fixtures, replace `config = {access = "read-write"}` with
-   `access = {data = "write"}`, at the top level or in `scenario`.
-
-When a connection follows the new release, Houston maps a saved `read-only` to
-each row's `read` level (or its lowest) and `read-write` to each row's top level.
-Connections saved as `custom` are set up again.
-
 `houston.seal(value)` returns an opaque encrypted token, and `houston.unseal(token)`
 returns the original plain JSON value. These synchronous connector-only helpers
 are intended for provider cursors and job handles that must carry an authorized

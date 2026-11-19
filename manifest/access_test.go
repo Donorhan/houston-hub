@@ -96,13 +96,14 @@ func TestAccessRowsAndPredicatesAreValidated(t *testing.T) {
 		return fmt.Sprintf(`[{"name":"code","label":"Code","levels":%s,"default":%q}]`, levels, def)
 	}
 	three := `[{"value":"none","label":"None"},{"value":"read","label":"Read"},{"value":"write","label":"Write"}]`
-	for _, tc := range []struct{ name, access, config, scope, proxy, want string }{
+	for _, tc := range []struct{ name, version, access, config, scope, proxy, want string }{
 		{name: "valid", access: row(three, "read")},
+		{name: "schema version", version: "1", access: row(three, "read"), want: "schema_version must be 2"},
 		{name: "none first", access: row(`[{"value":"read","label":"Read"},{"value":"none","label":"None"}]`, "read"), want: "none must be the first level"},
 		{name: "one level", access: row(`[{"value":"read","label":"Read"}]`, "read"), want: "rows need 2 to 4 levels"},
 		{name: "default", access: row(three, "admin"), want: "default must be one of its levels"},
 		{name: "duplicate level", access: row(`[{"value":"read","label":"Read"},{"value":"read","label":"Again"}]`, "read"), want: "invalid or duplicate level"},
-		{name: "config access", access: row(three, "read"), config: `,"config":{"access":{"type":"string","label":"Access"}}`, want: "config.access is replaced by access rows"},
+		{name: "config access", access: row(three, "read"), config: `,"config":{"access":{"type":"string","label":"Access"}}`, want: "access is declared in top-level access rows, not config.access"},
 		{name: "unknown level", access: row(three, "read"), proxy: `{{ allows access.code "admin" }}`, want: "access.code has no level admin"},
 		{name: "unknown row", access: row(three, "read"), proxy: `{{ allows access.repos "read" }}`, want: "undeclared reference access.repos"},
 		{name: "exact level outside scopes", access: row(three, "read"), proxy: `{{ is access.code "read" }}`, want: "allowed only on scope groups"},
@@ -110,17 +111,20 @@ func TestAccessRowsAndPredicatesAreValidated(t *testing.T) {
 		{name: "exact level on scopes", access: row(three, "read"), scope: `{{ is access.code "write" }}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			proxyIf, scopeIf := "", ""
+			proxyIf, scopeIf, version := "", "", tc.version
+			if version == "" {
+				version = "2"
+			}
 			if tc.proxy != "" {
 				proxyIf = fmt.Sprintf(`"if":%q,`, tc.proxy)
 			}
 			if tc.scope != "" {
 				scopeIf = fmt.Sprintf(`"if":%q,`, tc.scope)
 			}
-			raw := fmt.Sprintf(`{"schema_version":2,"name":"Rows","files":["main.lua"],"access":%s%s,
+			raw := fmt.Sprintf(`{"schema_version":%s,"name":"Rows","files":["main.lua"],"access":%s%s,
 				"auth":{"oauth":{"type":"oauth2","label":"OAuth","authorize_url":"https://example.com/auth","token_url":"https://example.com/token","client_id":"{{publisher.client_id}}","client_auth":"none","scopes":[{%s"values":["scope"]}]}},
 				"publisher":{"client_id":{"type":"string","label":"Client"}},
-				"proxy":[{"match":{"protocol":"http","host":["base.example.com"]},"action":{}},{%s"match":{"protocol":"http","host":["example.com"]},"action":{}}]}`, tc.access, tc.config, scopeIf, proxyIf)
+				"proxy":[{"match":{"protocol":"http","host":["base.example.com"]},"action":{}},{%s"match":{"protocol":"http","host":["example.com"]},"action":{}}]}`, version, tc.access, tc.config, scopeIf, proxyIf)
 			_, err := Parse([]byte(raw))
 			if tc.want == "" && err != nil || tc.want != "" && (err == nil || !strings.Contains(err.Error(), tc.want)) {
 				t.Fatalf("want %q, got %v", tc.want, err)
@@ -165,20 +169,5 @@ func TestSetupLinkCarriesChosenLevels(t *testing.T) {
 	link := m.Auth["token"].SetupLink(map[string]string{"code": "write", "gists": "none"})
 	if link != "https://example.com/tokens/new?contents=write&name=Houston" {
 		t.Fatalf("link=%s", link)
-	}
-}
-
-func TestPublicationRequiresTheCurrentSchemaVersion(t *testing.T) {
-	raw := `{"schema_version":1,"name":"Legacy","files":["main.lua"],"config":{"access":{"type":"string","label":"Access","options":[{"value":"read-only","label":"Read"},{"value":"read-write","label":"Write"}]}},"proxy":[{"match":{"protocol":"http","host":["example.com"]},"action":{}}]}`
-	if _, err := Parse([]byte(raw)); err == nil || !strings.Contains(err.Error(), "migration guide") {
-		t.Fatalf("publication: %v", err)
-	}
-	var pinned Manifest
-	if err := pinned.UnmarshalJSON([]byte(raw)); err != nil {
-		t.Fatalf("pinned v1 snapshot: %v", err)
-	}
-	r, err := pinned.Resolve(Inputs{})
-	if err != nil || r.PublicConfig["access"] != "read-only" {
-		t.Fatalf("pinned v1 resolution: %v %v", r, err)
 	}
 }
