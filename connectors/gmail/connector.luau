@@ -162,7 +162,7 @@ local endpoints: {[string]: Endpoint} = {
 	listHistory = {method = "GET", path = "/history", access = "messages:read", list = "history", query = {"startHistoryId", "labelId", "historyTypes", "maxResults", "pageToken"},
 		help = "listHistory({startHistoryId, historyTypes?, labelId?, maxResults?, pageToken?}) -> {history, historyId, nextPageToken?}. Changes since the historyId of a message or thread; 404 means it expired: resync with listMessages."},
 	modifyMessage = {method = "POST", path = "/messages/{id}/modify", access = "messages:organize", body = true,
-		help = "modifyMessage({id, addLabelIds?, removeLabelIds?}) -> message. removeLabelIds={'UNREAD'} marks read; addLabelIds={'UNREAD'} marks unread; removeLabelIds={'INBOX'} archives. Other labels are preserved."},
+		help = "modifyMessage({id, addLabelIds?, removeLabelIds?}) -> message. removeLabelIds={'UNREAD'} marks read; addLabelIds={'UNREAD'} marks unread; removeLabelIds={'INBOX'} archives. Other labels are preserved. Adding TRASH or SPAM is refused: nothing moves mail to Trash or Spam."},
 	batchModifyMessages = {method = "POST", path = "/messages/batchModify", access = "messages:organize", body = true,
 		help = "batchModifyMessages({ids, addLabelIds?, removeLabelIds?}) -> {success=true}. Up to 1000 IDs."},
 	modifyThread = {method = "POST", path = "/threads/{id}/modify", access = "messages:organize", body = true,
@@ -243,7 +243,7 @@ local function message(raw: Options, limit: number, bodyFormat: string): Options
 		local parts: {Options} = found[mimeType] or {}
 		for _, part in parts do
 			local data = part.data
-			if (data == nil or data == "") and type(part.attachmentId) == "string" then
+			if (data == nil or data == "") and type(part.attachmentId) == "string" and houston.allows("messages:read") then
 				data = call("getMessage", "GET", API .. "/messages/" .. url.segment(raw.id, "id") .. "/attachments/" .. url.segment(part.attachmentId, "attachmentId")).data
 			end
 			if type(data) == "string" then body = bodyText(data) end
@@ -472,6 +472,21 @@ end
 
 exportEndpoints(endpoints)
 
+-- Gmail moves a message that gains one of these labels to Trash or Spam, where it is deleted
+-- after 30 days. The proxy cannot read request bodies, so the modify operations refuse them here.
+for _, name in {"modifyMessage", "batchModifyMessages", "modifyThread"} do
+	local modify = exports[name]
+	if modify then
+		exports[name] = function(input: any): any
+			local added: {any} = if type(input) == "table" and type(input.addLabelIds) == "table" then input.addLabelIds else {}
+			for _, label in added do
+				assert(label ~= "TRASH" and label ~= "SPAM", name .. " cannot add " .. tostring(label) .. ": nothing moves mail to Trash or Spam")
+			end
+			return modify(input)
+		end
+	end
+end
+
 local READ_OPTIONS = "bodyFormat: auto (default) chooses the first nonblank decoded plain text, HTML, then snippet; text or html selects only that format, preserving whitespace and returning an empty string if missing. Whitespace is ignored only when deciding emptiness. format: full (default), metadata (headers only) or minimal; metadataHeaders limits metadata headers; maxBodyBytes caps the selected body (default 65536, 0 for no cap) and sets bodyTruncated."
 export("getMessage", "messages:read", function(input: any): Options
 	local raw, limit, bodyFormat = read("getMessage", "messages", input)
@@ -490,7 +505,7 @@ export("getDraft", "drafts:create", function(input: any): Options
 	local draft, limit, bodyFormat = read("getDraft", "drafts", input)
 	draft.message = message(draft.message or {}, limit, bodyFormat)
 	return draft
-end, "getDraft({id, format?, maxBodyBytes?, bodyFormat?}) -> {id, message} with message shaped like getMessage. A body Gmail stores as an attachment needs Messages access at Read.")
+end, "getDraft({id, format?, maxBodyBytes?, bodyFormat?}) -> {id, message} with message shaped like getMessage. A long body that Gmail stores as an attachment is read only with Messages access at Read; without it, body falls back to the snippet.")
 export("getAttachment", "messages:read", getAttachment,
 	"getAttachment({messageId, attachmentId, path}) -> {path, url, size}. Saves an attachment (id from a message's attachments) to a session path; url is a signed Houston download link. Never inline attachment bytes.")
 export("listMailFolders", "messages:read", function(...: any): {{id: string, name: string}}
@@ -513,7 +528,7 @@ local COMPOSE = "to, cc, bcc and replyTo take an address ('Ana <ana@example.com>
 local FIELDS = "to, subject?, text?, html?, cc?, bcc?, replyTo?, from?, attachments?, inReplyTo?, replyAll?"
 export("sendMessage", "sending:send", function(input: any): any
 	return submit("sendMessage", "POST", "/messages/send", options(input), false)
-end, "sendMessage({" .. FIELDS .. "}) -> {id, threadId, labelIds}. " .. COMPOSE .. " A timeout may still have sent the mail: check the SENT label before retrying.")
+end, "sendMessage({" .. FIELDS .. "}) -> {id, threadId, labelIds}. " .. COMPOSE .. " A timeout may still have sent the mail: " .. (if houston.allows("messages:read") then "check the SENT label before retrying." else "this connection cannot read the SENT label, so tell the person before retrying."))
 export("createDraft", "drafts:create", function(input: any): any
 	return submit("createDraft", "POST", "/drafts", options(input), true)
 end, "createDraft({" .. FIELDS .. "}) -> {id, message={id, threadId}}. Saves without sending; the person reviews and sends it from Gmail. " .. COMPOSE)
@@ -526,13 +541,14 @@ end, "updateDraft({id, ...createDraft options}) -> draft. Replaces the draft's w
 
 local overview = {
 	"Gmail API v1 for the connected mailbox. Operations take one named options object with Google's camelCase fields. Lists and label operations return Google's JSON unchanged; deletes return {success=true}.",
+	"This connection's access: messages " .. access.messages .. ", drafts " .. access.drafts .. ", sending " .. access.sending .. ". Only the operations it allows are listed, and none deletes or trashes mail."
+		.. (if houston.allows("drafts:create") and not houston.allows("sending:send") then " It cannot send: save drafts for the person to review and send from Gmail." else ""),
 	"Message reads decode bodies and list attachment metadata; attachments download to session files. Composing builds the MIME message from plain fields: never base64-encode anything yourself.",
-	"Lists return one page: pass nextPageToken as pageToken until it is absent. List results carry IDs only; fetch details with getMessages or getThread.",
+	"Lists return one page: pass nextPageToken as pageToken until it is absent.",
 	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason. A failed or timed-out write may already have succeeded; check before repeating.",
 }
-table.insert(overview, 2, "This connection's access: messages " .. access.messages .. ", drafts " .. access.drafts .. ", sending " .. access.sending .. ". Only the operations it allows are listed, and none deletes or trashes mail."
-	.. (if houston.allows("drafts:create") and not houston.allows("sending:send") then " It cannot send: save drafts for the person to review and send from Gmail." else ""))
 if houston.allows("messages:read") then
+	table.insert(overview, "Message and thread lists carry IDs only; fetch details with getMessages or getThread.")
 	table.insert(overview, "Example: local page = listMessages({q='is:unread in:inbox', maxResults=20}); local ids = {}; for _, m in page.messages do table.insert(ids, m.id) end; getMessages({ids=ids, format='metadata', metadataHeaders={'From','Subject'}}).")
 end
 exports.help = helpWith(overview)

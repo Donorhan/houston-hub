@@ -10,7 +10,8 @@
    - **Sending**: **Send** lets agents send new mail and replies from your
      address.
 
-   Leave a row on **None** to keep agents out of it.
+   Leave a row on **None** to turn it off. Gmail stores drafts as messages, so
+   Messages at Read can also show your drafts.
 2. Choose an available sign-in option and select **Connect Gmail**.
 3. Choose your Google account and approve access. With Connect with Google, if
    Google shows a checkbox per permission, tick them all: Houston refuses a
@@ -20,7 +21,7 @@ Houston calls Gmail only when your agent asks it to and never syncs your mailbox
 in the background. Connect with Google asks only for the permissions of the
 levels you choose, so Google itself refuses anything beyond them, and it does
 not grant access to your other Google services. Houston never deletes messages
-or moves them to the trash; deleted drafts are removed for good.
+or moves them to Trash or Spam; deleted drafts are removed for good.
 
 > If you connect with Composio, it requires full Gmail access. Houston limits its use to the access level
 > you select.

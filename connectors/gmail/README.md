@@ -19,5 +19,6 @@ may do in three separate areas:
   - **Send**: send new mail and replies (with attachments) from your address.
 
 > Each area can be set to **None**. Agents can never delete mail or move it to
-> the trash. Deleted drafts are removed permanently. Replying in a conversation
+> Trash or Spam. Deleted drafts are removed permanently. Gmail stores drafts as
+> messages, so Messages at Read can also show your drafts. Replying in a conversation
 > needs Messages at Read or above, so the agent can read the message it answers.
