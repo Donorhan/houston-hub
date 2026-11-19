@@ -33,7 +33,7 @@ return {
 		assert(#requests == 5 and #responses == 0, "failed writes must not be replayed")
 		for _, call in {
 			function() return c.modifyMessage({id = "m1", addLabelIds = {"TRASH"}}) end, function() return c.modifyThread({id = "t1", addLabelIds = {"STARRED", "SPAM"}}) end,
-			function() return c.batchModifyMessages({ids = {"m1", "m2"}, addLabelIds = {"TRASH"}}) end,
+			function() return c.batchModifyMessages({ids = {"m1", "m2"}, addLabelIds = {"trash"}}) end,
 		} do
 			local refused, reason = pcall(call)
 			assert(not refused and string.find(tostring(reason), "nothing moves mail to Trash or Spam", 1, true), tostring(reason))

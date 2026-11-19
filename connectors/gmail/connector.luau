@@ -237,14 +237,18 @@ local function message(raw: Options, limit: number, bodyFormat: string): Options
 	local headers = payload.headers or json.decode("[]")
 	local found: Options = {attachments = json.decode("[]")}
 	collect(payload, found)
-	local body = ""
+	local body, unread = "", false
 	local mimeTypes: {string} = if bodyFormat == "auto" then {"text/plain", "text/html"} else {if bodyFormat == "text" then "text/plain" else "text/html"}
 	for _, mimeType in mimeTypes do
 		local parts: {Options} = found[mimeType] or {}
 		for _, part in parts do
 			local data = part.data
-			if (data == nil or data == "") and type(part.attachmentId) == "string" and houston.allows("messages:read") then
-				data = call("getMessage", "GET", API .. "/messages/" .. url.segment(raw.id, "id") .. "/attachments/" .. url.segment(part.attachmentId, "attachmentId")).data
+			if (data == nil or data == "") and type(part.attachmentId) == "string" then
+				if houston.allows("messages:read") then
+					data = call("getMessage", "GET", API .. "/messages/" .. url.segment(raw.id, "id") .. "/attachments/" .. url.segment(part.attachmentId, "attachmentId")).data
+				else
+					unread = true
+				end
 			end
 			if type(data) == "string" then body = bodyText(data) end
 			if bodyFormat ~= "auto" or hasContent(body) then break end
@@ -255,6 +259,7 @@ local function message(raw: Options, limit: number, bodyFormat: string): Options
 	if bodyFormat == "auto" and body == "" then body = raw.snippet or "" end
 	local truncated: boolean
 	body, truncated = limitBody(body, limit)
+	truncated = truncated or unread
 	return {
 		id = raw.id, threadId = raw.threadId, labelIds = raw.labelIds or json.decode("[]"), snippet = raw.snippet,
 		historyId = raw.historyId, internalDate = raw.internalDate, sizeEstimate = raw.sizeEstimate,
@@ -480,7 +485,7 @@ for _, name in {"modifyMessage", "batchModifyMessages", "modifyThread"} do
 		exports[name] = function(input: any): any
 			local added: {any} = if type(input) == "table" and type(input.addLabelIds) == "table" then input.addLabelIds else {}
 			for _, label in added do
-				assert(label ~= "TRASH" and label ~= "SPAM", name .. " cannot add " .. tostring(label) .. ": nothing moves mail to Trash or Spam")
+				assert(string.upper(tostring(label)) ~= "TRASH" and string.upper(tostring(label)) ~= "SPAM", name .. " cannot add " .. tostring(label) .. ": nothing moves mail to Trash or Spam")
 			end
 			return modify(input)
 		end
@@ -505,7 +510,7 @@ export("getDraft", "drafts:manage", function(input: any): Options
 	local draft, limit, bodyFormat = read("getDraft", "drafts", input)
 	draft.message = message(draft.message or {}, limit, bodyFormat)
 	return draft
-end, "getDraft({id, format?, maxBodyBytes?, bodyFormat?}) -> {id, message} with message shaped like getMessage. A long body that Gmail stores as an attachment is read only with Messages access at Read; without it, body falls back to the snippet.")
+end, "getDraft({id, format?, maxBodyBytes?, bodyFormat?}) -> {id, message} with message shaped like getMessage. A long body that Gmail stores as an attachment is read only with Messages access at Read; without it, body is the snippet and bodyTruncated is true, so never pass it to updateDraft.")
 export("getAttachment", "messages:read", getAttachment,
 	"getAttachment({messageId, attachmentId, path}) -> {path, url, size}. Saves an attachment (id from a message's attachments) to a session path; url is a signed Houston download link. Never inline attachment bytes.")
 export("listMailFolders", "messages:read", function(...: any): {{id: string, name: string}}
@@ -524,7 +529,7 @@ export("listMailFolders", "messages:read", function(...: any): {{id: string, nam
 	return folders
 end, "listMailFolders() -> {{id, name}} sorted by ID. No arguments; every label of the mailbox.")
 
-local COMPOSE = "to, cc, bcc and replyTo take an address ('Ana <ana@example.com>') or an array of them; from is one of the mailbox's Gmail send-as addresses (default: its own address). text and/or html are required. attachments={'path' or {path, filename?, mimeType?}} reads session files; the message must stay under 8 MiB (about 5 MiB of attachments), so share larger files from Drive. inReplyTo=<Gmail message id> replies in that thread and needs Messages access at Read: to, subject (Re:) and threading headers default from the original; replyAll=true also copies its To and Cc (except you) into cc."
+local COMPOSE = "to, cc, bcc and replyTo take an address ('Ana <ana@example.com>') or an array of them; from is only for a Gmail send-as address the person names; Gmail replaces any other address with the mailbox's own, which is also the default. text and/or html are required. attachments={'path' or {path, filename?, mimeType?}} reads session files; the message must stay under 8 MiB (about 5 MiB of attachments), so share larger files from Drive. inReplyTo=<Gmail message id> replies in that thread and needs Messages access at Read: to, subject (Re:) and threading headers default from the original; replyAll=true also copies its To and Cc (except you) into cc."
 local FIELDS = "to, subject?, text?, html?, cc?, bcc?, replyTo?, from?, attachments?, inReplyTo?, replyAll?"
 export("sendMessage", "sending:send", function(input: any): any
 	return submit("sendMessage", "POST", "/messages/send", options(input), false)

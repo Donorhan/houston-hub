@@ -17,6 +17,6 @@ return {
 
 		responses = {'{"id":"d2","message":{"id":"m2","snippet":"Long draft","payload":{"mimeType":"text/plain","body":{"attachmentId":"body1","size":900000}}}}'}
 		local long = c.getDraft({id = "d2"})
-		assert(long.message.body == "Long draft" and #requests == 1, "a body stored as an attachment falls back to the snippet without Messages access")
+		assert(long.message.body == "Long draft" and long.message.bodyTruncated == true and #requests == 1, "a body stored as an attachment falls back to the snippet, marked truncated, without Messages access")
 	end,
 }
