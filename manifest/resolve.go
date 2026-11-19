@@ -166,10 +166,6 @@ func (m *Manifest) resolveFields(source string, fields map[string]Field, input m
 			v = f.Default
 			present = true
 		}
-		if source == "config" && k == "access" && m.SchemaVersion == 1 && !f.Required && v == nil {
-			v = "read-only"
-			present = true
-		}
 		if e := ValidateValue(f, v); e != nil {
 			err := fmt.Errorf("%s: %w", ref, e)
 			c.Errors[ref] = err

@@ -167,7 +167,7 @@ func BundlePath(s string) bool {
 var errReauthorizeOutsideConfig = errors.New("reauthorize_on_change is only valid on config fields")
 
 func (m *Manifest) Validate() error {
-	if m.SchemaVersion != 1 && m.SchemaVersion != SchemaVersion {
+	if m.SchemaVersion != SchemaVersion {
 		return fmt.Errorf("schema_version must be %d", SchemaVersion)
 	}
 	if m.Name == "" {
@@ -195,22 +195,6 @@ func (m *Manifest) Validate() error {
 	used := map[string]bool{}
 	if err := m.validateAccess(); err != nil {
 		return err
-	}
-	if access, ok := m.Config["access"]; ok && m.SchemaVersion == 1 {
-		if access.Type != "string" || access.If != "" || access.ReauthorizeOnChange != nil {
-			return fmt.Errorf("config.access must be an unconditional string field that reauthorizes on change")
-		}
-		if access.Default != nil && access.Default != "read-only" && access.Default != "read-write" && access.Default != "custom" {
-			return fmt.Errorf("config.access default must be read-only, read-write, or custom")
-		}
-		for _, option := range access.Options {
-			if option.Value != "read-only" && option.Value != "read-write" && option.Value != "custom" {
-				return fmt.Errorf("config.access options must be read-only, read-write, or custom")
-			}
-		}
-		if err := ValidateValue(access, "read-only"); err != nil {
-			return fmt.Errorf("config.access must accept read-only: %w", err)
-		}
 	}
 	for source, fields := range map[string]map[string]Field{"publisher": m.Publisher, "config": m.Config} {
 		for n, f := range fields {
@@ -320,17 +304,11 @@ const (
 	MaxAccessLevels = 4
 )
 
-// validateAccess checks the matrix: version 2 declares access only as rows,
-// each an ordered list of distinct levels that starts with none when it has one.
+// validateAccess checks the matrix: access is declared only as rows, each an
+// ordered list of distinct levels that starts with none when it has one.
 func (m *Manifest) validateAccess() error {
-	if m.SchemaVersion == 1 {
-		if len(m.Access) > 0 {
-			return fmt.Errorf("access rows require schema_version %d", SchemaVersion)
-		}
-		return nil
-	}
 	if _, ok := m.Config["access"]; ok {
-		return fmt.Errorf("config.access is replaced by access rows")
+		return fmt.Errorf("access is declared in top-level access rows, not config.access")
 	}
 	if len(m.Access) > MaxAccessRows {
 		return fmt.Errorf("access allows at most %d rows", MaxAccessRows)
