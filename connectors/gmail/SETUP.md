@@ -6,7 +6,8 @@
      read or unread, apply labels, and create, rename and delete labels.
    - **Drafts**: **Create** lets agents write new drafts. You review and send
      them yourself in Gmail. **Manage** also lets them read, edit and delete
-     your drafts.
+     your drafts. Google's permission for Manage also mentions sending drafts;
+     Houston never sends a draft.
    - **Sending**: **Send** lets agents send new mail and replies from your
      address.
 

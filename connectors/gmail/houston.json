@@ -31,7 +31,7 @@
     {
       "name": "drafts",
       "label": "Drafts",
-      "description": "Create lets agents write new drafts for you to review and send in Gmail. Manage also lets them read, edit and delete your drafts.",
+      "description": "Create lets agents write new drafts for you to review and send in Gmail. Manage also lets them read, edit and delete your drafts. Houston never sends a draft, even though Google's permission for Manage mentions sending.",
       "levels": [
         {
           "value": "none",
