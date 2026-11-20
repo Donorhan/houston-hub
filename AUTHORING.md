@@ -787,9 +787,9 @@ return {
 }
 ```
 
-Scripts call `connection.websites.list({page=1})`. Root `help()` shows immediate
+Scripts call `connection.websites.list({page=1})`. Connection `help()` shows immediate
 functions and namespaces; `connection.websites.help()` shows that namespace's
-index, and `.help("list")` shows the complete function reference. Each scope's
+index, and `.help({section="list"})` shows the complete function reference. Each scope's
 `.functions` and `.namespaces` lists its immediate children. Namespace summaries
 come from child help text unless supplied in the optional `help.namespaces` map.
 Omit disabled operations and their documentation together, and omit namespaces
