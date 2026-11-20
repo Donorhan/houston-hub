@@ -23,9 +23,9 @@ return {
   end
   inspect(c)
   assert(count==184 and branches==34,"full access must discover every operation and namespace")
-  local details=c.websites.analytics.help("metrics")
+  local details=c.websites.analytics.help({section = "metrics"})
   assert(string.find(details,"websiteId",1,true) and string.find(details,"country",1,true))
-  assert(string.find(c.profile.twoFactor.help("status"),"two-factor",1,true))
-  assert(string.find(c.administration.users.twoFactor.help("setPolicy"),"userId",1,true))
+  assert(string.find(c.profile.twoFactor.help({section = "status"}),"two-factor",1,true))
+  assert(string.find(c.administration.users.twoFactor.help({section = "setPolicy"}),"userId",1,true))
  end,
 }

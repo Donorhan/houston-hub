@@ -16,7 +16,7 @@ examples appear when you ask for a function.
 umami.help()                         -- Root resource summaries
 umami.websites.help()                -- Website operations and child namespaces
 umami.websites.analytics.help()      -- Traffic and visitor operations
-umami.websites.analytics.help("metrics") -- Parameters, results and examples
+umami.websites.analytics.help({section = "metrics"}) -- Parameters, results and examples
 
 local sites = umami.websites.list({page = 1, pageSize = 20})
 local pages = umami.websites.analytics.metrics({
