@@ -23,7 +23,7 @@ return {
 		assert(req.method == "POST" and req.url == UPLOAD .. "/drafts?uploadType=multipart", req.url)
 		assert(string.find(req.body, "\r\nTo: ana@example.com\r\n", 1, true) and string.find(req.body, "\r\nSubject: Monday follow-up\r\n", 1, true), req.body)
 
-		responses = {'{"id":"d1"}'}
+		responses = {'{"id":"d1","message":{"id":"m1","threadId":"t1"}}', '{"id":"d1"}'}
 		c.updateDraft({id = "d1", to = "ana@example.com", subject = "Monday follow-up", html = "<p>Hi Ana</p>"})
 		req = requests[#requests]
 		assert(req.method == "PUT" and req.url == UPLOAD .. "/drafts/d1?uploadType=multipart" and string.find(req.body, "text/html", 1, true), req.url)
@@ -32,6 +32,6 @@ return {
 		assert(c.deleteDraft({id = "d1"}).success == true)
 		req = requests[#requests]
 		assert(req.method == "DELETE" and req.url == API .. "/drafts/d1" and req.body == nil, req.url)
-		assert(#requests == 3 and #responses == 0)
+		assert(#requests == 4 and #responses == 0)
 	end,
 }
