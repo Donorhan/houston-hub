@@ -236,7 +236,9 @@ local endpoints: {[string]: DocumentedEndpoint} = {
 
 local function header(headers: any, name: string): string?
 	for _, item in headers or {} do
-		if type(item) == "table" and type(item.name) == "string" and string.lower(item.name) == name then return item.value end
+		if type(item) == "table" and type(item.name) == "string" and string.lower(item.name) == name then
+			return if type(item.value) == "string" then (string.gsub(item.value, "\r?\n[ \t]+", " ")) else item.value
+		end
 	end
 	return nil
 end
@@ -488,16 +490,17 @@ local function compose(name: string, args: Options, replacing: string?): ({strin
 			end
 			cc = if #copied > 0 then table.concat(copied, ", ") else nil
 		end
-	elseif replacing then
-		local current = call(name, "GET", API .. "/drafts/" .. replacing .. "?format=metadata").message or {}
-		local headers = current.payload and current.payload.headers
-		threadId, inReplyTo, references = current.threadId, header(headers, "in-reply-to"), header(headers, "references")
-		subject = if subject == nil then header(headers, "subject") else subject
 	end
 	assert(to, name .. " requires to (or inReplyTo)")
 	assert(args.text ~= nil or args.html ~= nil, name .. " requires text or html")
 	local attachments = if args.attachments == nil then {} else args.attachments
 	assert(type(attachments) == "table", "attachments must be an array")
+	if replacing and args.inReplyTo == nil then
+		local current = call(name, "GET", API .. "/drafts/" .. replacing .. "?format=metadata").message or {}
+		local headers = current.payload and current.payload.headers
+		threadId, inReplyTo, references = current.threadId, header(headers, "in-reply-to"), header(headers, "references")
+		subject = subject or header(headers, "subject")
+	end
 	if subject ~= nil and string.find(subject, "[\128-\255]") then subject = "=?UTF-8?B?" .. base64.encode(subject) .. "?=" end
 	local out = {line("From", args.from) .. line("To", to) .. line("Cc", cc) .. line("Bcc", addresses(args.bcc, "bcc"))
 		.. line("Reply-To", addresses(args.replyTo, "replyTo")) .. line("Subject", subject) .. line("In-Reply-To", inReplyTo)

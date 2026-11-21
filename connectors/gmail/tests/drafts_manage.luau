@@ -20,7 +20,7 @@ return {
 		assert(long.message.body == "Long draft" and long.message.bodyTruncated == true and #requests == 1, "a body stored as an attachment falls back to the snippet, marked truncated, without Messages access")
 
 		local reply = {id = "d1", message = {id = "m1", threadId = "t9", payload = {headers = {
-			{name = "Subject", value = "Re: Plans"}, {name = "In-Reply-To", value = "<o1@example.com>"}, {name = "References", value = "<o0@example.com> <o1@example.com>"},
+			{name = "Subject", value = "Re: Plans"}, {name = "In-Reply-To", value = "<o1@example.com>"}, {name = "References", value = "<o0@example.com>\r\n <o1@example.com>"},
 		}}}}
 		responses = {json.encode(reply), '{"id":"d1","message":{"id":"m2","threadId":"t9"}}'}
 		c.updateDraft({id = "d1", to = "ana@example.com", text = "Edited"})
@@ -31,5 +31,6 @@ return {
 			assert(string.find(body, line, 1, true), "an edited draft keeps " .. line)
 		end
 		assert(#requests == 3 and #responses == 0)
+		assert(not pcall(c.updateDraft, {id = "d1", to = "ana@example.com"}) and #requests == 3, "an update without a body never reaches Google")
 	end,
 }
