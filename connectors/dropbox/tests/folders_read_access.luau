@@ -13,6 +13,9 @@ return {
 		for _, name in {"upload", "createFolder", "move", "copy", "delete", "restore", "getCurrentAccount", "listSharedLinks", "listFileRequests"} do assert(c[name] == nil, "Read folder limits expose " .. name) end
 		assert(type(c.listFolder) == "function" and type(c.download) == "function", "Read folder limits lack reads")
 		assert(c.getMetadata({path = "/Incoming"}).path_lower == "/incoming", "Read folder limits denied a configured folder")
+		assert(fixture.example("getMetadata").path_lower == "/incoming/report.pdf", "example must use a configured folder")
+		local stat = fixture.example("statFile")
+		assert(stat.id == "id:/incoming/report.pdf" and stat.isFolder, "positional example must use a configured folder")
 		assert(not pcall(c.getMetadata, {path = "/Outside"}), "Read folder limits reached an unlisted folder")
 	end,
 }

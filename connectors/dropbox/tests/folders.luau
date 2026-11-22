@@ -158,6 +158,16 @@ return {
 		responses = {{headers = {["dropbox-api-result"] = {'{".tag":"file","path_lower":"/outside/secret.txt","name":"secret.txt"}'}}, body = "MUST NOT ESCAPE"}}
 		reject(c.download, {path = "/Reports/report.txt", session_path = "refused.txt"})
 		assert(not await(fs.exists("refused.txt")), "Unauthorized bytes escaped to the session filesystem")
+		-- Generated examples choose a granted root and retain policy-specific options.
+		responses = {{body = '{"metadata":{".tag":"folder","path_lower":"/incoming/new folder","name":"New folder","id":"id:example"}}'}}
+		assert(fixture.example("createFolder").metadata.id == "id:example")
+		assert(json.decode(requests[#requests].body).path == "/incoming/New folder")
+		responses = {{body = '{"cursor":"example-cursor"}'}}
+		assert(fixture.example("listFolderGetLatestCursor").cursor ~= "example-cursor")
+		assert(json.decode(requests[#requests].body).path == "/incoming")
+		responses = {{body = '{"matches":[],"has_more":false}'}}
+		assert(fixture.example("search").has_more == false)
+		assert(json.decode(requests[#requests].body).options.path == "/incoming")
 		assert(#responses == 0)
 	end,
 }

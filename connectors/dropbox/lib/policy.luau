@@ -223,15 +223,47 @@ return function(raw: string, metadata: (string) -> Object?): any
 		table.insert(lines, "Folder rules must name existing folders in this account's member root. Paths are checked using Dropbox's canonical metadata, including Unicode names. Use ordinary absolute paths, not IDs, namespace aliases or revision paths. Parent folders must exist before creating a child. Search requires options.path. Pagination cursors are Houston tokens, tied to this connection and its current settings; keep them intact. Moves and deletes cannot change a read-only subtree. Autorename, revision downloads, batch/jobs, sharing, file requests and account-wide operations are unavailable in this mode.")
 		return table.concat(lines, "\n")
 	end
-	policy.documentation = function(name: string, doc: string): string
-		doc = string.gsub(doc, "rev%?, ", "")
-		doc = string.gsub(doc, "autorename%?, ", "")
-		doc = string.gsub(doc, ", autorename%?", "")
-		if name == "search" then
-			doc = string.gsub(doc, "options%?=", "options=")
-			doc = string.gsub(doc, "path%?", "path")
+	policy.examplePath = function(write: boolean?): string
+		for _, grant in configured do
+			if not write or grant.access == "read-write" then return grant.path end
 		end
-		return doc
+		return configured[1].path
+	end
+	-- Shape the reference with the same allowlist used by prepare, without resolving customer metadata.
+	policy.schema = function(name: string, input: Object): Object
+		local result = json.decode(json.encode(input))
+		local permitted: {[string]: boolean} = {}
+		for field in string.gmatch(specs[name].fields, "%S+") do permitted[field] = true end
+		for field in result.properties do
+			if not permitted[field] then result.properties[field] = nil end
+		end
+		result.additionalProperties = false
+		local pathSchema = {type = "string", pattern = "^(/[^/].*|)$", description = "Ordinary absolute Dropbox path inside a configured folder; IDs, revision paths and namespace aliases are not accepted. Empty root requires a '/' grant; see folderAccess."}
+		for _, field in {"path", "from_path", "to_path"} do
+			if result.properties[field] then result.properties[field] = pathSchema end
+		end
+		if result.properties.autorename then result.properties.autorename = {const = false, description = "Choose an explicit destination with folder limits."} end
+		if name == "search" then
+			table.insert(result.required, "options")
+			result.properties.options.required = {"path"}
+			result.properties.options.properties.path = pathSchema
+			result.properties.options.properties.account_id = nil
+			result.properties.options.additionalProperties = false
+		end
+		local root = policy.examplePath(specs[name].kind == "write" or specs[name].kind == "move" or specs[name].kind == "copy" or specs[name].kind == "delete" or specs[name].kind == "restore")
+		local function paths(value: Object)
+			for key, item in value do
+				if type(item) == "table" then paths(item)
+				elseif type(item) == "string" and string.sub(item, 1, 8) == "/Reports" then
+					value[key] = root .. string.sub(item, 9)
+				end
+			end
+		end
+		for _, example in result.examples do
+			for field in example do if not permitted[field] then example[field] = nil end end
+			paths(example)
+		end
+		return result
 	end
 	return policy
 end
