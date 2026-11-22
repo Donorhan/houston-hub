@@ -15,6 +15,7 @@ return {
 	run = function(c)
 		for _, name in {"upload", "createFolder", "move", "copy", "delete", "restore", "getCurrentAccount", "listSharedLinks", "listFileRequests"} do assert(c[name] == nil, "All-read-only folder rules expose " .. name) end
 		assert(c.getMetadata({path = "/Incoming"}).path_lower == "/incoming", "Read-only folder policy denied a configured folder")
+		assert(fixture.example("getMetadata").path_lower == "/incoming/report.pdf", "example must respect read-only folder rules")
 		assert(not pcall(c.getMetadata, {path = "/Outside"}), "Read-only folder policy reached an unlisted folder")
 	end,
 }

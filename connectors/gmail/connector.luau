@@ -147,34 +147,91 @@ local function helpWith(overview: {string}): () -> string
 end
 -- End of the shared request layer.
 
+-- Keep Gmail documentation outside the shared Google transport contract.
+local reference = {
+	text = "Gmail API v1 for the connected mailbox. Call operations directly, without await, using Google's camelCase options. Access: messages " .. access.messages .. ", drafts " .. access.drafts .. ", sending " .. access.sending .. ". Only configured operations appear below. Nothing deletes or trashes mail. Use help({section='operationName'}) for a complete signature and example.",
+	functions = {} :: {[string]: any},
+	sections = {errors = "Errors report Google's HTTP status, message and reason. The connector does not retry or page automatically; Houston may retry short HTTP 429 responses."} :: {[string]: string},
+}
+if houston.allows("messages:read") or houston.allows("drafts:manage") then
+	reference.sections.pagination = "Lists return one page. Pass nextPageToken as pageToken until it is absent; resultSizeEstimate is approximate. Use small pages."
+		.. (if houston.allows("messages:read") then " Message lists carry IDs only: fetch details with getMessages or getThread; use metadata reads when scanning mail." else " Draft lists carry IDs only: fetch content with getDraft.")
+end
+if houston.allows("messages:organize") or houston.allows("drafts:create") or houston.allows("sending:send") then
+	reference.sections.errors ..= " A failed or timed-out write may already have succeeded. Inspect the outcome before repeating."
+end
+local STRING = {type = "string"}
+local ID = {type = "string", minLength = 1}
+local STRINGS = {type = "array", items = ID}
+local HISTORY_TYPE: Options = {type = "string", enum = {"messageAdded", "messageDeleted", "labelAdded", "labelRemoved"}}
+local INTEGER = {type = "integer"}
+local function object(properties: Options, required: {string}?, extra: boolean?): Options
+	return {type = "object", properties = properties, required = if required and #required > 0 then required else json.decode("[]"), additionalProperties = extra == true}
+end
+local function input(properties: Options, required: {string}, example: Options): Options
+	local schema = object(properties, required)
+	schema.examples = {example}
+	return schema
+end
+local messageRef = object({id = ID, threadId = ID, labelIds = STRINGS}, {"id"}, true)
+local label = object({id = ID, name = STRING, type = STRING, labelListVisibility = STRING, messageListVisibility = STRING,
+	messagesTotal = INTEGER, messagesUnread = INTEGER, threadsTotal = INTEGER, threadsUnread = INTEGER,
+	color = object({textColor = STRING, backgroundColor = STRING}, nil, true)}, {"id"}, true)
+local draftRef = object({id = ID, message = messageRef}, {"id"}, true)
+local SUCCESS = object({success = {const = true}}, {"success"})
+local PAGE = {type = "integer", minimum = 1, maximum = 500, default = 100}
+local searchProperties = {q = {type = "string", description = "Gmail search syntax, e.g. from:ana@example.com has:attachment."},
+	labelIds = {oneOf = {STRING, STRINGS}}, maxResults = PAGE, pageToken = STRING, includeSpamTrash = {type = "boolean", default = false}}
+local function pageSchema(key: string, item: Options): Options
+	return object({[key] = {type = "array", items = item}, nextPageToken = STRING, resultSizeEstimate = INTEGER}, {key}, true)
+end
+local labelChanges = {id = ID, addLabelIds = {type = "array", items = {type = "string", minLength = 1, ["not"] = {enum = {"TRASH", "SPAM"}}}}, removeLabelIds = STRINGS}
+local labelFields = {name = ID, labelListVisibility = {type = "string", enum = {"labelShow", "labelShowIfUnread", "labelHide"}},
+	messageListVisibility = {type = "string", enum = {"show", "hide"}}, color = object({textColor = STRING, backgroundColor = STRING}, nil, true)}
+
+type DocumentedEndpoint = Endpoint & {inputSchema: Options, outputSchema: Options}
 local SEARCH = {"q", "labelIds", "maxResults", "pageToken", "includeSpamTrash"}
-local endpoints: {[string]: Endpoint} = {
+local endpoints: {[string]: DocumentedEndpoint} = {
 	listLabels = {method = "GET", path = "/labels", access = "messages:read", list = "labels",
-		help = "listLabels() -> {labels={{id, name, type}}}. System labels include INBOX, SENT, DRAFT, SPAM, TRASH, UNREAD, STARRED and IMPORTANT."},
+		help = "Lists all mailbox labels. System labels include INBOX, SENT, DRAFT, SPAM, TRASH, UNREAD, STARRED and IMPORTANT.",
+		inputSchema = input({}, {}, {}), outputSchema = object({labels = {type = "array", items = label}}, {"labels"})},
 	getLabel = {method = "GET", path = "/labels/{id}", access = "messages:read",
-		help = "getLabel({id}) -> label with message and thread counts."},
+		help = "Reads one label, including message and thread counts.",
+		inputSchema = input({id = ID}, {"id"}, {id = "INBOX"}), outputSchema = label},
 	listMessages = {method = "GET", path = "/messages", access = "messages:read", list = "messages", query = SEARCH,
-		help = "listMessages({q?, labelIds?, maxResults?, pageToken?, includeSpamTrash?}) -> {messages={{id, threadId}}, nextPageToken?, resultSizeEstimate}. IDs only: read them with getMessages. q uses Gmail search syntax, e.g. 'from:ana@example.com after:2026/10/01 has:attachment'. maxResults ≤500 (default 100). resultSizeEstimate is not a count."},
+		help = "Searches one page of message IDs and thread IDs. Fetch bodies with getMessages. Pass nextPageToken back as pageToken; resultSizeEstimate is approximate.",
+		inputSchema = input(searchProperties, {}, {q = "is:unread in:inbox", maxResults = 20}), outputSchema = pageSchema("messages", messageRef)},
 	listThreads = {method = "GET", path = "/threads", access = "messages:read", list = "threads", query = SEARCH,
-		help = "listThreads({q?, labelIds?, maxResults?, pageToken?, includeSpamTrash?}) -> {threads={{id, snippet, historyId}}, nextPageToken?}. Read a conversation with getThread."},
+		help = "Searches one page of conversations, returning id, snippet and historyId, without messages. Read a conversation with getThread. Pass nextPageToken as pageToken.",
+		inputSchema = input(searchProperties, {}, {q = "from:ana@example.com", maxResults = 20}), outputSchema = pageSchema("threads", object({id = ID, snippet = STRING, historyId = STRING}, {"id"}, true))},
 	listDrafts = {method = "GET", path = "/drafts", access = "drafts:manage", list = "drafts", query = {"q", "maxResults", "pageToken", "includeSpamTrash"},
-		help = "listDrafts({q?, maxResults?, pageToken?}) -> {drafts={{id, message={id, threadId}}}, nextPageToken?}."},
+		help = "Lists one page of draft IDs and message IDs, without content. Read content with getDraft; pass nextPageToken as pageToken.",
+		inputSchema = input({q = STRING, maxResults = PAGE, pageToken = STRING, includeSpamTrash = {type = "boolean", default = false}}, {}, {maxResults = 20}), outputSchema = pageSchema("drafts", draftRef)},
 	listHistory = {method = "GET", path = "/history", access = "messages:read", list = "history", query = {"startHistoryId", "labelId", "historyTypes", "maxResults", "pageToken"},
-		help = "listHistory({startHistoryId, historyTypes?, labelId?, maxResults?, pageToken?}) -> {history, historyId, nextPageToken?}. Changes since the historyId of a message or thread; 404 means it expired: resync with listMessages."},
+		help = "Lists changes after startHistoryId, in chronological order. Pass nextPageToken as pageToken. An expired history ID returns HTTP 404: resync with listMessages. Keep historyId as a string.",
+		inputSchema = input({startHistoryId = ID, labelId = ID, historyTypes = {oneOf = {HISTORY_TYPE, {type = "array", items = HISTORY_TYPE}}}, maxResults = PAGE, pageToken = STRING}, {"startHistoryId"}, {startHistoryId = "12345", maxResults = 20}),
+		outputSchema = object({history = {type = "array", items = object({id = STRING, messages = {type = "array", items = messageRef}, messagesAdded = {type = "array", items = object({message = messageRef})}, messagesDeleted = {type = "array", items = object({message = messageRef})}, labelsAdded = {type = "array", items = object({message = messageRef, labelIds = STRINGS})}, labelsRemoved = {type = "array", items = object({message = messageRef, labelIds = STRINGS})}}, nil, true)}, historyId = STRING, nextPageToken = STRING}, {"history"}, true)},
 	modifyMessage = {method = "POST", path = "/messages/{id}/modify", access = "messages:organize", body = true,
-		help = "modifyMessage({id, addLabelIds?, removeLabelIds?}) -> message. removeLabelIds={'UNREAD'} marks read; addLabelIds={'UNREAD'} marks unread; removeLabelIds={'INBOX'} archives. Other labels are preserved. Adding TRASH or SPAM is refused: nothing moves mail to Trash or Spam."},
+		help = "Changes labels on one message, preserving other labels. Remove UNREAD to mark read, add UNREAD to mark unread, or remove INBOX to archive. Adding TRASH or SPAM is refused. At most 100 labels per add/remove list.",
+		inputSchema = input(labelChanges, {"id"}, {id = "m1", removeLabelIds = {"UNREAD"}}), outputSchema = messageRef},
 	batchModifyMessages = {method = "POST", path = "/messages/batchModify", access = "messages:organize", body = true,
-		help = "batchModifyMessages({ids, addLabelIds?, removeLabelIds?}) -> {success=true}. Up to 1000 IDs."},
+		help = "Changes labels on up to 1000 message IDs. Remove UNREAD to mark read or INBOX to archive. Adding TRASH or SPAM is refused. An interrupted batch may already have changed mail; inspect before replaying.",
+		inputSchema = input({ids = {type = "array", items = ID, minItems = 1, maxItems = 1000}, addLabelIds = labelChanges.addLabelIds, removeLabelIds = STRINGS}, {"ids"}, {ids = {"m1", "m2"}, removeLabelIds = {"UNREAD"}}), outputSchema = SUCCESS},
 	modifyThread = {method = "POST", path = "/threads/{id}/modify", access = "messages:organize", body = true,
-		help = "modifyThread({id, addLabelIds?, removeLabelIds?}) -> thread. Applies to every message in the conversation."},
+		help = "Changes labels on every message in a conversation. Remove INBOX to archive or UNREAD to mark read. Adding TRASH or SPAM is refused. At most 100 labels per add/remove list. Returns Gmail's raw thread with raw messages, not decoded bodies.",
+		inputSchema = input(labelChanges, {"id"}, {id = "t1", removeLabelIds = {"INBOX"}}), outputSchema = object({id = ID, historyId = STRING, messages = {type = "array", items = messageRef}}, {"id"}, true)},
 	createLabel = {method = "POST", path = "/labels", access = "messages:organize", body = true,
-		help = "createLabel({name, labelListVisibility?, messageListVisibility?, color?}) -> label. Nest with 'Parent/Child' names."},
+		help = "Creates a mailbox label. Use Parent/Child names to nest labels. Colors must be from Gmail's supported palette.",
+		inputSchema = input(labelFields, {"name"}, {name = "Projects/Launch"}), outputSchema = label},
 	updateLabel = {method = "PATCH", path = "/labels/{id}", access = "messages:organize", body = true,
-		help = "updateLabel({id, name?, labelListVisibility?, messageListVisibility?, color?}) -> label."},
+		help = "Updates specified label properties, preserving the others. Colors must be from Gmail's supported palette.",
+		inputSchema = input({id = ID, name = ID, labelListVisibility = labelFields.labelListVisibility, messageListVisibility = labelFields.messageListVisibility, color = labelFields.color}, {"id"}, {id = "Label_1", name = "Projects/Launch"}), outputSchema = label},
 	deleteLabel = {method = "DELETE", path = "/labels/{id}", access = "messages:organize",
-		help = "deleteLabel({id}) -> {success=true}. Removes the label from its messages; the messages remain."},
+		help = "Deletes a user label and removes it from messages. The messages remain.",
+		inputSchema = input({id = ID}, {"id"}, {id = "Label_1"}), outputSchema = SUCCESS},
 	deleteDraft = {method = "DELETE", path = "/drafts/{id}", access = "drafts:manage",
-		help = "deleteDraft({id}) -> {success=true}. Permanently deletes the draft."},
+		help = "Permanently deletes a draft without sending it.",
+		inputSchema = input({id = ID}, {"id"}, {id = "d1"}), outputSchema = SUCCESS},
 }
 
 local function header(headers: any, name: string): string?
@@ -475,7 +532,15 @@ local function submit(name: string, method: string, path: string, args: Options,
 		headers = {["Content-Type"] = {"multipart/related; boundary=\"=_houston_upload\""}}, body = table.concat(body)})))
 end
 
-exportEndpoints(endpoints)
+for name, endpoint in endpoints do
+	if endpoint.access == nil or houston.allows(endpoint.access) then
+		-- Body fields pass through to Gmail; query-only endpoints reject unknown options.
+		endpoint.inputSchema.additionalProperties = endpoint.body == true
+		reference.functions[name] = {description = endpoint.help, inputSchema = endpoint.inputSchema,
+			outputSchema = endpoint.outputSchema, annotations = {readOnlyHint = endpoint.method == "GET", openWorldHint = true}}
+		exports[name] = function(args: Options?): any return invoke(name, endpoint, args) end
+	end
+end
 
 -- Gmail moves a message that gains one of these labels to Trash or Spam, where it is deleted
 -- after 30 days. The proxy cannot read request bodies, so the modify operations refuse them here.
@@ -492,69 +557,140 @@ for _, name in {"modifyMessage", "batchModifyMessages", "modifyThread"} do
 	end
 end
 
-local READ_OPTIONS = "bodyFormat: auto (default) chooses the first nonblank decoded plain text, HTML, then snippet; text or html selects only that format, preserving whitespace and returning an empty string if missing. Whitespace is ignored only when deciding emptiness. format: full (default), metadata (headers only) or minimal; metadataHeaders limits metadata headers; maxBodyBytes caps the selected body (default 65536, 0 for no cap) and sets bodyTruncated."
-export("getMessage", "messages:read", function(input: any): Options
-	local raw, limit, bodyFormat = read("getMessage", "messages", input)
-	return message(raw, limit, bodyFormat)
-end, "getMessage({id, format?, metadataHeaders?, maxBodyBytes?, bodyFormat?}) -> {id, threadId, labelIds, snippet, internalDate, from, to, cc, bcc, replyTo, subject, date, messageId, body, bodyTruncated, attachments={{id, filename, mimeType, size, inline, contentId}}, headers}. " .. READ_OPTIONS)
-export("getMessages", "messages:read", getMessages,
-	"getMessages({ids, format?, metadataHeaders?, maxBodyBytes?, bodyFormat?}) -> messages in the order of ids, each shaped like getMessage. 1 to 100 IDs; use format='metadata' to scan many messages cheaply.")
-export("getThread", "messages:read", function(input: any): Options
-	local thread, limit, bodyFormat = read("getThread", "threads", input)
-	local messages: {Options} = json.decode("[]")
-	for _, raw in thread.messages or {} do table.insert(messages, message(raw, limit, bodyFormat)) end
-	thread.messages = messages
-	return thread
-end, "getThread({id, format?, metadataHeaders?, maxBodyBytes?, bodyFormat?}) -> {id, historyId, messages} with every message of the conversation, oldest first, shaped like getMessage.")
-export("getDraft", "drafts:manage", function(input: any): Options
-	local draft, limit, bodyFormat = read("getDraft", "drafts", input)
-	draft.message = message(draft.message or {}, limit, bodyFormat)
-	return draft
-end, "getDraft({id, format?, maxBodyBytes?, bodyFormat?}) -> {id, message} with message shaped like getMessage. A long body that Gmail stores as an attachment is read only with Messages access at Read; without it, body is the snippet and bodyTruncated is true, so never pass it to updateDraft.")
-export("getAttachment", "messages:read", getAttachment,
-	"getAttachment({messageId, attachmentId, path}) -> {path, url, size}. Saves an attachment (id from a message's attachments) to a session path; url is a signed Houston download link. Never inline attachment bytes.")
-export("listMailFolders", "messages:read", function(...: any): {{id: string, name: string}}
-	assert(select("#", ...) == 0, "listMailFolders takes no arguments")
-	local labels = call("listMailFolders", "GET", API .. "/labels").labels or {}
-	local folders: {{id: string, name: string}} = json.decode("[]")
-	local seen = {}
-	for _, label in labels do
-		if type(label) ~= "table" or type(label.id) ~= "string" or label.id == "" or type(label.name) ~= "string" or seen[label.id] then
-			houston.fail({operation = "listMailFolders", layer = "upstream", retryable = false, message = "Google returned invalid label metadata"})
-		end
-		seen[label.id] = true
-		table.insert(folders, {id = label.id, name = label.name})
-	end
-	table.sort(folders, function(a: any, b: any) return a.id < b.id end)
-	return folders
-end, "listMailFolders() -> {{id, name}} sorted by ID. No arguments; every label of the mailbox.")
+local READ_OPTIONS = "bodyFormat auto (default) chooses the first nonblank decoded plain text, HTML, then snippet; text or html selects only that format, preserving whitespace and returning an empty string if missing. format full (default) decodes the body, metadata returns headers, minimal returns identifiers/labels. metadataHeaders limits metadata headers. maxBodyBytes caps each selected body (default 65536, 0 for no cap), preserving UTF-8 and setting bodyTruncated. A body cap does not bound the whole result; use small batches."
+local readProperties = {id = ID, format = {type = "string", enum = {"full", "metadata", "minimal"}, default = "full"},
+	metadataHeaders = {oneOf = {STRING, STRINGS}}, maxBodyBytes = {type = "integer", minimum = 0, default = 65536},
+	bodyFormat = {type = "string", enum = {"auto", "text", "html"}, default = "auto"}}
+local messageSchema = object({id = ID, threadId = ID, labelIds = STRINGS, snippet = STRING, historyId = STRING,
+	internalDate = {type = "string", description = "Epoch milliseconds, preserved as Google's string."}, sizeEstimate = INTEGER,
+	from = STRING, to = STRING, cc = STRING, bcc = STRING, replyTo = STRING, subject = STRING, date = STRING, messageId = STRING,
+	body = STRING, bodyTruncated = {type = "boolean"},
+	attachments = {type = "array", items = object({id = ID, filename = STRING, mimeType = STRING, size = INTEGER, inline = {type = "boolean"}, contentId = STRING}, {"id", "inline"})},
+	headers = {oneOf = {{type = "array", items = object({name = STRING, value = STRING}, {"name", "value"})}, {type = "object", maxProperties = 0}} :: {Options}}}, {"labelIds", "body", "bodyTruncated", "attachments", "headers"})
+if houston.allows("messages:read") or houston.allows("drafts:manage") then reference.sections.reading = READ_OPTIONS end
 
-local COMPOSE = "to, cc, bcc and replyTo take an address ('Ana <ana@example.com>') or an array of them; from is only for a Gmail send-as address the person names; Gmail replaces any other address with the mailbox's own, which is also the default. text and/or html are required. attachments={'path' or {path, filename?, mimeType?}} reads session files; the message must stay under 8 MiB (about 5 MiB of attachments), so share larger files from Drive. inReplyTo=<Gmail message id> replies in that thread and needs Messages access at Read: to, subject (Re:) and threading headers default from the original; replyAll=true also copies its To and Cc (except you) into cc."
-local FIELDS = "to, subject?, text?, html?, cc?, bcc?, replyTo?, from?, attachments?, inReplyTo?, replyAll?"
-export("sendMessage", "sending:send", function(input: any): any
-	return submit("sendMessage", "POST", "/messages/send", options(input), false)
-end, "sendMessage({" .. FIELDS .. "}) -> {id, threadId, labelIds}. " .. COMPOSE .. " A timeout may still have sent the mail: " .. (if houston.allows("messages:read") then "check the SENT label before retrying." else "this connection cannot read the SENT label, so tell the person before retrying."))
-export("createDraft", "drafts:create", function(input: any): any
-	return submit("createDraft", "POST", "/drafts", options(input), true)
-end, "createDraft({" .. FIELDS .. "}) -> {id, message={id, threadId}}. Saves without sending; the person reviews and sends it from Gmail. " .. COMPOSE)
-export("updateDraft", "drafts:manage", function(input: any): any
-	local args = options(input)
-	local id = text(args.id, "id")
-	args.id = nil
-	return submit("updateDraft", "PUT", "/drafts/" .. url.segment(id, "id"), args, true)
-end, "updateDraft({id, ...createDraft options}) -> draft. Replaces the draft's whole content.")
-
-local overview = {
-	"Gmail API v1 for the connected mailbox. Operations take one named options object with Google's camelCase fields. Lists and label operations return Google's JSON unchanged; deletes return {success=true}.",
-	"This connection's access: messages " .. access.messages .. ", drafts " .. access.drafts .. ", sending " .. access.sending .. ". Only the operations it allows are listed, and none deletes or trashes mail."
-		.. (if houston.allows("drafts:create") and not houston.allows("sending:send") then " It cannot send: save drafts for the person to review and send from Gmail." else ""),
-	"Message reads decode bodies and list attachment metadata; attachments download to session files. Composing builds the MIME message from plain fields: never base64-encode anything yourself.",
-	"Lists return one page: pass nextPageToken as pageToken until it is absent.",
-	"No hidden paging or retries. Errors report the HTTP status, Google's message and reason. A failed or timed-out write may already have succeeded; check before repeating.",
-}
 if houston.allows("messages:read") then
-	table.insert(overview, "Message and thread lists carry IDs only; fetch details with getMessages or getThread.")
-	table.insert(overview, "Example: local page = listMessages({q='is:unread in:inbox', maxResults=20}); local ids = {}; for _, m in page.messages do table.insert(ids, m.id) end; getMessages({ids=ids, format='metadata', metadataHeaders={'From','Subject'}}).")
+	reference.functions.getMessage = {
+		description = "Reads one message with decoded body, envelope headers and attachment metadata; it does not return Gmail's MIME payload. " .. READ_OPTIONS,
+		inputSchema = input(readProperties, {"id"}, {id = "m1", maxBodyBytes = 4096}), outputSchema = messageSchema,
+		annotations = {readOnlyHint = true, openWorldHint = true},
+	}
+	function exports.getMessage(input: any): Options
+		local raw, limit, bodyFormat = read("getMessage", "messages", input)
+		return message(raw, limit, bodyFormat)
+	end
+
+	local batchReadProperties: Options = table.clone(readProperties)
+	batchReadProperties.id = nil
+	batchReadProperties.ids = {type = "array", items = ID, minItems = 1, maxItems = 100}
+	reference.functions.getMessages = {
+		description = "Reads 1 to 100 messages in input ID order. Returns an array of {id, threadId, labelIds, snippet?, historyId?, internalDate?, sizeEstimate?, from?, to?, cc?, bcc?, replyTo?, subject?, date?, messageId?, body, bodyTruncated, attachments={{id, filename?, mimeType?, size?, inline, contentId?}}, headers={{name,value}}}. Batches run with at most 10 requests in flight. Use metadata to scan cheaply. " .. READ_OPTIONS,
+		inputSchema = input(batchReadProperties, {"ids"}, {ids = {"m1", "m2"}, format = "metadata", metadataHeaders = {"From", "Subject"}}),
+		annotations = {readOnlyHint = true, openWorldHint = true},
+	}
+	exports.getMessages = getMessages
+
+	reference.functions.getThread = {
+		description = "Reads every message in a conversation, oldest first. Each message has the decoded shape described by getMessage. " .. READ_OPTIONS,
+		inputSchema = input(readProperties, {"id"}, {id = "t1", maxBodyBytes = 4096}),
+		outputSchema = object({id = ID, historyId = STRING, messages = {type = "array", items = messageSchema}}, {"messages"}, true),
+		annotations = {readOnlyHint = true, openWorldHint = true},
+	}
+	function exports.getThread(input: any): Options
+		local thread, limit, bodyFormat = read("getThread", "threads", input)
+		local messages: {Options} = json.decode("[]")
+		for _, raw in thread.messages or {} do table.insert(messages, message(raw, limit, bodyFormat)) end
+		thread.messages = messages
+		return thread
+	end
+
+	reference.functions.getAttachment = {
+		description = "Streams an attachment into a session file. attachmentId comes from a message's attachments[].id. Returns path, signed Houston download url and byte size; never inline attachment bytes.",
+		inputSchema = input({messageId = ID, attachmentId = ID, path = ID}, {"messageId", "attachmentId", "path"}, {messageId = "m1", attachmentId = "a1", path = "files/report.pdf"}),
+		outputSchema = object({path = STRING, url = STRING, size = INTEGER}, {"path", "url", "size"}),
+		annotations = {readOnlyHint = true, openWorldHint = true},
+	}
+	exports.getAttachment = getAttachment
+
+	reference.functions.listMailFolders = {
+		description = "Lists every mailbox label as an array of {id, name}, sorted by ID. Takes no arguments.",
+		args = {}, inputSchema = input({}, {}, {}), annotations = {readOnlyHint = true, openWorldHint = true},
+	}
+	function exports.listMailFolders(...: any): {{id: string, name: string}}
+		assert(select("#", ...) == 0, "listMailFolders takes no arguments")
+		local labels = call("listMailFolders", "GET", API .. "/labels").labels or {}
+		local folders: {{id: string, name: string}} = json.decode("[]")
+		local seen = {}
+		for _, label in labels do
+			if type(label) ~= "table" or type(label.id) ~= "string" or label.id == "" or type(label.name) ~= "string" or seen[label.id] then
+				houston.fail({operation = "listMailFolders", layer = "upstream", retryable = false, message = "Google returned invalid label metadata"})
+			end
+			seen[label.id] = true
+			table.insert(folders, {id = label.id, name = label.name})
+		end
+		table.sort(folders, function(a: any, b: any) return a.id < b.id end)
+		return folders
+	end
 end
-exports.help = helpWith(overview)
+
+if houston.allows("drafts:manage") then
+	reference.functions.getDraft = {
+		description = "Reads a draft with its message decoded like getMessage. " .. READ_OPTIONS .. " Long bodies stored as attachments require Messages Read access. Without it, bodyTruncated is true; auto can fall back to the snippet. Never replace a draft with incomplete content.",
+		inputSchema = input(readProperties, {"id"}, {id = "d1", maxBodyBytes = 4096}),
+		outputSchema = object({id = ID, message = messageSchema}, {"message"}, true), annotations = {readOnlyHint = true, openWorldHint = true},
+	}
+	function exports.getDraft(input: any): Options
+		local draft, limit, bodyFormat = read("getDraft", "drafts", input)
+		draft.message = message(draft.message or {}, limit, bodyFormat)
+		return draft
+	end
+end
+
+local COMPOSE = "Builds MIME from plain fields; do not encode anything yourself. to, cc, bcc and replyTo accept an address or an array. from must be a Gmail send-as address; otherwise Gmail replaces it with the mailbox address, also the default. Supply to or inReplyTo, and nonempty text and/or html. Attachments read session files. Keep the encoded message under 8 MiB (about 5 MiB of attachments); share larger files from Drive. inReplyTo is a Gmail message ID and requires Messages Read: recipients, Re: subject and threading headers default from the original. replyAll=true also copies its To/Cc except yourself; explicit cc overrides that default."
+local addressSchema = {oneOf = {ID, {type = "array", items = ID, minItems = 1}} :: {Options}}
+local composeProperties = {to = addressSchema, cc = addressSchema, bcc = addressSchema, replyTo = addressSchema, from = STRING,
+	subject = STRING, text = ID, html = ID, inReplyTo = ID, replyAll = {type = "boolean", default = false},
+	attachments = {type = "array", items = {oneOf = {ID, object({path = ID, filename = ID, mimeType = ID}, {"path"}, true)}}}}
+local function composeInput(update: boolean): Options
+	local properties = table.clone(composeProperties)
+	local example: Options = {to = "ana@example.com", subject = "Launch plan", text = "Please review the launch plan."}
+	if update then properties.id, example.id = ID, "d1" end
+	local schema = input(properties, if update then {"id"} else {}, example)
+	schema.allOf = {{anyOf = {{required = {"to"}}, {required = {"inReplyTo"}}}}, {anyOf = {{required = {"text"}}, {required = {"html"}}}}}
+	return schema
+end
+if houston.allows("drafts:create") or houston.allows("sending:send") then reference.sections.composing = COMPOSE end
+
+if houston.allows("sending:send") then
+	reference.functions.sendMessage = {
+		description = "Sends a new message or reply immediately. " .. COMPOSE .. " A timeout may still have sent mail: " .. (if houston.allows("messages:read") then "check SENT before retrying." else "this connection cannot read SENT; tell the person before retrying."),
+		inputSchema = composeInput(false), outputSchema = messageRef, annotations = {readOnlyHint = false, openWorldHint = true},
+	}
+	function exports.sendMessage(input: any): any
+		return submit("sendMessage", "POST", "/messages/send", options(input), false)
+	end
+end
+if houston.allows("drafts:create") then
+	reference.functions.createDraft = {
+		description = "Saves a draft without sending; the person reviews and sends it from Gmail. " .. COMPOSE,
+		inputSchema = composeInput(false), outputSchema = draftRef, annotations = {readOnlyHint = false, openWorldHint = true},
+	}
+	function exports.createDraft(input: any): any
+		return submit("createDraft", "POST", "/drafts", options(input), true)
+	end
+end
+if houston.allows("drafts:manage") then
+	reference.functions.updateDraft = {
+		description = "Replaces the draft's entire content without sending. Include every recipient, body and attachment you want to retain; never copy a truncated body. " .. COMPOSE,
+		inputSchema = composeInput(true), outputSchema = draftRef, annotations = {readOnlyHint = false, openWorldHint = true},
+	}
+	function exports.updateDraft(input: any): any
+		local args = options(input)
+		local id = text(args.id, "id")
+		args.id = nil
+		return submit("updateDraft", "PUT", "/drafts/" .. url.segment(id, "id"), args, true)
+	end
+end
+
+exports.help = reference
 return exports
