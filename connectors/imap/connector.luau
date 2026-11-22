@@ -144,7 +144,7 @@ if DRAFTS then
 end
 
 if DRAFTS then
-	help.updateDraft = "updateDraft({id, ...createDraft fields}) -> {id?, folder, messageId}. Replaces a draft (a message flagged \\Draft or in the drafts folder) with a new version built only from the given fields, so pass every field to keep. Saves the new version in the drafts folder first, then moves the old one to the trash. The draft gets a new id; fields work as in createDraft." .. WRITE_NOTE
+	help.updateDraft = "updateDraft({id, ...createDraft fields}) -> {id?, folder, messageId}. Replaces a draft (a message flagged \\Draft or in the drafts folder) with a new version built from the given fields, so pass every field to keep. It stays in its conversation (In-Reply-To and References are kept) and keeps its subject when none is given; inReplyTo moves it into that message's conversation instead. Saves the new version in the drafts folder first, then moves the old one to the trash. The draft gets a new id; fields work as in createDraft." .. WRITE_NOTE
 	function exports.updateDraft(input: any): any
 		return draft("updateDraft", input, true)
 	end
