@@ -12,6 +12,8 @@ local MAX_ID = "18446744073709551615"
 local MIB = 1024 * 1024
 -- Houston's transport carries at most 256 MiB per request, multipart headers included.
 local MAX_UPLOAD = 250 * MIB
+-- Discord's per-file upload limit; boost levels 2 and 3 raise it.
+local DEFAULT_UPLOAD = 20 * MIB
 -- Captured by Houston from the install's token exchange. The proxy pins every guild route to
 -- it; channel routes carry no guild, so inGuild below checks each channel against it first.
 local GUILD: string? = if auth.facts then auth.facts.guild_id else nil
@@ -115,11 +117,10 @@ local function attachment(value: any, field: string): any
 	end
 	local path = text(value.path, field .. ".path", 1024)
 	local filename = text(value.filename or string.match(path, "[^/]+$") or path, field .. ".filename", 255)
-	assert(string.find(filename, "[%c/\\]") == nil, "discord: " .. field .. ".filename must not contain slashes or control characters")
+	assert(string.find(filename, '[%c/\\"]') == nil, "discord: " .. field .. ".filename must not contain slashes, double quotes or control characters")
 	local description = if value.description == nil then nil else text(value.description, field .. ".description", 1024)
-	assert(await(fs.exists(path)), "discord: " .. field .. ".path " .. path .. " is not a session file")
-	local stat = await(fs.stat(path))
-	assert(stat.isFile, "discord: " .. field .. ".path " .. path .. " is not a file")
+	local found, stat = pcall(function() return await(fs.stat(path)) end)
+	assert(found and stat.isFile, "discord: " .. field .. ".path " .. path .. " is not a session file")
 	return {path = path, filename = filename, description = description, size = stat.size}
 end
 
@@ -201,8 +202,9 @@ local function fail(operation: string, response: HttpResponse, write: boolean, g
 	elseif status == 403 and code == 50013 then
 		message = "discord: Houston's bot lacks a Discord permission for this action (code 50013); a server admin can grant it in the channel or role settings"
 	elseif status == 413 or code == 40005 or code == 50045 then
+		local detail = if body then firstError(body.errors, "", 0) else nil
 		message = "discord: Discord rejected the request as too large" .. (if code then " (code " .. code .. ")" else "")
-			.. "; send fewer or smaller files or embeds"
+			.. (if detail then ": " .. detail else "") .. "; send fewer or smaller files or embeds"
 	else
 		message = "discord: " .. (if body and type(body.message) == "string" then string.sub(body.message, 1, 200) else "HTTP " .. status)
 		if code and code ~= 0 then message ..= " (code " .. code .. ")" end
@@ -365,7 +367,7 @@ end
 -- Discord's per-file upload limit: 20 MiB, raised by the server's boost level (premium_tier).
 local function uploadLimit(operation: string): number
 	local tier = call(operation, "GET", guild(operation, "")).premium_tier
-	return if tier == 3 then 100 * MIB elseif tier == 2 then 50 * MIB else 20 * MIB
+	return if tier == 3 then 100 * MIB elseif tier == 2 then 50 * MIB else DEFAULT_UPLOAD
 end
 
 -- Posts body as JSON, or with files as multipart: payload_json plus files[n], which
@@ -373,11 +375,15 @@ end
 local function post(operation: string, channel: string, body: Options): Options
 	local files = body.files
 	if files == nil then return call(operation, "POST", channelPath(operation, channel, "/messages"), nil, body) end
-	local total = 0
-	for _, file in files do total += file.size end
+	local total, largest = 0, 0
+	for _, file in files do
+		total += file.size
+		largest = math.max(largest, file.size)
+	end
 	assert(total <= MAX_UPLOAD, "discord: the files total more than " .. MAX_UPLOAD / MIB .. " MiB, Houston's upload limit; send them in several messages")
 	local path = channelPath(operation, channel, "/messages")
-	local limit = uploadLimit(operation)
+	-- Only files over the default limit need the server's boost level.
+	local limit = if largest > DEFAULT_UPLOAD then uploadLimit(operation) else DEFAULT_UPLOAD
 	body.files, body.attachments = nil, table.create(#files)
 	for index, file in files do
 		assert(file.size <= limit, string.format("discord: %s is %.1f MiB; this server accepts files up to %d MiB each",

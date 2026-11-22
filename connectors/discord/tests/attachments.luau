@@ -36,13 +36,11 @@ return {
 			for _, chunk in {...} do await(file:write(chunk)) end
 			await(file:close())
 		end
-		-- The checked channel, then the server's boost level, then the upload.
-		function uploaded(first)
-			for index, path in {"channels/" .. C, "guilds/" .. G} do
-				local req = requests[first + index - 1]
-				assert(req.method == "GET" and req.url == API .. path, "expected GET " .. path .. " before the upload")
-			end
-			local req = requests[first + 2]
+		-- Files within the default limit need only the channel check before the upload.
+		function uploaded(before)
+			assert(#requests == before + 2, "expected the channel check and the upload only")
+			local check, req = requests[before + 1], requests[before + 2]
+			assert(check.method == "GET" and check.url == API .. "channels/" .. C, "the channel is checked before the upload")
 			assert(req.method == "POST" and req.url == API .. "channels/" .. C .. "/messages")
 			assert(req.headers["User-Agent"][1] == "DiscordBot (https://ok-houston.com, 1.0)" and req.headers.Authorization == nil)
 			local form = table.remove(forms, 1)
@@ -76,11 +74,11 @@ return {
 		write("outputs/contract.pdf", "%PDF-1.7 contract")
 		write("outputs/contrat.pdf", "%PDF-1.7 contrat\r\n--fake-boundary\r\n")
 
-		responses = {CHANNEL, server(0), POSTED}
+		responses = {CHANNEL, POSTED}
 		local files = {{path = "outputs/contract.pdf", filename = "Contract (EN).pdf", description = "English draft"}, "outputs/contrat.pdf"}
 		local posted = discord.postMessage(C, "Contract drafts", {files = files})
 		assert(posted.attachments[1].filename == "Contract (EN).pdf" and posted.attachments[1].size == 17, "the posted message keeps its attachments")
-		local body, sent = uploaded(1)
+		local body, sent = uploaded(0)
 		assert(body.content == "Contract drafts" and body.files == nil and json.encode(body.allowed_mentions.parse) == "[]")
 		assert(#body.attachments == 2 and body.attachments[1].id == 0 and body.attachments[1].filename == "Contract (EN).pdf"
 			and body.attachments[1].description == "English draft", "attachments[0] describes files[0]")
@@ -90,9 +88,10 @@ return {
 		assert(sent[2].filename == "contrat.pdf" and sent[2].data == "%PDF-1.7 contrat\r\n--fake-boundary\r\n", "file bytes are sent unchanged")
 		assert(type(files[2]) == "string" and files[1].size == nil, "options are not mutated")
 
-		responses = {CHANNEL, server(1), POSTED}
+		responses = {CHANNEL, POSTED}
+		local before = #requests
 		discord.reply(C, M, "", {files = "outputs/contract.pdf", allowed_mentions = {replied_user = true}})
-		body, sent = uploaded(4)
+		body, sent = uploaded(before)
 		assert(body.content == nil and body.message_reference.message_id == M and body.allowed_mentions.replied_user == true,
 			"a reply can carry only files")
 		assert(#sent == 1 and sent[1].filename == "contract.pdf")
@@ -104,22 +103,25 @@ return {
 		await(big:close())
 		for tier, limit in {[1] = 20, [2] = 50} do
 			responses = {CHANNEL, server(tier)}
-			local before = #requests
+			before = #requests
 			local ok, err = pcall(discord.postMessage, C, "Big", {files = {"outputs/contract.pdf", "big.bin"}})
 			assert(not ok and string.find(tostring(err), "big.bin is 50.1 MiB; this server accepts files up to " .. limit .. " MiB each", 1, true), tostring(err))
-			assert(#requests == before + 2 and #responses == 0, "an oversized file is refused before anything is uploaded")
+			assert(#requests == before + 2 and requests[before + 2].url == API .. "guilds/" .. G and #responses == 0,
+				"a file over the default limit reads the boost level and is refused before anything is uploaded")
 		end
 		skipBody = true
 		responses = {CHANNEL, server(3), POSTED}
+		before = #requests
 		discord.postMessage(C, nil, {files = {"big.bin"}})
-		assert(#requests == 13 and requests[13].method == "POST", "boost level 3 accepts files over 50 MiB")
+		assert(#requests == before + 3 and requests[before + 3].method == "POST", "boost level 3 accepts files over 50 MiB")
 		skipBody = false
 		assert(string.find(rejected(discord.postMessage, C, "Big", {files = table.create(5, "big.bin")}), "more than 250 MiB", 1, true),
 			"files over Houston's total upload limit are refused before any request")
 
 		responses = {'{"id":"' .. C .. '","type":0,"guild_id":"390926798626357000"}'}
+		before = #requests
 		local ok = pcall(discord.postMessage, C, "Hi", {files = {"outputs/contract.pdf"}})
-		assert(not ok and #requests == 14 and #responses == 0, "another server's channel is refused before the upload")
+		assert(not ok and #requests == before + 1 and #responses == 0, "another server's channel is refused before the upload")
 
 		write("folder/inside.txt", "x")
 		rejected(discord.postMessage, C, "", {})
@@ -131,6 +133,7 @@ return {
 		rejected(discord.postMessage, C, "Hi", {files = {"outputs/"}})
 		rejected(discord.postMessage, C, "Hi", {files = {{path = "outputs/contract.pdf", filename = "a/b.pdf"}}})
 		rejected(discord.postMessage, C, "Hi", {files = {{path = "outputs/contract.pdf", filename = "a\nb.pdf"}}})
+		rejected(discord.postMessage, C, "Hi", {files = {{path = "outputs/contract.pdf", filename = 'a"b.pdf'}}})
 		rejected(discord.postMessage, C, "Hi", {files = {{path = "outputs/contract.pdf", description = string.rep("x", 1025)}}})
 		assert(string.find(rejected(discord.postMessage, C, "Hi", {files = {{path = "outputs/contract.pdf", spoiler = true}}}),
 			"use path, filename or description", 1, true))

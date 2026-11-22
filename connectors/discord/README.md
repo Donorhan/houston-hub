@@ -10,9 +10,9 @@ for a topic, or look up who a member is and which roles they have.
 
 With write access, agents can also take part: post an announcement,
 reply to a question, share files such as a PDF, start a thread, react with an
-emoji, or edit and delete what they posted. Everything they post appears as Houston's bot, never as you,
-and does not ping anyone unless the agent deliberately mentions specific people
-or roles.
+emoji, or edit and delete what they posted. Everything they post appears as
+Houston's bot, never as you, and does not ping anyone unless the agent
+deliberately mentions specific people or roles.
 
 Houston adds its bot to one server you choose. Each connection covers that one
 server, and Houston cannot see servers it was not added to, or the channels its
