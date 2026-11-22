@@ -38,6 +38,10 @@ return {
 			function() discord.getMember("80351110224678912") end)
 		upstream({CHANNEL, {403, '{"message":"Missing Permissions","code":50013}'}},
 			{"lacks a Discord permission for this action (code 50013)", '"upstream_status":403', '"retryable":false'}, post)
+		upstream({CHANNEL, {413, '{"message":"Request entity too large","code":40005}'}},
+			{"Discord rejected the request as too large (code 40005); send fewer or smaller files or embeds", '"upstream_status":413', '"retryable":false'}, post)
+		upstream({CHANNEL, {413, "<html>413 Request Entity Too Large</html>"}}, {"Discord rejected the request as too large; send fewer"}, post)
+		upstream({CHANNEL, {400, '{"message":"File uploaded exceeds the maximum size","code":50045}'}}, {"too large (code 50045)", '"upstream_status":400'}, post)
 		upstream({CHANNEL, {403, '{"message":"Missing Access","code":50001}'}}, {"discord: Missing Access (code 50001)"},
 			function() discord.getMessage(C, M) end)
 		upstream({CHANNEL, {400, '{"message":"Invalid Form Body","code":50035,"errors":{"embeds":{"0":{"title":{"_errors":[{"code":"BASE_TYPE_MAX_LENGTH","message":"Must be 256 or fewer in length."}]}}}}}'}},

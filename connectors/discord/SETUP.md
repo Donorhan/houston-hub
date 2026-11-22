@@ -15,9 +15,10 @@ is required.
 
 Discord grants the same bot permissions at either access level; Houston blocks
 writes on connections with **Read** access. Adjust the bot's role/channel permissions to
-restrict reading, posting, threads or reactions. Missing messages may mean the bot
-lacks **View Channels** or **Read Message History**; contact Houston support if
-message text is empty despite those permissions.
+restrict reading, posting, file uploads, threads or reactions. If Houston joined your
+server before it could share files, give its role **Attach Files** so agents can post
+files. Missing messages may mean the bot lacks **View Channels** or **Read Message
+History**; contact Houston support if message text is empty despite those permissions.
 
 Each connection covers one server; add another for a different server. Changing
 Houston's access level does not change the bot's Discord permissions.
