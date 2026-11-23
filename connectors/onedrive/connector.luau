@@ -193,7 +193,7 @@ and so are 503 and other transient server errors on reads; a full drive (507) is
 already have succeeded: check before repeating.]],
 	functions = {} :: {[string]: any},
 }
-local files = namespace((if WRITES then "Read, upload, change, copy, delete and share drive items" else "Read, search and download drive items")
+local files = namespace((if WRITES then "Read, search, download, upload, change, copy, delete and share drive items" else "Read, search and download drive items")
 	.. ": files and folders, addressed by itemId or path.")
 local exports: {[string]: any} = {help = help, files = files}
 
