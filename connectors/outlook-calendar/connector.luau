@@ -6,7 +6,6 @@
 type Options = {[string]: any}
 type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?}
 local GRAPH = "https://graph.microsoft.com/v1.0"
-local API = GRAPH .. "/me"
 -- Preauthenticated OneDrive download links, under either annotation, work without credentials,
 -- so results never carry them.
 local SIGNED = {"@microsoft.graph.downloadUrl", "@content.downloadUrl"}
@@ -142,9 +141,10 @@ local function nextLink(name: string, args: Options, ending: string): string?
 	return pageLink(link, ending)
 end
 
--- One Graph request built from args: {field} placeholders take URL-encoded path segments, query
--- names the query fields and, with body, the other fields form the JSON body. A list (the Lua
--- pattern its path ends with) also accepts nextLink and always returns a value array.
+-- One Graph request built from args, on a path under v1.0 such as /me/events: {field} placeholders
+-- take URL-encoded path segments, query names the query fields and, with body, the other fields
+-- form the JSON body. A list (the Lua pattern its path ends with) also accepts nextLink and always
+-- returns a value array.
 local function request(name: string, method: string, path: string, input: any, spec: Spec?): any
 	local args = options(input)
 	local s: Spec = spec or {}
@@ -159,43 +159,51 @@ local function request(name: string, method: string, path: string, input: any, s
 			args[field] = nil
 			return value
 		end)
-		href = API .. route .. query(args, s.query or {})
+		href = GRAPH .. route .. query(args, s.query or {})
 		if not s.body then done(name, args) end
 	end
 	local result = call(name, method, href :: string, if s.body then args else nil, s.headers)
 	if s.list and result.value == nil then result.value = json.decode("[]") end
 	return result
 end
+
+-- An operation namespace, whose help lists the functions added to it.
+local function namespace(text: string): Options
+	return {help = {text = text, functions = {} :: {[string]: any}}}
+end
 -- End of the shared request layer.
 
--- Summary fields for event lists; getEvent returns every field.
+-- Summary fields for event lists; events.get returns every field.
 local LIST = "id,subject,start,end,isAllDay,location,organizer,attendees,showAs,responseStatus,isOrganizer,isCancelled,type,seriesMasterId,onlineMeeting,webLink,bodyPreview,categories,sensitivity"
 local VIEW_QUERY = {"startDateTime", "endDateTime", "$select", "$filter", "$orderby", "$top", "$skip"}
 
+local WRITES = houston.allows("data:write")
 local help = {
 	text = [[Microsoft Graph v1.0 for the connected account's Outlook calendars. Operations take one named
 options object with Graph's camelCase fields and return Graph's JSON unchanged; deletes and replies
 return {success=true}. Connector calls return completed values: use them directly, without await.
-calendarId defaults to the user's default calendar; other IDs come from listCalendars. Events of a
+calendarId defaults to the user's default calendar; other IDs come from calendars.list. Events of a
 calendar someone shared take its calendarId as well as their id. Event times are
 {dateTime='2026-11-12T10:00:00', timeZone='Romance Standard Time'}; reads return UTC unless timeZone
 names another zone. Use Windows time zone names, such as 'UTC', 'Romance Standard Time' (Paris) or
 'Eastern Standard Time': Graph accepts only some IANA names.
 Luau reserves end: write event['end'] and {['end']=...}.
 Lists return one page: while ['@odata.nextLink'] is present, pass it back as nextLink (alone, with
-timeZone or bodyFormat if used). Example: listEvents({startDateTime='2026-11-09T00:00:00Z',
+timeZone or bodyFormat if used). Example: events.list({startDateTime='2026-11-09T00:00:00Z',
 endDateTime='2026-11-16T00:00:00Z', timeZone='Romance Standard Time', top=100}).
 Houston itself retries only a short 429 wait. Errors report the HTTP status and Graph's code and
 message, e.g. 'Microsoft Graph HTTP 404 (ErrorItemNotFound)'; 429 is retryable, and so are
-503 and other transient server errors on reads. Graph serves at most 4 concurrent requests per mailbox.]] .. (if houston.allows("data:write") then [[
+503 and other transient server errors on reads. Graph serves at most 4 concurrent requests per mailbox.]] .. (if WRITES then [[
 
 Writes change only events, not calendars or their sharing. Outlook emails attendees when the
 organizer creates, changes or cancels a meeting, and the organizer when an attendee replies with
-sendResponse. A failed or timed-out write may already have succeeded: check with listEvents before
-repeating it, or retry createEvent with the same transactionId, which avoids a duplicate event.]] else ""),
+sendResponse. A failed or timed-out write may already have succeeded: check with events.list before
+repeating it, or retry events.create with the same transactionId, which avoids a duplicate event.]] else ""),
 	functions = {} :: {[string]: any},
 }
-local exports: {[string]: any} = {help = help}
+local calendars = namespace("Read calendars and the free/busy schedules of people and rooms.")
+local events = namespace(if WRITES then "Read, create, change and cancel events, and answer invitations." else "Read events and the occurrences of recurring series.")
+local exports: {[string]: any} = {help = help, calendars = calendars, events = events}
 
 -- Schemas and hints shared by several operations.
 local ID = {type = "string", minLength = 1}
@@ -308,11 +316,11 @@ end
 -- An event, or one of its actions, by id; events of a calendar someone shared are reached through
 -- that calendar.
 local function event(args: Options, action: string): string
-	return (if args.calendarId == nil then "/events/{id}" else "/calendars/{calendarId}/events/{id}") .. action
+	return (if args.calendarId == nil then "/me/events/{id}" else "/me/calendars/{calendarId}/events/{id}") .. action
 end
 
-help.functions.listCalendars = {
-	description = "One page of the user's calendars: {value={{id, name, color, isDefaultCalendar, canEdit, owner, allowedOnlineMeetingProviders, ...}}, ['@odata.nextLink']?}. Calendars others shared with the user are listed too; a shared custom calendar's events are readable" .. (if houston.allows("data:write") then ", and changeable where canEdit is true" else "") .. ", but a colleague's main calendar may refuse access.",
+calendars.help.functions.list = {
+	description = "One page of the user's calendars: {value={{id, name, color, isDefaultCalendar, canEdit, owner, allowedOnlineMeetingProviders, ...}}, ['@odata.nextLink']?}. Calendars others shared with the user are listed too; a shared custom calendar's events are readable" .. (if WRITES then ", and changeable where canEdit is true" else "") .. ", but a colleague's main calendar may refuse access.",
 	inputSchema = {
 		type = "object",
 		properties = {select = SELECT, filter = {type = "string"}, top = {type = "integer", minimum = 1}, nextLink = NEXT},
@@ -321,11 +329,11 @@ help.functions.listCalendars = {
 	},
 	annotations = READ,
 }
-function exports.listCalendars(args: Options?): Options
-	return request("listCalendars", "GET", "/calendars", args, {list = "/calendars$", query = {"$select", "$filter", "$top"}})
+function calendars.list(args: Options?): Options
+	return request("calendars.list", "GET", "/me/calendars", args, {list = "/calendars$", query = {"$select", "$filter", "$top"}})
 end
 
-help.functions.getCalendar = {
+calendars.help.functions.get = {
 	description = "One calendar, the default one unless calendarId names another: {id, name, color, isDefaultCalendar, canEdit, owner, ...}.",
 	inputSchema = {
 		type = "object",
@@ -335,15 +343,15 @@ help.functions.getCalendar = {
 	},
 	annotations = READ,
 }
-function exports.getCalendar(input: any): Options
+function calendars.get(input: any): Options
 	local args = options(input)
-	return request("getCalendar", "GET", if args.calendarId == nil then "/calendar" else "/calendars/{calendarId}", args, {query = {"$select"}})
+	return request("calendars.get", "GET", if args.calendarId == nil then "/me/calendar" else "/me/calendars/{calendarId}", args, {query = {"$select"}})
 end
 
-help.functions.listEvents = {
+events.help.functions.list = {
 	description = [[One page of the events overlapping [startDateTime, endDateTime), recurring ones expanded into
 occurrences, ordered by start by default: {value={event}, ['@odata.nextLink']?}. Items already carry
-id, subject, start, end, location, organizer, attendees and responseStatus: don't getEvent each one.
+id, subject, start, end, location, organizer, attendees and responseStatus: don't call events.get for each one.
 Default fields: ]] .. LIST .. [[; add body to select for full descriptions. type is singleInstance,
 occurrence or exception; seriesMasterId names the recurring series. filter is OData, such as
 "categories/any(c:c eq 'Travel')" or "isCancelled eq false". top is at most 1000; set it, as
@@ -364,15 +372,15 @@ default pages are small.]],
 	},
 	annotations = READ,
 }
-function exports.listEvents(input: any): Options
+function events.list(input: any): Options
 	local args = options(input)
 	local headers = prefer(args, true)
 	range(args)
-	return request("listEvents", "GET", if args.calendarId == nil then "/calendarView" else "/calendars/{calendarId}/calendarView", args,
+	return request("events.list", "GET", if args.calendarId == nil then "/me/calendarView" else "/me/calendars/{calendarId}/calendarView", args,
 		{list = "/calendarView$", headers = headers, defaults = {select = LIST, orderby = "start/dateTime"}, query = VIEW_QUERY})
 end
 
-help.functions.getEvent = {
+events.help.functions.get = {
 	description = [[One event with every field unless select narrows them: {id, subject, body={contentType,
 content}, start, end, isAllDay, location, locations, organizer, attendees={{emailAddress, type,
 status={response, time}}}, responseStatus, recurrence?, type, seriesMasterId?, onlineMeeting?,
@@ -386,14 +394,14 @@ webLink, ...}. A recurring series' master (type seriesMaster) carries recurrence
 	},
 	annotations = READ,
 }
-function exports.getEvent(input: any): Options
+function events.get(input: any): Options
 	local args = options(input)
 	local headers = prefer(args, true)
-	return request("getEvent", "GET", event(args, ""), args, {headers = headers, query = {"$select"}})
+	return request("events.get", "GET", event(args, ""), args, {headers = headers, query = {"$select"}})
 end
 
-help.functions.listEventInstances = {
-	description = "One page of a recurring series' occurrences and exceptions in [startDateTime, endDateTime): {value={event}, ['@odata.nextLink']?}. id is the series master's id; each occurrence has its own id for getEvent, updateEvent or a reply.",
+events.help.functions.listInstances = {
+	description = "One page of a recurring series' occurrences and exceptions in [startDateTime, endDateTime): {value={event}, ['@odata.nextLink']?}. id is the series master's id; each occurrence has its own id for events.get, events.update or a reply.",
 	inputSchema = {
 		type = "object",
 		properties = {
@@ -407,15 +415,15 @@ help.functions.listEventInstances = {
 	},
 	annotations = READ,
 }
-function exports.listEventInstances(input: any): Options
+function events.listInstances(input: any): Options
 	local args = options(input)
 	local headers = prefer(args, true)
 	range(args)
-	return request("listEventInstances", "GET", event(args, "/instances"), args,
+	return request("events.listInstances", "GET", event(args, "/instances"), args,
 		{list = "/instances$", headers = headers, defaults = {select = LIST}, query = VIEW_QUERY})
 end
 
-help.functions.getSchedule = {
+calendars.help.functions.getSchedule = {
 	description = [[Free/busy for people and rooms in the user's organization: {value={{scheduleId,
 availabilityView, scheduleItems={{status, start, end, subject?, location?, isPrivate?}},
 workingHours, error?}}}; subject and location appear only where the person shares them.
@@ -438,18 +446,18 @@ check it before treating anyone as free. Work or school accounts only.]],
 	},
 	annotations = READ,
 }
-function exports.getSchedule(input: any): Options
+function calendars.getSchedule(input: any): Options
 	local args = options(input)
 	local headers = prefer(args, false)
-	assert(type(args.schedules) == "table" and args.schedules[1] ~= nil, "getSchedule requires schedules as a nonempty array of email addresses")
-	assert(type(args.startTime) == "table" and type(args.endTime) == "table", "getSchedule requires startTime and endTime as {dateTime, timeZone}")
-	local result = request("getSchedule", "POST", "/calendar/getSchedule", args, {body = true, headers = headers})
+	assert(type(args.schedules) == "table" and args.schedules[1] ~= nil, "calendars.getSchedule requires schedules as a nonempty array of email addresses")
+	assert(type(args.startTime) == "table" and type(args.endTime) == "table", "calendars.getSchedule requires startTime and endTime as {dateTime, timeZone}")
+	local result = request("calendars.getSchedule", "POST", "/me/calendar/getSchedule", args, {body = true, headers = headers})
 	if result.value == nil then result.value = json.decode("[]") end
 	return result
 end
 
-if houston.allows("data:write") then
-	help.functions.createEvent = {
+if WRITES then
+	events.help.functions.create = {
 		description = [[Creates an event in the default calendar, or in calendarId, and returns it. With attendees it is
 a meeting: Outlook emails each one an invitation. All-day events set isAllDay=true with midnight
 start and end in one time zone; end is exclusive. isOnlineMeeting=true with onlineMeetingProvider
@@ -473,19 +481,19 @@ a duplicate event.]],
 		},
 		annotations = WRITE,
 	}
-	function exports.createEvent(input: any): Options
+	function events.create(input: any): Options
 		local args = options(input)
-		assert(type(args.start) == "table" and type(args["end"]) == "table", "createEvent requires start and end as {dateTime, timeZone}")
-		return request("createEvent", "POST", if args.calendarId == nil then "/events" else "/calendars/{calendarId}/events", args, {body = true})
+		assert(type(args.start) == "table" and type(args["end"]) == "table", "events.create requires start and end as {dateTime, timeZone}")
+		return request("events.create", "POST", if args.calendarId == nil then "/me/events" else "/me/calendars/{calendarId}/events", args, {body = true})
 	end
 
-	help.functions.updateEvent = {
+	events.help.functions.update = {
 		description = [[Changes the given fields of an event and returns it; arrays such as attendees are replaced
 whole, so read the event and send the full list, and location replaces locations. As organizer,
 Outlook emails attendees the update; changing only attendees notifies just the added and removed
-ones. On an online meeting, a new body must keep the join details from getEvent, or the online
+ones. On an online meeting, a new body must keep the join details from events.get, or the online
 meeting stops working. A series master's id changes the whole series; an occurrence's id, from
-listEvents or listEventInstances, changes only that occurrence.]],
+events.list or events.listInstances, changes only that occurrence.]],
 		inputSchema = {
 			type = "object",
 			properties = with(EVENT, {id = ID, calendarId = ID}),
@@ -496,25 +504,25 @@ listEvents or listEventInstances, changes only that occurrence.]],
 		},
 		annotations = WRITE,
 	}
-	function exports.updateEvent(input: any): Options
+	function events.update(input: any): Options
 		local args = options(input)
 		local fields = table.clone(args)
 		fields.id, fields.calendarId = nil, nil
-		assert(next(fields) ~= nil, "updateEvent requires fields to change")
-		return request("updateEvent", "PATCH", event(args, ""), args, {body = true})
+		assert(next(fields) ~= nil, "events.update requires fields to change")
+		return request("events.update", "PATCH", event(args, ""), args, {body = true})
 	end
 
-	help.functions.deleteEvent = {
-		description = "Deletes an event and returns {success=true}. As organizer of a meeting, Outlook sends attendees a cancellation without a message; cancelEvent adds one. To answer an invitation, use declineEvent instead.",
+	events.help.functions.delete = {
+		description = "Deletes an event and returns {success=true}. As organizer of a meeting, Outlook sends attendees a cancellation without a message; events.cancel adds one. To answer an invitation, use events.decline instead.",
 		inputSchema = {type = "object", properties = {id = ID, calendarId = ID}, required = {"id"}, additionalProperties = false, examples = {{id = EVENT_ID}}},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.deleteEvent(input: any): Options
+	function events.delete(input: any): Options
 		local args = options(input)
-		return request("deleteEvent", "DELETE", event(args, ""), args)
+		return request("events.delete", "DELETE", event(args, ""), args)
 	end
 
-	help.functions.cancelEvent = {
+	events.help.functions.cancel = {
 		description = "Cancels a meeting the user organizes, emailing attendees the cancellation with comment, moves it to Deleted Items and returns {success=true}. An occurrence's id cancels only that occurrence.",
 		inputSchema = {
 			type = "object",
@@ -525,9 +533,9 @@ listEvents or listEventInstances, changes only that occurrence.]],
 		},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.cancelEvent(input: any): Options
+	function events.cancel(input: any): Options
 		local args = options(input)
-		return request("cancelEvent", "POST", event(args, "/cancel"), args, {body = true})
+		return request("events.cancel", "POST", event(args, "/cancel"), args, {body = true})
 	end
 
 	local REPLY = {
@@ -538,17 +546,17 @@ listEvents or listEventInstances, changes only that occurrence.]],
 	}
 	local PROPOSAL = {type = "object", properties = {start = TIME, ["end"] = TIME}, required = {"start", "end"}, description = "A new time to suggest, if the organizer allows proposals; requires sendResponse=true."}
 
-	help.functions.acceptEvent = {
+	events.help.functions.accept = {
 		description = "Accepts an invitation and returns {success=true}.",
 		inputSchema = {type = "object", properties = REPLY, required = {"id"}, additionalProperties = false, examples = {{id = EVENT_ID, comment = "See you there."}}},
 		annotations = WRITE,
 	}
-	function exports.acceptEvent(input: any): Options
+	function events.accept(input: any): Options
 		local args = options(input)
-		return request("acceptEvent", "POST", event(args, "/accept"), args, {body = true})
+		return request("events.accept", "POST", event(args, "/accept"), args, {body = true})
 	end
 
-	help.functions.tentativelyAcceptEvent = {
+	events.help.functions.tentativelyAccept = {
 		description = "Tentatively accepts an invitation, optionally proposing a new time, and returns {success=true}.",
 		inputSchema = {
 			type = "object",
@@ -559,12 +567,12 @@ listEvents or listEventInstances, changes only that occurrence.]],
 		},
 		annotations = WRITE,
 	}
-	function exports.tentativelyAcceptEvent(input: any): Options
+	function events.tentativelyAccept(input: any): Options
 		local args = options(input)
-		return request("tentativelyAcceptEvent", "POST", event(args, "/tentativelyAccept"), args, {body = true})
+		return request("events.tentativelyAccept", "POST", event(args, "/tentativelyAccept"), args, {body = true})
 	end
 
-	help.functions.declineEvent = {
+	events.help.functions.decline = {
 		description = "Declines an invitation, optionally proposing a new time, and returns {success=true}. Outlook removes the event from the calendar.",
 		inputSchema = {
 			type = "object",
@@ -576,9 +584,9 @@ listEvents or listEventInstances, changes only that occurrence.]],
 		},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.declineEvent(input: any): Options
+	function events.decline(input: any): Options
 		local args = options(input)
-		return request("declineEvent", "POST", event(args, "/decline"), args, {body = true})
+		return request("events.decline", "POST", event(args, "/decline"), args, {body = true})
 	end
 end
 

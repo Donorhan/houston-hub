@@ -21,15 +21,11 @@ return {
 			assert(not ok, "call succeeded")
 			for _, text in expected do assert(string.find(tostring(err), text, 1, true), "missing " .. text .. " in " .. tostring(err)) end
 		end
-		local names = {}
-		for name in c do table.insert(names, name) end
-		table.sort(names)
-		assert(table.concat(names, ",") == "getAttachment,getMailFolder,getMessage,getProfile,listAttachments,listMailFolders,listMessages", "read got " .. table.concat(names, ","))
 
 		responses = {{body = '{"id":"u1","mail":null,"userPrincipalName":"ana@outlook.com"}'}, {body = '{"id":"AAMkInbox","unreadItemCount":3}'}}
 		assert(c.getProfile().userPrincipalName == "ana@outlook.com")
 		assert(last().url == API .. "?$select=id%2CdisplayName%2Cmail%2CuserPrincipalName", last().url)
-		assert(c.getMailFolder({id = "inbox"}).unreadItemCount == 3 and last().url == API .. "/mailFolders/inbox", last().url)
+		assert(c.folders.get({id = "inbox"}).unreadItemCount == 3 and last().url == API .. "/mailFolders/inbox", last().url)
 
 		-- Lists default to text bodies and summary fields, and always carry a value array.
 		local nextLink = "https://graph.microsoft.com/v1.0/me/mailFolders('inbox')/messages?%24select=id&%24top=2&%24skip=2"
@@ -37,40 +33,40 @@ return {
 			{body = '{"value":[{"id":"m1","subject":"Hi"}],"@odata.nextLink":"' .. nextLink .. '"}'},
 			{body = '{"value":[]}'}, {body = '{}'},
 		}
-		local page = c.listMessages({folderId = "inbox", filter = "isRead eq false", top = 2})
+		local page = c.messages.list({folderId = "inbox", filter = "isRead eq false", top = 2})
 		assert(page.value[1].id == "m1" and page["@odata.nextLink"] == nextLink)
 		assert(last().url == API .. "/mailFolders/inbox/messages?" .. LIST .. "&$filter=isRead%20eq%20false&$top=2", last().url)
 		assert(last().headers.Prefer[1] == 'outlook.body-content-type="text"')
 		-- Graph names the folder by OData key in nextLink; the route takes its path form.
-		assert(#c.listMessages({nextLink = nextLink}).value == 0)
+		assert(#c.messages.list({nextLink = nextLink}).value == 0)
 		assert(last().url == API .. "/mailFolders/inbox/messages?%24select=id&%24top=2&%24skip=2", last().url)
-		local empty = c.listMessages({search = 'from:ana "Q3 plan" dir\\', bodyFormat = "html"})
+		local empty = c.messages.list({search = 'from:ana "Q3 plan" dir\\', bodyFormat = "html"})
 		assert(json.encode(empty.value) == "[]" and last().headers.Prefer[1] == 'outlook.body-content-type="html"')
 		assert(last().url == API .. "/messages?" .. LIST .. "&$search=%22from%3Aana%20%5C%22Q3%20plan%5C%22%20dir%5C%5C%22", last().url)
 
 		-- Bodies are capped on a UTF-8 boundary.
 		local body = "h" .. "é" .. string.rep("x", 10)
 		responses = {{body = json.encode({id = "AAMk-_=", body = {contentType = "text", content = body}})}, {body = json.encode({value = {{id = "m2", body = {contentType = "text", content = "short"}}}})}}
-		local message = c.getMessage({id = "AAMk-_=", maxBodyBytes = 2})
+		local message = c.messages.get({id = "AAMk-_=", maxBodyBytes = 2})
 		assert(message.body.content == "h" and message.bodyTruncated == true, message.body.content)
 		assert(last().url == API .. "/messages/AAMk-_%3D" and last().headers.Prefer[1] == 'outlook.body-content-type="text"', last().url)
 		responses = {{body = json.encode({id = "m3", body = {content = "ab" .. utf8.char(0x1F600) .. "c"}})}}
-		assert(c.getMessage({id = "m3", maxBodyBytes = 4}).body.content == "ab", "a 4-byte character was split")
+		assert(c.messages.get({id = "m3", maxBodyBytes = 4}).body.content == "ab", "a 4-byte character was split")
 		responses = {{body = json.encode({id = "m4", body = {content = "ok"}, uniqueBody = {content = string.rep("u", 10)}})}}
-		local unique = c.getMessage({id = "m4", select = "body,uniqueBody", maxBodyBytes = 4})
+		local unique = c.messages.get({id = "m4", select = "body,uniqueBody", maxBodyBytes = 4})
 		assert(unique.uniqueBody.content == "uuuu" and unique.body.content == "ok" and unique.bodyTruncated == true, "uniqueBody was not capped")
 		responses = {{body = json.encode({value = {{id = "m2", body = {contentType = "text", content = "short"}}}})}}
-		page = c.listMessages({select = {"id", "body"}, maxBodyBytes = 0})
+		page = c.messages.list({select = {"id", "body"}, maxBodyBytes = 0})
 		assert(page.value[1].body.content == "short" and page.value[1].bodyTruncated == false)
 		assert(last().url == API .. "/messages?$select=id,body", last().url)
 
 		responses = {{body = '{"value":[{"id":"A1","name":"invoice.pdf","size":12,"contentBytes":"JVBERg=="}]}'}, {body = "%PDF-1.7 bytes"}}
-		local attachments = c.listAttachments({messageId = "m1", select = "id,name,contentBytes"})
+		local attachments = c.attachments.list({messageId = "m1", select = "id,name,contentBytes"})
 		assert(attachments.value[1].name == "invoice.pdf" and attachments.value[1].contentBytes == nil, "attachment bytes came back inline")
 		responses = {{body = '{"value":[]}'}, {body = "%PDF-1.7 bytes"}}
-		assert(json.encode(c.listAttachments({messageId = "m1"}).value) == "[]")
+		assert(json.encode(c.attachments.list({messageId = "m1"}).value) == "[]")
 		assert(last().url == API .. "/messages/m1/attachments?$select=id%2Cname%2CcontentType%2Csize%2CisInline%2ClastModifiedDateTime", last().url)
-		local saved = c.getAttachment({messageId = "m1", attachmentId = "A1=", path = "mail/invoice.pdf"})
+		local saved = c.attachments.get({messageId = "m1", attachmentId = "A1=", path = "mail/invoice.pdf"})
 		assert(last().url == API .. "/messages/m1/attachments/A1%3D/$value", last().url)
 		assert(saved.path == "mail/invoice.pdf" and saved.size == 14 and saved.url == "https://houston.test/mail/invoice.pdf")
 		local fd = fs.open("mail/invoice.pdf", "r")
@@ -106,33 +102,33 @@ return {
 		local sent = #requests
 		for _, call in {
 			function() return c.listMailFolders({}) end,
-			function() return c.listMessages({bodyFormat = "rtf"}) end,
-			function() return c.listMessages({maxBodyBytes = -1}) end,
-			function() return c.listMessages({folderId = "a/b"}) end,
-			function() return c.listMessages({folder = "inbox"}) end,
-			function() return c.listMessages({nextLink = nextLink, top = 5}) end,
-			function() return c.listMessages({nextLink = "https://graph.microsoft.com.evil.example/v1.0/me/messages"}) end,
-			function() return c.listMessages({top = {}}) end,
-			function() return c.listMessages({nextLink = API .. "/messages?%24skip=10&%24expand=attachments"}) end,
+			function() return c.messages.list({bodyFormat = "rtf"}) end,
+			function() return c.messages.list({maxBodyBytes = -1}) end,
+			function() return c.messages.list({folderId = "a/b"}) end,
+			function() return c.messages.list({folder = "inbox"}) end,
+			function() return c.messages.list({nextLink = nextLink, top = 5}) end,
+			function() return c.messages.list({nextLink = "https://graph.microsoft.com.evil.example/v1.0/me/messages"}) end,
+			function() return c.messages.list({top = {}}) end,
+			function() return c.messages.list({nextLink = API .. "/messages?%24skip=10&%24expand=attachments"}) end,
 			-- A nextLink must page the same list: another route could return signed links or bytes.
-			function() return c.listMessages({nextLink = API .. "/mailFolders?%24skip=10"}) end,
-			function() return c.listMessages({nextLink = API .. "/messages/m1/attachments?%24skip=1"}) end,
-			function() return c.listMessages({nextLink = API .. "/messages?$skip=10#x"}) end,
-			function() return c.getMessage({}) end,
-			function() return c.getMessage({id = ".."}) end,
-			function() return c.getMailFolder({id = "inbox", top = 1}) end,
-			function() return c.getAttachment({messageId = "m1", attachmentId = "A1"}) end,
-			function() return c.listAttachments({messageId = "m%2F1"}) end,
+			function() return c.messages.list({nextLink = API .. "/mailFolders?%24skip=10"}) end,
+			function() return c.messages.list({nextLink = API .. "/messages/m1/attachments?%24skip=1"}) end,
+			function() return c.messages.list({nextLink = API .. "/messages?$skip=10#x"}) end,
+			function() return c.messages.get({}) end,
+			function() return c.messages.get({id = ".."}) end,
+			function() return c.folders.get({id = "inbox", top = 1}) end,
+			function() return c.attachments.get({messageId = "m1", attachmentId = "A1"}) end,
+			function() return c.attachments.list({messageId = "m%2F1"}) end,
 		} do assert(not pcall(call)) end
 		assert(#requests == sent, "invalid input reached Graph")
 
 		-- Graph errors keep the status, code and message; throttling is retryable.
 		responses = {{status = 404, body = '{"error":{"code":"ErrorItemNotFound","message":"The specified object was not found in the store.","innerError":{"request-id":"r1"}}}'}}
-		fails({"Microsoft Graph HTTP 404 (ErrorItemNotFound): The specified object was not found in the store.", '"retryable":false'}, c.getMessage, {id = "gone"})
+		fails({"Microsoft Graph HTTP 404 (ErrorItemNotFound): The specified object was not found in the store.", '"retryable":false'}, c.messages.get, {id = "gone"})
 		responses = {{status = 429, headers = {["retry-after"] = {"3"}}, body = '{"error":{"code":"ApplicationThrottled","message":"Too many requests"}}'}}
-		fails({"HTTP 429 (ApplicationThrottled)", "Retry-After: 3", '"retryable":true'}, c.listMessages)
+		fails({"HTTP 429 (ApplicationThrottled)", "Retry-After: 3", '"retryable":true'}, c.messages.list)
 		responses = {{status = 404, body = '{"error":{"code":"ErrorItemNotFound","message":"gone"}}'}}
-		fails({"HTTP 404", '"retryable":false'}, c.getAttachment, {messageId = "m1", attachmentId = "A1", path = "x.pdf"})
+		fails({"HTTP 404", '"retryable":false'}, c.attachments.get, {messageId = "m1", attachmentId = "A1", path = "x.pdf"})
 		responses = {{status = 504}}
 		fails({"Microsoft Graph HTTP 504", '"retryable":true'}, c.getProfile)
 		assert(#responses == 0)

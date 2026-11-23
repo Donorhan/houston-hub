@@ -6,7 +6,6 @@
 type Options = {[string]: any}
 type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?}
 local GRAPH = "https://graph.microsoft.com/v1.0"
-local API = GRAPH .. "/me"
 -- Preauthenticated OneDrive download links, under either annotation, work without credentials,
 -- so results never carry them.
 local SIGNED = {"@microsoft.graph.downloadUrl", "@content.downloadUrl"}
@@ -142,9 +141,10 @@ local function nextLink(name: string, args: Options, ending: string): string?
 	return pageLink(link, ending)
 end
 
--- One Graph request built from args: {field} placeholders take URL-encoded path segments, query
--- names the query fields and, with body, the other fields form the JSON body. A list (the Lua
--- pattern its path ends with) also accepts nextLink and always returns a value array.
+-- One Graph request built from args, on a path under v1.0 such as /me/events: {field} placeholders
+-- take URL-encoded path segments, query names the query fields and, with body, the other fields
+-- form the JSON body. A list (the Lua pattern its path ends with) also accepts nextLink and always
+-- returns a value array.
 local function request(name: string, method: string, path: string, input: any, spec: Spec?): any
 	local args = options(input)
 	local s: Spec = spec or {}
@@ -159,12 +159,17 @@ local function request(name: string, method: string, path: string, input: any, s
 			args[field] = nil
 			return value
 		end)
-		href = API .. route .. query(args, s.query or {})
+		href = GRAPH .. route .. query(args, s.query or {})
 		if not s.body then done(name, args) end
 	end
 	local result = call(name, method, href :: string, if s.body then args else nil, s.headers)
 	if s.list and result.value == nil then result.value = json.decode("[]") end
 	return result
+end
+
+-- An operation namespace, whose help lists the functions added to it.
+local function namespace(text: string): Options
+	return {help = {text = text, functions = {} :: {[string]: any}}}
 end
 -- End of the shared request layer.
 
@@ -189,7 +194,16 @@ message, e.g. 'Microsoft Graph HTTP 404 (ErrorItemNotFound)'; 429 is retryable, 
 Drafts before repeating.]] .. (if DRAFTS then "\nDraft connection: Houston refuses every send, and changes apply only to drafts. Save drafts for the person to review and send from Outlook." else ""),
 	functions = {} :: {[string]: any},
 }
-local exports: {[string]: any} = {help = help}
+-- Draft and Write connections compose; only Write sends.
+local COMPOSES = houston.allows("data:draft")
+local SENDS = houston.allows("data:write")
+local messages = namespace(if SENDS then "Read, search, send, reply to, forward, move and change messages and drafts."
+	elseif COMPOSES then "Read and search messages; create, change and delete drafts, replies and forwards." else "Read and search messages.")
+local attachments = namespace(if COMPOSES then "Save message attachments to session files, and attach session files to drafts."
+	else "Save message attachments to session files.")
+local folders = namespace((if SENDS then "Read and create mail folders" else "Read a mail folder's counts")
+	.. "; the root listMailFolders lists every folder.")
+local exports: {[string]: any} = {help = help, messages = messages, attachments = attachments, folders = folders}
 
 -- Schemas and hints shared by several operations.
 local ID = {type = "string", minLength = 1}
@@ -240,7 +254,7 @@ local function bodyFormat(args: Options): HttpHeaders
 end
 
 local function messagePath(id: any, field: string): string
-	return API .. "/messages/" .. url.segment(text(id, field), field)
+	return GRAPH .. "/me/messages/" .. url.segment(text(id, field), field)
 end
 
 -- Draft connections change a message only while it is a draft, and never set extended
@@ -321,11 +335,11 @@ local function bodyLimit(args: Options): number
 	return limit
 end
 
--- Replies and forwards take a message whose attachments are session files, like createDraft.
-local function respond(operation: string, verb: string, input: any): Options
+-- Replies and forwards take a message whose attachments are session files, like messages.createDraft.
+local function respond(verb: string, input: any): Options
 	local args = options(input)
 	if args.message ~= nil then args.message = compose(args.message, "message") end
-	return request(operation, "POST", "/messages/{id}/" .. verb, args, {body = true})
+	return request("messages." .. verb, "POST", "/me/messages/{id}/" .. verb, args, {body = true})
 end
 
 local function replySchema(forward: boolean, example: Options): Options
@@ -340,7 +354,7 @@ help.functions.getProfile = {
 	annotations = READ,
 }
 function exports.getProfile(args: Options?): Options
-	return request("getProfile", "GET", "", args, {defaults = {select = "id,displayName,mail,userPrincipalName"}, query = {"$select"}})
+	return request("getProfile", "GET", "/me", args, {defaults = {select = "id,displayName,mail,userPrincipalName"}, query = {"$select"}})
 end
 
 -- Fixed-signature folder list shared with other mail connectors.
@@ -353,9 +367,9 @@ help.functions.listMailFolders = {
 function exports.listMailFolders(...: any): {{id: string, name: string}}
 	assert(select("#", ...) == 0, "listMailFolders takes no arguments")
 	local FIELDS = "?$top=100&$select=id,displayName,childFolderCount"
-	local folders: {{id: string, name: string}} = json.decode("[]")
+	local found: {{id: string, name: string}} = json.decode("[]")
 	local seen: {[string]: boolean} = {}
-	local pending: {{href: string, prefix: string}} = {{href = API .. "/mailFolders" .. FIELDS, prefix = ""}}
+	local pending: {{href: string, prefix: string}} = {{href = GRAPH .. "/me/mailFolders" .. FIELDS, prefix = ""}}
 	while #pending > 0 do
 		local job = table.remove(pending) :: {href: string, prefix: string}
 		local page = call("listMailFolders", "GET", job.href)
@@ -368,29 +382,29 @@ function exports.listMailFolders(...: any): {{id: string, name: string}}
 			if not seen[folder.id] then
 				seen[folder.id] = true
 				local name = job.prefix .. folder.displayName
-				table.insert(folders, {id = folder.id, name = name})
+				table.insert(found, {id = folder.id, name = name})
 				if type(folder.childFolderCount) == "number" and folder.childFolderCount > 0 then
-					table.insert(pending, {href = API .. "/mailFolders/" .. url.segment(folder.id, "folder ID") .. "/childFolders" .. FIELDS, prefix = name .. "/"})
+					table.insert(pending, {href = GRAPH .. "/me/mailFolders/" .. url.segment(folder.id, "folder ID") .. "/childFolders" .. FIELDS, prefix = name .. "/"})
 				end
 			end
 		end
 		local link = page["@odata.nextLink"]
 		if type(link) == "string" then table.insert(pending, {href = pageLink(link, "/%l+Folders$"), prefix = job.prefix}) end
 	end
-	table.sort(folders, function(a: any, b: any) return a.id < b.id end)
-	return folders
+	table.sort(found, function(a: any, b: any) return a.id < b.id end)
+	return found
 end
 
-help.functions.getMailFolder = {
+folders.help.functions.get = {
 	description = "One folder: {id, displayName, parentFolderId, childFolderCount, unreadItemCount, totalItemCount}. id is a folder ID or a well-known name: inbox, drafts, sentitems, deleteditems, archive, junkemail.",
 	inputSchema = {type = "object", properties = {id = ID, select = SELECT}, required = {"id"}, additionalProperties = false, examples = {{id = "inbox"}}},
 	annotations = READ,
 }
-function exports.getMailFolder(args: Options?): Options
-	return request("getMailFolder", "GET", "/mailFolders/{id}", args, {query = {"$select"}})
+function folders.get(args: Options?): Options
+	return request("folders.get", "GET", "/me/mailFolders/{id}", args, {query = {"$select"}})
 end
 
-help.functions.listMessages = {
+messages.help.functions.list = {
 	description = [[One page of messages, from every folder or from folderId (an ID or well-known name such as
 'inbox'): {value={message}, ['@odata.nextLink']?}. search is KQL, e.g. 'from:ana budget' or
 'subject:invoice hasAttachments:true', returns at most 1000 messages and cannot combine with
@@ -410,28 +424,28 @@ add body to select for full bodies. A conversation is filter="conversationId eq 
 	},
 	annotations = READ,
 }
-function exports.listMessages(input: any): Options
+function messages.list(input: any): Options
 	local args = options(input)
 	local headers = bodyFormat(args)
 	local limit = bodyLimit(args)
-	local link = nextLink("listMessages", args, "/messages$")
-	local href = API .. "/messages"
+	local link = nextLink("messages.list", args, "/messages$")
+	local href = GRAPH .. "/me/messages"
 	if not link then
-		if args.folderId ~= nil then href = API .. "/mailFolders/" .. url.segment(text(args.folderId, "folderId"), "folderId") .. "/messages" end
+		if args.folderId ~= nil then href = GRAPH .. "/me/mailFolders/" .. url.segment(text(args.folderId, "folderId"), "folderId") .. "/messages" end
 		args.folderId = nil
 		if args.select == nil then args.select = LIST end
 		-- $search takes a quoted string; \ and " inside it are escaped.
 		if args.search ~= nil then args.search = "\"" .. (string.gsub(text(args.search, "search"), "[\\\"]", "\\%0")) .. "\"" end
 		href ..= query(args, {"$select", "$filter", "$search", "$orderby", "$top", "$skip"})
-		done("listMessages", args)
+		done("messages.list", args)
 	end
-	local page = call("listMessages", "GET", link or href, nil, headers)
+	local page = call("messages.list", "GET", link or href, nil, headers)
 	if page.value == nil then page.value = json.decode("[]") end
 	for _, message in page.value do limitBody(message, limit) end
 	return page
 end
 
-help.functions.getMessage = {
+messages.help.functions.get = {
 	description = [[One message with every field unless select narrows them: {id, subject, from, toRecipients,
 ccRecipients, bccRecipients, replyTo, receivedDateTime, body={contentType, content}, bodyTruncated,
 uniqueBody?, isRead, isDraft, hasAttachments, conversationId, internetMessageId, webLink, ...}.]],
@@ -444,35 +458,35 @@ uniqueBody?, isRead, isDraft, hasAttachments, conversationId, internetMessageId,
 	},
 	annotations = READ,
 }
-function exports.getMessage(input: any): Options
+function messages.get(input: any): Options
 	local args = options(input)
 	local headers = bodyFormat(args)
 	local limit = bodyLimit(args)
 	local href = messagePath(args.id, "id")
 	args.id = nil
 	href ..= query(args, {"$select"})
-	done("getMessage", args)
-	local message = call("getMessage", "GET", href, nil, headers)
+	done("messages.get", args)
+	local message = call("messages.get", "GET", href, nil, headers)
 	limitBody(message, limit)
 	return message
 end
 
-help.functions.listAttachments = {
-	description = "A message's attachments as metadata, {value={{id, name, contentType, size, isInline}}}; save one with getAttachment.",
+attachments.help.functions.list = {
+	description = "A message's attachments as metadata, {value={{id, name, contentType, size, isInline}}}; save one with attachments.get.",
 	inputSchema = {type = "object", properties = {messageId = ID, select = SELECT, nextLink = NEXT}, additionalProperties = false, examples = {{messageId = MESSAGE_ID}}},
 	annotations = READ,
 }
-function exports.listAttachments(args: Options?): Options
-	local page = request("listAttachments", "GET", "/messages/{messageId}/attachments", args,
+function attachments.list(args: Options?): Options
+	local page = request("attachments.list", "GET", "/me/messages/{messageId}/attachments", args,
 		{list = "/attachments$", defaults = {select = "id,name,contentType,size,isInline,lastModifiedDateTime"}, query = {"$select"}})
-	-- Attachment bytes move through getAttachment, never inline, whatever select asks for.
+	-- Attachment bytes move through attachments.get, never inline, whatever select asks for.
 	for _, attachment in page.value do
 		if type(attachment) == "table" then attachment.contentBytes = nil end
 	end
 	return page
 end
 
-help.functions.getAttachment = {
+attachments.help.functions.get = {
 	description = "Saves an attachment's bytes to a session path (an attached message saves as MIME) and returns {path, url, size}; url is a signed Houston download link.",
 	inputSchema = {
 		type = "object",
@@ -483,18 +497,18 @@ help.functions.getAttachment = {
 	},
 	annotations = READ,
 }
-function exports.getAttachment(input: any): Options
+function attachments.get(input: any): Options
 	local args = options(input)
 	local href = messagePath(args.messageId, "messageId") .. "/attachments/" .. url.segment(text(args.attachmentId, "attachmentId"), "attachmentId") .. "/$value"
 	local path = text(args.path, "path")
 	args.messageId, args.attachmentId, args.path = nil, nil, nil
-	done("getAttachment", args)
-	return save("getAttachment", path, function(): HttpResponse return await(http.request({method = "GET", url = href})) end)
+	done("attachments.get", args)
+	return save("attachments.get", path, function(): HttpResponse return await(http.request({method = "GET", url = href})) end)
 end
 
-if houston.allows("data:draft") then
-	help.functions.createDraft = {
-		description = "Saves a message to Drafts without sending and returns the draft" .. (if DRAFTS then "; the person reviews and sends it from Outlook." else "; send it with sendDraft."),
+if COMPOSES then
+	messages.help.functions.createDraft = {
+		description = "Saves a message to Drafts without sending and returns the draft" .. (if DRAFTS then "; the person reviews and sends it from Outlook." else "; send it with messages.sendDraft."),
 		inputSchema = {
 			type = "object",
 			properties = MESSAGE.properties,
@@ -504,29 +518,29 @@ if houston.allows("data:draft") then
 		},
 		annotations = WRITE,
 	}
-	function exports.createDraft(input: any): Options
-		return call("createDraft", "POST", API .. "/messages", compose(input, "createDraft options"))
+	function messages.createDraft(input: any): Options
+		return call("messages.createDraft", "POST", GRAPH .. "/me/messages", compose(input, "messages.createDraft options"))
 	end
 
-	help.functions.createReply = {
-		description = "Creates a reply draft addressed to the sender, in the conversation, and returns it; edit it with updateMessage.",
+	messages.help.functions.createReply = {
+		description = "Creates a reply draft addressed to the sender, in the conversation, and returns it; edit it with messages.update.",
 		inputSchema = replySchema(false, {id = MESSAGE_ID, comment = "Thanks, I'll review it today."}),
 		annotations = WRITE,
 	}
-	function exports.createReply(input: any): Options
-		return respond("createReply", "createReply", input)
+	function messages.createReply(input: any): Options
+		return respond("createReply", input)
 	end
 
-	help.functions.createReplyAll = {
+	messages.help.functions.createReplyAll = {
 		description = "Creates a reply draft addressed to every recipient and returns it.",
 		inputSchema = replySchema(false, {id = MESSAGE_ID, comment = "Thanks all."}),
 		annotations = WRITE,
 	}
-	function exports.createReplyAll(input: any): Options
-		return respond("createReplyAll", "createReplyAll", input)
+	function messages.createReplyAll(input: any): Options
+		return respond("createReplyAll", input)
 	end
 
-	help.functions.createForward = {
+	messages.help.functions.createForward = {
 		description = "Creates a forward draft, with the original's attachments, and returns it.",
 		inputSchema = {
 			type = "object",
@@ -537,11 +551,11 @@ if houston.allows("data:draft") then
 		},
 		annotations = WRITE,
 	}
-	function exports.createForward(input: any): Options
-		return respond("createForward", "createForward", input)
+	function messages.createForward(input: any): Options
+		return respond("createForward", input)
 	end
 
-	help.functions.updateMessage = {
+	messages.help.functions.update = {
 		description = if DRAFTS then "Changes a draft's fields, such as subject, body or recipients, and returns it."
 			else "Changes a message: isRead, categories, flag={flagStatus='flagged'|'complete'|'notFlagged'} or importance; drafts also take subject, body and recipients. Returns the message.",
 		inputSchema = {
@@ -554,31 +568,31 @@ if houston.allows("data:draft") then
 		},
 		annotations = WRITE,
 	}
-	function exports.updateMessage(input: any): Options
+	function messages.update(input: any): Options
 		local args = options(input)
 		local id = text(args.id, "id")
 		args.id = nil
-		assert(next(args) ~= nil and args.attachments == nil, "updateMessage requires fields to change; add attachments with addAttachment")
+		assert(next(args) ~= nil and args.attachments == nil, "messages.update requires fields to change; add attachments with attachments.add")
 		plain(args)
-		draftOnly("updateMessage", id)
-		return call("updateMessage", "PATCH", messagePath(id, "id"), args)
+		draftOnly("messages.update", id)
+		return call("messages.update", "PATCH", messagePath(id, "id"), args)
 	end
 
-	help.functions.deleteMessage = {
+	messages.help.functions.delete = {
 		description = "Deletes " .. (if DRAFTS then "a draft" else "a message") .. " and returns {success=true}. It stays recoverable for the mailbox's retention period but does not appear in Deleted Items; to trash a message instead, move it to 'deleteditems'.",
 		inputSchema = {type = "object", properties = {id = ID}, required = {"id"}, additionalProperties = false, examples = {{id = MESSAGE_ID}}},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.deleteMessage(input: any): Options
+	function messages.delete(input: any): Options
 		local args = options(input)
 		local id = text(args.id, "id")
 		args.id = nil
-		done("deleteMessage", args)
-		draftOnly("deleteMessage", id)
-		return call("deleteMessage", "DELETE", messagePath(id, "id"))
+		done("messages.delete", args)
+		draftOnly("messages.delete", id)
+		return call("messages.delete", "DELETE", messagePath(id, "id"))
 	end
 
-	help.functions.addAttachment = {
+	attachments.help.functions.add = {
 		description = "Attaches a session file of up to about 2.9 MB to a draft and returns the attachment {id, name, size}.",
 		inputSchema = {
 			type = "object",
@@ -589,19 +603,19 @@ if houston.allows("data:draft") then
 		},
 		annotations = WRITE,
 	}
-	function exports.addAttachment(input: any): Options
+	function attachments.add(input: any): Options
 		local args = options(input)
 		local id = text(args.messageId, "messageId")
 		local spec = {path = args.path, name = args.name, contentType = args.contentType}
 		args.messageId, args.path, args.name, args.contentType = nil, nil, nil, nil
-		done("addAttachment", args)
-		draftOnly("addAttachment", id)
-		return call("addAttachment", "POST", messagePath(id, "messageId") .. "/attachments", fileAttachments({spec})[1])
+		done("attachments.add", args)
+		draftOnly("attachments.add", id)
+		return call("attachments.add", "POST", messagePath(id, "messageId") .. "/attachments", fileAttachments({spec})[1])
 	end
 end
 
-if houston.allows("data:write") then
-	help.functions.sendMail = {
+if SENDS then
+	messages.help.functions.send = {
 		description = "Sends a message immediately and returns {success=true}. saveToSentItems defaults to true. A timeout may still have sent the mail: check Sent Items before retrying.",
 		inputSchema = {
 			type = "object",
@@ -613,71 +627,71 @@ if houston.allows("data:write") then
 		},
 		annotations = WRITE,
 	}
-	function exports.sendMail(input: any): Options
+	function messages.send(input: any): Options
 		local args = options(input)
-		assert(type(args.message) == "table" and next(args.message) ~= nil, "sendMail requires a nonempty message")
+		assert(type(args.message) == "table" and next(args.message) ~= nil, "messages.send requires a nonempty message")
 		local body = {message = compose(args.message, "message"), saveToSentItems = args.saveToSentItems}
 		args.message, args.saveToSentItems = nil, nil
-		done("sendMail", args)
-		return call("sendMail", "POST", API .. "/sendMail", body)
+		done("messages.send", args)
+		return call("messages.send", "POST", GRAPH .. "/me/sendMail", body)
 	end
 
-	help.functions.sendDraft = {
+	messages.help.functions.sendDraft = {
 		description = "Sends a draft and returns {success=true}; the sent copy gets a new ID in Sent Items.",
 		inputSchema = {type = "object", properties = {id = ID}, required = {"id"}, additionalProperties = false, examples = {{id = MESSAGE_ID}}},
 		annotations = WRITE,
 	}
-	function exports.sendDraft(args: Options?): Options
-		return request("sendDraft", "POST", "/messages/{id}/send", args)
+	function messages.sendDraft(args: Options?): Options
+		return request("messages.sendDraft", "POST", "/me/messages/{id}/send", args)
 	end
 
-	help.functions.reply = {
+	messages.help.functions.reply = {
 		description = "Sends a reply to the sender and returns {success=true}.",
 		inputSchema = replySchema(false, {id = MESSAGE_ID, comment = "On it."}),
 		annotations = WRITE,
 	}
-	function exports.reply(input: any): Options
-		return respond("reply", "reply", input)
+	function messages.reply(input: any): Options
+		return respond("reply", input)
 	end
 
-	help.functions.replyAll = {
+	messages.help.functions.replyAll = {
 		description = "Sends a reply to every recipient and returns {success=true}.",
 		inputSchema = replySchema(false, {id = MESSAGE_ID, comment = "Thanks all."}),
 		annotations = WRITE,
 	}
-	function exports.replyAll(input: any): Options
-		return respond("replyAll", "replyAll", input)
+	function messages.replyAll(input: any): Options
+		return respond("replyAll", input)
 	end
 
-	help.functions.forward = {
+	messages.help.functions.forward = {
 		description = "Forwards the message to toRecipients and returns {success=true}.",
 		inputSchema = replySchema(true, {id = MESSAGE_ID, toRecipients = {{emailAddress = {address = "bo@example.com"}}}, comment = "FYI"}),
 		annotations = WRITE,
 	}
-	function exports.forward(input: any): Options
-		return respond("forward", "forward", input)
+	function messages.forward(input: any): Options
+		return respond("forward", input)
 	end
 
-	help.functions.moveMessage = {
+	messages.help.functions.move = {
 		description = "Moves a message and returns it with its new id. destinationId is a folder ID or a well-known name; 'deleteditems' trashes and 'archive' archives.",
 		inputSchema = {type = "object", properties = {id = ID, destinationId = ID}, required = {"id", "destinationId"}, additionalProperties = false, examples = {{id = MESSAGE_ID, destinationId = "archive"}}},
 		annotations = WRITE,
 	}
-	function exports.moveMessage(args: Options?): Options
-		return request("moveMessage", "POST", "/messages/{id}/move", args, {body = true})
+	function messages.move(args: Options?): Options
+		return request("messages.move", "POST", "/me/messages/{id}/move", args, {body = true})
 	end
 
-	help.functions.createMailFolder = {
+	folders.help.functions.create = {
 		description = "Creates a top-level folder, or a child of parentId, and returns it.",
 		inputSchema = {type = "object", properties = {displayName = ID, parentId = ID}, required = {"displayName"}, additionalProperties = false, examples = {{displayName = "Clients"}}},
 		annotations = WRITE,
 	}
-	function exports.createMailFolder(input: any): Options
+	function folders.create(input: any): Options
 		local args = options(input)
-		local href = API .. "/mailFolders" .. (if args.parentId == nil then "" else "/" .. url.segment(text(args.parentId, "parentId"), "parentId") .. "/childFolders")
+		local href = GRAPH .. "/me/mailFolders" .. (if args.parentId == nil then "" else "/" .. url.segment(text(args.parentId, "parentId"), "parentId") .. "/childFolders")
 		args.parentId = nil
 		text(args.displayName, "displayName")
-		return call("createMailFolder", "POST", href, args)
+		return call("folders.create", "POST", href, args)
 	end
 end
 

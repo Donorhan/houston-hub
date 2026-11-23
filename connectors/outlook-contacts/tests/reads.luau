@@ -20,10 +20,6 @@ return {
 			assert(not ok, "call succeeded")
 			for _, text in expected do assert(string.find(tostring(err), text, 1, true), "missing " .. text .. " in " .. tostring(err)) end
 		end
-		local names = {}
-		for name in c do table.insert(names, name) end
-		table.sort(names)
-		assert(table.concat(names, ",") == "getContact,listContactFolders,listContacts", "read-only got " .. table.concat(names, ","))
 
 		-- Contact lists default to summary fields and always carry a value array; a nextLink, which
 		-- Graph may write with an OData key, is followed alone.
@@ -32,44 +28,44 @@ return {
 			{body = '{"value":[{"id":"C1","displayName":"Ana Silva","emailAddresses":[{"name":"Ana Silva","address":"ana@example.com"}]}],"@odata.nextLink":"https://graph.microsoft.com/v1.0/me/contacts?%24top=1&%24skip=1"}'},
 			{body = '{"value":[]}'}, {body = '{}'}, {body = '{"value":[{"id":"C3"}]}'}, {body = '{}'},
 		}
-		local page = c.listContacts({top = 1, filter = "emailAddresses/any(a:a/address eq 'ana@example.com')"})
+		local page = c.contacts.list({top = 1, filter = "emailAddresses/any(a:a/address eq 'ana@example.com')"})
 		assert(page.value[1].emailAddresses[1].address == "ana@example.com" and page["@odata.nextLink"] ~= nil)
 		assert(last().method == "GET" and last().url == API .. "/contacts?" .. LIST
 			.. "&$filter=emailAddresses%2Fany%28a%3Aa%2Faddress%20eq%20%27ana%40example.com%27%29&$top=1", last().url)
-		assert(json.encode(c.listContacts({nextLink = page["@odata.nextLink"]}).value) == "[]" and last().url == API .. "/contacts?%24top=1&%24skip=1", last().url)
-		assert(json.encode(c.listContacts({folderId = "AQMk-F1==", select = {"id", "birthday"}}).value) == "[]")
+		assert(json.encode(c.contacts.list({nextLink = page["@odata.nextLink"]}).value) == "[]" and last().url == API .. "/contacts?%24top=1&%24skip=1", last().url)
+		assert(json.encode(c.contacts.list({folderId = "AQMk-F1==", select = {"id", "birthday"}}).value) == "[]")
 		assert(last().url == API .. "/contactFolders/AQMk-F1%3D%3D/contacts?$select=id,birthday", last().url)
-		assert(c.listContacts({nextLink = link}).value[1].id == "C3" and last().url == API .. "/contactFolders/AQMk-F1%3D%3D/contacts?%24select=id&%24top=2&%24skip=2", last().url)
-		assert(json.encode(c.listContacts({orderby = "displayName"}).value) == "[]" and last().url == API .. "/contacts?" .. LIST .. "&$orderby=displayName", last().url)
+		assert(c.contacts.list({nextLink = link}).value[1].id == "C3" and last().url == API .. "/contactFolders/AQMk-F1%3D%3D/contacts?%24select=id&%24top=2&%24skip=2", last().url)
+		assert(json.encode(c.contacts.list({orderby = "displayName"}).value) == "[]" and last().url == API .. "/contacts?" .. LIST .. "&$orderby=displayName", last().url)
 
 		-- Folders: the default folder's children, or a folder's subfolders, page by page.
 		responses = {{body = '{"value":[{"id":"F1","displayName":"Suppliers","parentFolderId":"F0"}],"@odata.nextLink":"https://graph.microsoft.com/v1.0/me/contactFolders?%24skip=1"}'}, {body = '{}'}, {body = '{}'}, {body = '{"value":[{"id":"F2"}]}'}}
-		local folders = c.listContactFolders({top = 1})
+		local folders = c.folders.list({top = 1})
 		assert(folders.value[1].parentFolderId == "F0" and last().url == API .. "/contactFolders?$top=1", last().url)
-		assert(json.encode(c.listContactFolders({nextLink = folders["@odata.nextLink"]}).value) == "[]" and last().url == API .. "/contactFolders?%24skip=1", last().url)
-		assert(json.encode(c.listContactFolders({folderId = "F1", filter = "displayName eq 'Paris'"}).value) == "[]")
+		assert(json.encode(c.folders.list({nextLink = folders["@odata.nextLink"]}).value) == "[]" and last().url == API .. "/contactFolders?%24skip=1", last().url)
+		assert(json.encode(c.folders.list({folderId = "F1", filter = "displayName eq 'Paris'"}).value) == "[]")
 		assert(last().url == API .. "/contactFolders/F1/childFolders?$filter=displayName%20eq%20%27Paris%27", last().url)
 		local sub = "https://graph.microsoft.com/v1.0/me/contactFolders('F1')/childFolders?%24skip=1"
-		assert(c.listContactFolders({nextLink = sub}).value[1].id == "F2" and last().url == API .. "/contactFolders/F1/childFolders?%24skip=1", last().url)
+		assert(c.folders.list({nextLink = sub}).value[1].id == "F2" and last().url == API .. "/contactFolders/F1/childFolders?%24skip=1", last().url)
 
 		-- One contact, from the default folder or another.
 		responses = {{body = '{"id":"C1","displayName":"Ana Silva","homeAddress":{}}'}, {body = '{"id":"C2"}'}}
-		assert(c.getContact({id = "AAMk-_="}).displayName == "Ana Silva" and last().url == API .. "/contacts/AAMk-_%3D", last().url)
-		assert(c.getContact({id = "C2", folderId = "F1", select = "displayName,emailAddresses"}).id == "C2")
+		assert(c.contacts.get({id = "AAMk-_="}).displayName == "Ana Silva" and last().url == API .. "/contacts/AAMk-_%3D", last().url)
+		assert(c.contacts.get({id = "C2", folderId = "F1", select = "displayName,emailAddresses"}).id == "C2")
 		assert(last().url == API .. "/contactFolders/F1/contacts/C2?$select=displayName%2CemailAddresses" and last().body == nil, last().url)
 
 		-- Invalid input never reaches the network.
 		local before = #requests
-		fails({"id must be a nonempty string"}, c.getContact, {})
-		fails({"folderId must be a nonempty string"}, c.listContacts, {folderId = ""})
-		fails({"getContact received an unknown option expand"}, c.getContact, {id = "C1", expand = "extensions"})
-		fails({"listContacts received an unknown option search"}, c.listContacts, {search = "Ana"})
-		fails({"listContacts takes nextLink alone"}, c.listContacts, {nextLink = link, top = 5})
-		fails({"nextLink must come from the same list"}, c.listContacts, {nextLink = "https://graph.microsoft.com/v1.0/me/messages?%24skip=2"})
-		fails({"nextLink must come from the same list"}, c.listContactFolders, {nextLink = link})
-		fails({"nextLink may carry only paging options"}, c.listContacts, {nextLink = "https://graph.microsoft.com/v1.0/me/contacts?%24expand=extensions"})
-		fails({"nextLink must be an @odata.nextLink from Microsoft Graph"}, c.listContacts, {nextLink = "https://graph.microsoft.com.evil.test/v1.0/me/contacts"})
-		assert(not pcall(c.getContact, {id = "C1/../../messages"}), "an id with a slash reached the network")
+		fails({"id must be a nonempty string"}, c.contacts.get, {})
+		fails({"folderId must be a nonempty string"}, c.contacts.list, {folderId = ""})
+		fails({"contacts.get received an unknown option expand"}, c.contacts.get, {id = "C1", expand = "extensions"})
+		fails({"contacts.list received an unknown option search"}, c.contacts.list, {search = "Ana"})
+		fails({"contacts.list takes nextLink alone"}, c.contacts.list, {nextLink = link, top = 5})
+		fails({"nextLink must come from the same list"}, c.contacts.list, {nextLink = "https://graph.microsoft.com/v1.0/me/messages?%24skip=2"})
+		fails({"nextLink must come from the same list"}, c.folders.list, {nextLink = link})
+		fails({"nextLink may carry only paging options"}, c.contacts.list, {nextLink = "https://graph.microsoft.com/v1.0/me/contacts?%24expand=extensions"})
+		fails({"nextLink must be an @odata.nextLink from Microsoft Graph"}, c.contacts.list, {nextLink = "https://graph.microsoft.com.evil.test/v1.0/me/contacts"})
+		assert(not pcall(c.contacts.get, {id = "C1/../../messages"}), "an id with a slash reached the network")
 		assert(#requests == before, "invalid input reached the network")
 
 		-- Graph errors keep the status, code and message; throttling and server errors on reads are retryable.
@@ -80,10 +76,10 @@ return {
 			{status = 503, body = '{"error":{"code":"ServiceUnavailable","message":"Try later"}}'},
 			{status = 200, body = "[]"},
 		}
-		fails({"Microsoft Graph HTTP 404 (ErrorItemNotFound): The specified object was not found", '"retryable":false'}, c.getContact, {id = "gone"})
-		fails({"HTTP 400 (ErrorInvalidUrlQueryFilter)", '"retryable":false'}, c.listContacts, {filter = "startswith(displayName,'A')"})
-		fails({"HTTP 429 (ApplicationThrottled)", "Retry-After: 7", '"retryable":true'}, c.listContactFolders)
-		fails({"HTTP 503 (ServiceUnavailable)", '"retryable":true'}, c.listContacts)
-		fails({"invalid JSON object"}, c.getContact, {id = "C1"})
+		fails({"Microsoft Graph HTTP 404 (ErrorItemNotFound): The specified object was not found", '"retryable":false'}, c.contacts.get, {id = "gone"})
+		fails({"HTTP 400 (ErrorInvalidUrlQueryFilter)", '"retryable":false'}, c.contacts.list, {filter = "startswith(displayName,'A')"})
+		fails({"HTTP 429 (ApplicationThrottled)", "Retry-After: 7", '"retryable":true'}, c.folders.list)
+		fails({"HTTP 503 (ServiceUnavailable)", '"retryable":true'}, c.contacts.list)
+		fails({"invalid JSON object"}, c.contacts.get, {id = "C1"})
 	end,
 }

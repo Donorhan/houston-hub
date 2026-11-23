@@ -1,12 +1,15 @@
 -- Every documented example runs as a real call against a permissive Graph mock; read-write documents
 -- every operation.
+local function operations(node: any, prefix: string, names: {string}): {string}
+	for _, name in node.functions do table.insert(names, prefix .. name) end
+	for _, name in node.namespaces do operations(node[name], prefix .. name .. ".", names) end
+	return names
+end
 local function run(c)
-	local names = {}
-	for name in c do table.insert(names, name) end
-	table.sort(names)
+	local names = operations(c, "", {})
 	for _, name in names do fixture.example(name) end
-	for _, name in {"listTables", "listNames", "getRange", "updateRange"} do fixture.example(name, 2) end
-	for index = 3, 4 do fixture.example("getRange", index) end
+	for _, name in {"tables.list", "names.list", "ranges.get", "ranges.update"} do fixture.example(name, 2) end
+	for index = 3, 4 do fixture.example("ranges.get", index) end
 	assert(calls == #names + 6, "examples made " .. calls .. " requests")
 end
 local function configure()

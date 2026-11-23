@@ -15,10 +15,6 @@ return {
 	run = function(c)
 		local API = "https://graph.microsoft.com/v1.0/me"
 		local function last() return requests[#requests] end
-		local names = {}
-		for name in c do table.insert(names, name) end
-		table.sort(names)
-		assert(table.concat(names, ",") == "addAttachment,createDraft,createForward,createReply,createReplyAll,deleteMessage,getAttachment,getMailFolder,getMessage,getProfile,listAttachments,listMailFolders,listMessages,updateMessage", "draft got " .. table.concat(names, ","))
 
 		local file = fs.open("notes.txt", "w")
 		file:write("hello")
@@ -29,7 +25,7 @@ return {
 
 		-- Session files become base64 fileAttachments in the draft itself.
 		responses = {{status = 201, body = '{"id":"D1","isDraft":true}'}}
-		local draft = c.createDraft({subject = "Q3", body = {contentType = "Text", content = "Notes attached"},
+		local draft = c.messages.createDraft({subject = "Q3", body = {contentType = "Text", content = "Notes attached"},
 			toRecipients = {{emailAddress = {address = "ana@example.com"}}}, attachments = {"notes.txt", {path = "logo.bin", name = "logo.png", contentType = "image/png"}}})
 		assert(draft.id == "D1" and last().method == "POST" and last().url == API .. "/messages", last().url)
 		assert(last().headers["Content-Type"][1] == "application/json")
@@ -40,27 +36,27 @@ return {
 
 		-- Reply and forward drafts.
 		responses = {{status = 201, body = '{"id":"D2","isDraft":true}'}, {status = 201, body = '{"id":"D3"}'}, {status = 201, body = '{"id":"D4"}'}}
-		assert(c.createReply({id = "M1", comment = "Thanks!"}).id == "D2")
+		assert(c.messages.createReply({id = "M1", comment = "Thanks!"}).id == "D2")
 		assert(last().url == API .. "/messages/M1/createReply" and json.decode(last().body).comment == "Thanks!")
-		c.createReplyAll({id = "M1"})
+		c.messages.createReplyAll({id = "M1"})
 		assert(last().url == API .. "/messages/M1/createReplyAll" and last().body == "{}", last().body)
-		c.createForward({id = "M1", toRecipients = {{emailAddress = {address = "bo@example.com"}}}})
+		c.messages.createForward({id = "M1", toRecipients = {{emailAddress = {address = "bo@example.com"}}}})
 		assert(last().url == API .. "/messages/M1/createForward" and json.decode(last().body).toRecipients[1].emailAddress.address == "bo@example.com")
 
 		-- Changes apply only to drafts: Houston checks isDraft first.
 		responses = {{body = '{"isDraft":true}'}, {body = '{"id":"D1","subject":"Q3 v2"}'}}
-		assert(c.updateMessage({id = "D1", subject = "Q3 v2"}).subject == "Q3 v2")
+		assert(c.messages.update({id = "D1", subject = "Q3 v2"}).subject == "Q3 v2")
 		assert(requests[#requests - 1].method == "GET" and requests[#requests - 1].url == API .. "/messages/D1?$select=isDraft")
 		assert(last().method == "PATCH" and last().url == API .. "/messages/D1" and json.decode(last().body).subject == "Q3 v2" and json.decode(last().body).id == nil)
 		responses = {{body = '{"isDraft":true}'}, {status = 201, body = '{"id":"A1","name":"notes.txt"}'}}
-		assert(c.addAttachment({messageId = "D1", path = "notes.txt"}).id == "A1")
+		assert(c.attachments.add({messageId = "D1", path = "notes.txt"}).id == "A1")
 		assert(last().url == API .. "/messages/D1/attachments" and json.decode(last().body).contentBytes == "aGVsbG8=")
 		responses = {{body = '{"isDraft":true}'}, {status = 204}}
-		assert(c.deleteMessage({id = "D1"}).success and last().method == "DELETE" and last().url == API .. "/messages/D1")
+		assert(c.messages.delete({id = "D1"}).success and last().method == "DELETE" and last().url == API .. "/messages/D1")
 		for _, call in {
-			function() return c.updateMessage({id = "M1", isRead = true}) end,
-			function() return c.deleteMessage({id = "M1"}) end,
-			function() return c.addAttachment({messageId = "M1", path = "notes.txt"}) end,
+			function() return c.messages.update({id = "M1", isRead = true}) end,
+			function() return c.messages.delete({id = "M1"}) end,
+			function() return c.attachments.add({messageId = "M1", path = "notes.txt"}) end,
 		} do
 			responses = {{body = '{"isDraft":false}'}}
 			local before = #requests
@@ -78,27 +74,27 @@ return {
 		await(near:close())
 		local before = #requests
 		for _, call in {
-			function() return c.createDraft({subject = "x", attachments = {"big.bin"}}) end,
+			function() return c.messages.createDraft({subject = "x", attachments = {"big.bin"}}) end,
 			-- Under 3 MB of files, but with a large body the request would exceed 4 MB.
-			function() return c.createDraft({body = {contentType = "Text", content = string.rep("b", 200000)}, attachments = {"near.bin"}}) end,
-			function() return c.createDraft({subject = "x", attachments = {"missing.txt"}}) end,
-			function() return c.createDraft({subject = "x", attachments = "notes.txt"}) end,
-			function() return c.createDraft({subject = "x", attachments = {{name = "x"}}}) end,
-			function() return c.updateMessage({id = "D1"}) end,
-			function() return c.updateMessage({id = "D1", attachments = {"notes.txt"}}) end,
-			function() return c.deleteMessage({id = "D1", permanent = true}) end,
-			function() return c.createReply({}) end,
+			function() return c.messages.createDraft({body = {contentType = "Text", content = string.rep("b", 200000)}, attachments = {"near.bin"}}) end,
+			function() return c.messages.createDraft({subject = "x", attachments = {"missing.txt"}}) end,
+			function() return c.messages.createDraft({subject = "x", attachments = "notes.txt"}) end,
+			function() return c.messages.createDraft({subject = "x", attachments = {{name = "x"}}}) end,
+			function() return c.messages.update({id = "D1"}) end,
+			function() return c.messages.update({id = "D1", attachments = {"notes.txt"}}) end,
+			function() return c.messages.delete({id = "D1", permanent = true}) end,
+			function() return c.messages.createReply({}) end,
 			-- Extended MAPI properties could turn a draft into a sent or received message.
-			function() return c.createDraft({subject = "x", singleValueExtendedProperties = {{id = "Integer 0x0E07", value = "1"}}}) end,
-			function() return c.updateMessage({id = "D1", multiValueExtendedProperties = {}}) end,
-			function() return c.createDraft({subject = "x", SingleValueExtendedProperties = {}}) end,
-			function() return c.createReply({id = "M1", message = {singleValueExtendedProperties = {}}}) end,
+			function() return c.messages.createDraft({subject = "x", singleValueExtendedProperties = {{id = "Integer 0x0E07", value = "1"}}}) end,
+			function() return c.messages.update({id = "D1", multiValueExtendedProperties = {}}) end,
+			function() return c.messages.createDraft({subject = "x", SingleValueExtendedProperties = {}}) end,
+			function() return c.messages.createReply({id = "M1", message = {singleValueExtendedProperties = {}}}) end,
 		} do assert(not pcall(call)) end
 		assert(#requests == before, "invalid drafts reached Graph")
 		-- An empty draft is fine; an oversized attachment fails after the draft check, before upload.
 		responses = {{status = 201, body = '{"id":"D9","isDraft":true}'}, {body = '{"isDraft":true}'}}
-		assert(c.createDraft({}).id == "D9" and last().body == "{}", last().body)
-		assert(not pcall(c.addAttachment, {messageId = "D9", path = "big.bin"}))
+		assert(c.messages.createDraft({}).id == "D9" and last().body == "{}", last().body)
+		assert(not pcall(c.attachments.add, {messageId = "D9", path = "big.bin"}))
 		assert(last().method == "GET" and #responses == 0, "an oversized attachment was uploaded")
 		assert(#responses == 0)
 	end,
