@@ -78,10 +78,11 @@ return {
 		for _, spec in {{"sendMessage", "POST", "/messages/send", '{"id":"m2","threadId":"t2","labelIds":["SENT"]}'},
 			{"createDraft", "POST", "/drafts", '{"id":"d1","message":{"id":"m1","threadId":"t1"}}'},
 			{"updateDraft", "PUT", "/drafts/d1", '{"id":"d1","message":{"id":"m1","threadId":"t1"}}'}} do
+			if spec[1] == "updateDraft" then expect("GET", "/drafts/d1?format=metadata", '{"id":"d1","message":{"id":"m1","threadId":"t1"}}') end
 			table.insert(responses, {method = spec[2], url = "https://gmail.googleapis.com/upload/gmail/v1/users/me" .. spec[3] .. "?uploadType=multipart", response = spec[4], compose = true})
 			assert(fixture.example(spec[1]).id == (if spec[1] == "sendMessage" then "m2" else "d1"))
 		end
-		assert(#responses == 0 and #requests == 23)
+		assert(#responses == 0 and #requests == 24)
 		local count = 0
 		for _ in c do count += 1 end
 		assert(count == 22, "execute an example for every configured operation")

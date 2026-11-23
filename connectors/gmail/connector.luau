@@ -236,7 +236,9 @@ local endpoints: {[string]: DocumentedEndpoint} = {
 
 local function header(headers: any, name: string): string?
 	for _, item in headers or {} do
-		if type(item) == "table" and type(item.name) == "string" and string.lower(item.name) == name then return item.value end
+		if type(item) == "table" and type(item.name) == "string" and string.lower(item.name) == name then
+			return if type(item.value) == "string" then (string.gsub(item.value, "\r?\n[ \t]+", " ")) else item.value
+		end
 	end
 	return nil
 end
@@ -460,7 +462,9 @@ end
 
 -- Builds the MIME message as pieces and returns them with the thread to post into. inReplyTo
 -- threads a reply to that message: recipients, subject and references default from the original.
-local function compose(name: string, args: Options): ({string}, string?)
+-- Otherwise, replacing a draft keeps its thread, threading headers and, if omitted, subject:
+-- Gmail moves a draft out of its conversation when an update leaves them out.
+local function compose(name: string, args: Options, replacing: string?): ({string}, string?)
 	local known = {}
 	for _, field in {"to", "cc", "bcc", "replyTo", "from", "subject", "text", "html", "attachments", "inReplyTo", "replyAll"} do known[field] = true end
 	for key in args do assert(known[key], name .. " received an unknown option " .. key) end
@@ -491,6 +495,12 @@ local function compose(name: string, args: Options): ({string}, string?)
 	assert(args.text ~= nil or args.html ~= nil, name .. " requires text or html")
 	local attachments = if args.attachments == nil then {} else args.attachments
 	assert(type(attachments) == "table", "attachments must be an array")
+	if replacing and args.inReplyTo == nil then
+		local current = call(name, "GET", API .. "/drafts/" .. replacing .. "?format=metadata").message or {}
+		local headers = current.payload and current.payload.headers
+		threadId, inReplyTo, references = current.threadId, header(headers, "in-reply-to"), header(headers, "references")
+		subject = subject or header(headers, "subject")
+	end
 	if subject ~= nil and string.find(subject, "[\128-\255]") then subject = "=?UTF-8?B?" .. base64.encode(subject) .. "?=" end
 	local out = {line("From", args.from) .. line("To", to) .. line("Cc", cc) .. line("Bcc", addresses(args.bcc, "bcc"))
 		.. line("Reply-To", addresses(args.replyTo, "replyTo")) .. line("Subject", subject) .. line("In-Reply-To", inReplyTo)
@@ -521,8 +531,8 @@ end
 
 -- Uploads the message as message/rfc822 beside Gmail's JSON metadata, so attachments are
 -- base64-encoded only once. Drafts nest the thread under message.
-local function submit(name: string, method: string, path: string, args: Options, draft: boolean): any
-	local mime, threadId = compose(name, args)
+local function submit(name: string, method: string, path: string, args: Options, draft: boolean, replacing: string?): any
+	local mime, threadId = compose(name, args, replacing)
 	local metadata = if draft then {message = {threadId = threadId}} else {threadId = threadId}
 	local body = {"--=_houston_upload\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" .. json.encode(metadata)
 		.. "\r\n--=_houston_upload\r\nContent-Type: message/rfc822\r\n\r\n"}
@@ -681,14 +691,14 @@ if houston.allows("drafts:create") then
 end
 if houston.allows("drafts:manage") then
 	reference.functions.updateDraft = {
-		description = "Replaces the draft's entire content without sending. Include every recipient, body and attachment you want to retain; never copy a truncated body. " .. COMPOSE,
+		description = "Replaces the draft's content without sending. Include every recipient, body and attachment you want to retain; never copy a truncated body. It stays in its conversation and keeps its subject when none is given; a new subject can start a new conversation, and inReplyTo moves it into that message's conversation. " .. COMPOSE,
 		inputSchema = composeInput(true), outputSchema = draftRef, annotations = {readOnlyHint = false, openWorldHint = true},
 	}
 	function exports.updateDraft(input: any): any
 		local args = options(input)
-		local id = text(args.id, "id")
+		local id = url.segment(text(args.id, "id"), "id")
 		args.id = nil
-		return submit("updateDraft", "PUT", "/drafts/" .. url.segment(id, "id"), args, true)
+		return submit("updateDraft", "PUT", "/drafts/" .. id, args, true, id)
 	end
 end
 
