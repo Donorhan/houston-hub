@@ -1,4 +1,9 @@
 -- Every documented example runs as a real call against a permissive Graph mock.
+local function operations(node: any, prefix: string, names: {string}): {string}
+	for _, name in node.functions do table.insert(names, prefix .. name) end
+	for _, name in node.namespaces do operations(node[name], prefix .. name .. ".", names) end
+	return names
+end
 return {
 	scenario = {publisher = {client_id = "fixture-client", client_secret = "fixture-private-secret"}, config = {}, auth_method = "oauth", auth_config = {}},
 	access = {data = "write"},
@@ -16,11 +21,9 @@ return {
 		local file = fs.open("report.pdf", "w")
 		file:write("%PDF")
 		await(file:close())
-		local names = {}
-		for name in c do table.insert(names, name) end
-		table.sort(names)
+		local names = operations(c, "", {})
 		for _, name in names do fixture.example(name) end
-		for _, name in {"getItem", "downloadFile", "createFolder", "uploadFile"} do fixture.example(name, 2) end
+		for _, name in {"files.get", "files.download", "files.createFolder", "files.upload"} do fixture.example(name, 2) end
 		assert(calls == #names + 4, "an example made no request")
 	end,
 }

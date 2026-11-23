@@ -1,6 +1,13 @@
 return {
 	contract = function(m)
 		local api = "https://graph.microsoft.com/v1.0/me"
+		local reading = {"contacts.list", "contacts.get", "folders.list"}
+		for access, expected in {read = reading, write = m.concat(reading, {"contacts.create", "contacts.update", "contacts.delete",
+			"folders.create", "folders.update", "folders.delete"})} do
+			local result, err = m.exports({}, "oauth", nil, nil, {data = access})
+			assert(result and not err and result.type == "result", tostring(err or result.error))
+			m.sortedEqual(expected, result.exports)
+		end
 		for access, scopes in {read = {"Contacts.Read"}, write = {"Contacts.ReadWrite"}} do
 			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {}, nil, "oauth", {data = access})
 			assert(r and not err, tostring(err))

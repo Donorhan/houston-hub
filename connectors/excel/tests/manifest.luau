@@ -2,6 +2,14 @@ return {
 	contract = function(m)
 		local api = "https://graph.microsoft.com/v1.0/me"
 		local w = api .. "/drive/items/I1/workbook"
+		local reading = {"workbooks.find", "workbooks.get", "worksheets.list", "ranges.get", "tables.list", "names.list"}
+		for access, expected in {read = reading, write = m.concat(reading, {"workbooks.create", "workbooks.createSession", "workbooks.closeSession",
+			"worksheets.add", "worksheets.update", "worksheets.delete", "ranges.update", "ranges.clear", "ranges.insert", "ranges.delete",
+			"tables.add", "tables.addRows"})} do
+			local result, err = m.exports({}, "oauth", nil, nil, {data = access})
+			assert(result and not err and result.type == "result", tostring(err or result.error))
+			m.sortedEqual(expected, result.exports)
+		end
 		for access, scopes in {read = {"Files.Read"}, write = {"Files.ReadWrite"}} do
 			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {}, nil, "oauth", {data = access})
 			assert(r and not err, tostring(err))

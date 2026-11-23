@@ -6,7 +6,6 @@
 type Options = {[string]: any}
 type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?}
 local GRAPH = "https://graph.microsoft.com/v1.0"
-local API = GRAPH .. "/me"
 -- Preauthenticated OneDrive download links, under either annotation, work without credentials,
 -- so results never carry them.
 local SIGNED = {"@microsoft.graph.downloadUrl", "@content.downloadUrl"}
@@ -142,9 +141,10 @@ local function nextLink(name: string, args: Options, ending: string): string?
 	return pageLink(link, ending)
 end
 
--- One Graph request built from args: {field} placeholders take URL-encoded path segments, query
--- names the query fields and, with body, the other fields form the JSON body. A list (the Lua
--- pattern its path ends with) also accepts nextLink and always returns a value array.
+-- One Graph request built from args, on a path under v1.0 such as /me/events: {field} placeholders
+-- take URL-encoded path segments, query names the query fields and, with body, the other fields
+-- form the JSON body. A list (the Lua pattern its path ends with) also accepts nextLink and always
+-- returns a value array.
 local function request(name: string, method: string, path: string, input: any, spec: Spec?): any
 	local args = options(input)
 	local s: Spec = spec or {}
@@ -159,40 +159,48 @@ local function request(name: string, method: string, path: string, input: any, s
 			args[field] = nil
 			return value
 		end)
-		href = API .. route .. query(args, s.query or {})
+		href = GRAPH .. route .. query(args, s.query or {})
 		if not s.body then done(name, args) end
 	end
 	local result = call(name, method, href :: string, if s.body then args else nil, s.headers)
 	if s.list and result.value == nil then result.value = json.decode("[]") end
 	return result
 end
+
+-- An operation namespace, whose help lists the functions added to it.
+local function namespace(summary: string): Options
+	return {help = {text = summary, functions = {} :: {[string]: any}}}
+end
 -- End of the shared request layer.
 
--- Summary fields for contact lists; getContact returns every field.
+-- Summary fields for contact lists; contacts.get returns every field.
 local LIST = "id,displayName,givenName,surname,emailAddresses,businessPhones,homePhones,mobilePhone,companyName,jobTitle,department,categories,parentFolderId,lastModifiedDateTime"
 
+local WRITES = houston.allows("data:write")
 local help = {
 	text = [[Microsoft Graph v1.0 for the connected account's Outlook contacts. Operations take one named
 options object with Graph's camelCase fields and return Graph's JSON unchanged. Connector calls
 return completed values: use them directly, without await.
 Contacts live in the default Contacts folder unless folderId names one of its folders, from
-listContactFolders; folders can nest. Each list covers one folder. To see every contact, list the
-default folder, then walk listContactFolders and each folder's subfolders, skipping folder ids
+folders.list; folders can nest. Each list covers one folder. To see every contact, list the
+default folder, then walk folders.list and each folder's subfolders, skipping folder ids
 already seen, and list each folder's contacts. Some accounts list the default folder itself among
 the folders, as Contacts: its id is the parentFolderId of default-folder contacts, and its
 contacts are the ones already listed.
 Lists return one page: while ['@odata.nextLink'] is present, pass it back as nextLink (alone).
-Example: listContacts({filter="emailAddresses/any(a:a/address eq 'ana@example.com')", top=50}).
+Example: contacts.list({filter="emailAddresses/any(a:a/address eq 'ana@example.com')", top=50}).
 Houston itself retries only a short 429 wait. Errors report the HTTP status and Graph's code and
 message, e.g. 'Microsoft Graph HTTP 404 (ErrorItemNotFound)'; 429 is retryable, and so are
-503 and other transient server errors on reads. Graph serves at most 4 concurrent requests per mailbox.]] .. (if houston.allows("data:write") then [[
+503 and other transient server errors on reads. Graph serves at most 4 concurrent requests per mailbox.]] .. (if WRITES then [[
 
 Writes change only the user's own contacts and contact folders, and notify nobody. Deletes return
 {success=true}; Outlook normally keeps deleted contacts and folders in Deleted Items. A failed or
-timed-out create may already have succeeded: check with listContacts before repeating it.]] else ""),
+timed-out create may already have succeeded: check with contacts.list before repeating it.]] else ""),
 	functions = {} :: {[string]: any},
 }
-local exports: {[string]: any} = {help = help}
+local contacts = namespace(if WRITES then "Read, add, change and delete contacts." else "Read contacts.")
+local folders = namespace(if WRITES then "Read, add, rename and delete contact folders." else "Read contact folders.")
+local exports: {[string]: any} = {help = help, contacts = contacts, folders = folders}
 
 -- Schemas and hints shared by several operations.
 local ID = {type = "string", minLength = 1}
@@ -200,7 +208,7 @@ local CONTACT_ID = "AAMkAGI2TG93AAA="
 local FOLDER_ID = "AAMkAGI2TGuLAAA="
 local SELECT = {type = {"string", "array"}, items = {type = "string"}, description = "Fields, comma-separated or as an array."}
 local NEXT = {type = "string", description = "The previous page's @odata.nextLink; pass it alone."}
-local FOLDER = {type = "string", minLength = 1, description = "A contact folder's id from listContactFolders; defaults to the default Contacts folder."}
+local FOLDER = {type = "string", minLength = 1, description = "A contact folder's id from folders.list; defaults to the default Contacts folder."}
 -- Contact fields take null, json.decode('null'), to clear them.
 local TEXT = {type = {"string", "null"}}
 local STRINGS = {type = {"array", "null"}, items = {type = "string"}}
@@ -285,10 +293,10 @@ end
 
 -- A contact by id, in the default folder or in folderId.
 local function contact(args: Options): string
-	return if args.folderId == nil then "/contacts/{id}" else "/contactFolders/{folderId}/contacts/{id}"
+	return if args.folderId == nil then "/me/contacts/{id}" else "/me/contactFolders/{folderId}/contacts/{id}"
 end
 
-help.functions.listContactFolders = {
+folders.help.functions.list = {
 	description = [[One page of the folders in the default Contacts folder, or of folderId's subfolders:
 {value={{id, displayName, parentFolderId}}, ['@odata.nextLink']?}. Some accounts list the default
 Contacts folder itself here, with the other folders as its subfolders.]],
@@ -301,13 +309,13 @@ Contacts folder itself here, with the other folders as its subfolders.]],
 	},
 	annotations = READ,
 }
-function exports.listContactFolders(input: any): Options
+function folders.list(input: any): Options
 	local args = options(input)
-	return request("listContactFolders", "GET", if args.folderId == nil then "/contactFolders" else "/contactFolders/{folderId}/childFolders", args,
+	return request("folders.list", "GET", if args.folderId == nil then "/me/contactFolders" else "/me/contactFolders/{folderId}/childFolders", args,
 		{list = "/c[a-z]+Folders$", query = {"$select", "$filter", "$top"}}) -- contactFolders or childFolders; the proxy refuses any other
 end
 
-help.functions.listContacts = {
+contacts.help.functions.list = {
 	description = [[One page of the contacts in the default Contacts folder, or in folderId: {value={contact},
 ['@odata.nextLink']?}. Default fields: ]] .. LIST .. [[. select replaces them, so name every field
 needed, such as "id,displayName,homeAddress,birthday". Graph documents one filter, an exact email
@@ -328,13 +336,13 @@ and may be refused. Pages are small unless top asks for more, such as 100.]],
 	},
 	annotations = READ,
 }
-function exports.listContacts(input: any): Options
+function contacts.list(input: any): Options
 	local args = options(input)
-	return request("listContacts", "GET", if args.folderId == nil then "/contacts" else "/contactFolders/{folderId}/contacts", args,
+	return request("contacts.list", "GET", if args.folderId == nil then "/me/contacts" else "/me/contactFolders/{folderId}/contacts", args,
 		{list = "/contacts$", defaults = {select = LIST}, query = {"$select", "$filter", "$orderby", "$top"}})
 end
 
-help.functions.getContact = {
+contacts.help.functions.get = {
 	description = [[One contact with every field unless select narrows them: {id, displayName, givenName, surname,
 emailAddresses={{name, address}}, businessPhones, homePhones, mobilePhone, businessAddress,
 homeAddress, otherAddress, companyName, jobTitle, birthday, personalNotes, categories,
@@ -349,16 +357,16 @@ the default folder, pass the contact's parentFolderId as folderId.]],
 	},
 	annotations = READ,
 }
-function exports.getContact(input: any): Options
+function contacts.get(input: any): Options
 	local args = options(input)
-	return request("getContact", "GET", contact(args), args, {query = {"$select"}})
+	return request("contacts.get", "GET", contact(args), args, {query = {"$select"}})
 end
 
-if houston.allows("data:write") then
+if WRITES then
 	local NEW = with(CONTACT, {folderId = FOLDER})
 	local CHANGE = with(CONTACT, {id = ID, folderId = FOLDER})
 
-	help.functions.createContact = {
+	contacts.help.functions.create = {
 		description = [[Creates a contact in the default Contacts folder, or in folderId, and returns it. Phones are
 businessPhones and homePhones (arrays) and mobilePhone (one number).]],
 		inputSchema = {
@@ -374,20 +382,20 @@ businessPhones and homePhones (arrays) and mobilePhone (one number).]],
 		},
 		annotations = WRITE,
 	}
-	function exports.createContact(input: any): Options
+	function contacts.create(input: any): Options
 		local args = options(input)
-		fields("createContact", args, NEW)
+		fields("contacts.create", args, NEW)
 		local body = table.clone(args)
 		body.folderId = nil
-		assert(next(body) ~= nil, "createContact requires contact fields")
-		return request("createContact", "POST", if args.folderId == nil then "/contacts" else "/contactFolders/{folderId}/contacts", args, {body = true})
+		assert(next(body) ~= nil, "contacts.create requires contact fields")
+		return request("contacts.create", "POST", if args.folderId == nil then "/me/contacts" else "/me/contactFolders/{folderId}/contacts", args, {body = true})
 	end
 
-	help.functions.updateContact = {
+	contacts.help.functions.update = {
 		description = [[Changes the given fields of a contact and returns it. Arrays such as emailAddresses and
 businessPhones are replaced whole, and so are addresses: read the contact and send the full value.
 json.decode('null') clears a field, such as birthday.
-Graph documents no move action, and updateContact does not send parentFolderId: to move a
+Graph documents no move action, and contacts.update does not send parentFolderId: to move a
 contact, create it in the target folder and delete the original, which gives it a new id.]],
 		inputSchema = {
 			type = "object",
@@ -398,30 +406,30 @@ contact, create it in the target folder and delete the original, which gives it 
 		},
 		annotations = WRITE,
 	}
-	function exports.updateContact(input: any): Options
+	function contacts.update(input: any): Options
 		local args = options(input)
-		fields("updateContact", args, CHANGE)
+		fields("contacts.update", args, CHANGE)
 		local body = table.clone(args)
 		body.id, body.folderId = nil, nil
-		assert(next(body) ~= nil, "updateContact requires fields to change")
-		return request("updateContact", "PATCH", contact(args), args, {body = true})
+		assert(next(body) ~= nil, "contacts.update requires fields to change")
+		return request("contacts.update", "PATCH", contact(args), args, {body = true})
 	end
 
-	help.functions.deleteContact = {
+	contacts.help.functions.delete = {
 		description = "Deletes a contact and returns {success=true}; Outlook normally keeps it in Deleted Items.",
 		inputSchema = {type = "object", properties = {id = ID, folderId = FOLDER}, required = {"id"}, additionalProperties = false, examples = {{id = CONTACT_ID}}},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.deleteContact(input: any): Options
+	function contacts.delete(input: any): Options
 		local args = options(input)
-		return request("deleteContact", "DELETE", contact(args), args)
+		return request("contacts.delete", "DELETE", contact(args), args)
 	end
 
 	local NAME = {type = "string", minLength = 1, description = "The folder's name."}
 	local NEW_FOLDER = {displayName = NAME, parentFolderId = {type = "string", minLength = 1, description = "The folder to create it in."}}
 	local CHANGE_FOLDER = {folderId = ID, displayName = NAME, parentFolderId = {type = "string", minLength = 1, description = "The folder to move it into."}}
 
-	help.functions.createContactFolder = {
+	folders.help.functions.create = {
 		description = "Creates a contact folder in the default Contacts folder, or inside parentFolderId, and returns {id, displayName, parentFolderId}.",
 		inputSchema = {
 			type = "object",
@@ -432,14 +440,14 @@ contact, create it in the target folder and delete the original, which gives it 
 		},
 		annotations = WRITE,
 	}
-	function exports.createContactFolder(input: any): Options
+	function folders.create(input: any): Options
 		local args = options(input)
 		text(args.displayName, "displayName")
-		fields("createContactFolder", args, NEW_FOLDER)
-		return request("createContactFolder", "POST", if args.parentFolderId == nil then "/contactFolders" else "/contactFolders/{parentFolderId}/childFolders", args, {body = true})
+		fields("folders.create", args, NEW_FOLDER)
+		return request("folders.create", "POST", if args.parentFolderId == nil then "/me/contactFolders" else "/me/contactFolders/{parentFolderId}/childFolders", args, {body = true})
 	end
 
-	help.functions.updateContactFolder = {
+	folders.help.functions.update = {
 		description = "Renames a contact folder, or moves it into parentFolderId, and returns it.",
 		inputSchema = {
 			type = "object",
@@ -451,21 +459,21 @@ contact, create it in the target folder and delete the original, which gives it 
 		},
 		annotations = WRITE,
 	}
-	function exports.updateContactFolder(input: any): Options
+	function folders.update(input: any): Options
 		local args = options(input)
-		fields("updateContactFolder", args, CHANGE_FOLDER)
-		assert(args.displayName ~= nil or args.parentFolderId ~= nil, "updateContactFolder requires displayName or parentFolderId")
-		return request("updateContactFolder", "PATCH", "/contactFolders/{folderId}", args, {body = true})
+		fields("folders.update", args, CHANGE_FOLDER)
+		assert(args.displayName ~= nil or args.parentFolderId ~= nil, "folders.update requires displayName or parentFolderId")
+		return request("folders.update", "PATCH", "/me/contactFolders/{folderId}", args, {body = true})
 	end
 
-	help.functions.deleteContactFolder = {
+	folders.help.functions.delete = {
 		description = "Deletes a contact folder with its contacts and subfolders and returns {success=true}; Outlook normally keeps them in Deleted Items. The default Contacts folder cannot be deleted, and Graph sometimes refuses other folders with 403 ErrorCannotDeleteObject.",
 		inputSchema = {type = "object", properties = {folderId = ID}, required = {"folderId"}, additionalProperties = false, examples = {{folderId = FOLDER_ID}}},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.deleteContactFolder(input: any): Options
+	function folders.delete(input: any): Options
 		local args = options(input)
-		return request("deleteContactFolder", "DELETE", "/contactFolders/{folderId}", args)
+		return request("folders.delete", "DELETE", "/me/contactFolders/{folderId}", args)
 	end
 end
 

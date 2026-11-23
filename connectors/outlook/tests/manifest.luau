@@ -1,6 +1,19 @@
 return {
 	contract = function(m)
 		local api = "https://graph.microsoft.com/v1.0/me"
+		-- Each level adds operations to the one before.
+		local levels = {
+			read = {"getProfile", "listMailFolders", "messages.list", "messages.get", "attachments.list", "attachments.get", "folders.get"},
+			draft = {"messages.createDraft", "messages.createReply", "messages.createReplyAll", "messages.createForward", "messages.update", "messages.delete", "attachments.add"},
+			write = {"messages.send", "messages.sendDraft", "messages.reply", "messages.replyAll", "messages.forward", "messages.move", "folders.create"},
+		}
+		local expected = {}
+		for _, access in {"read", "draft", "write"} do
+			expected = m.concat(expected, levels[access])
+			local result, err = m.exports({}, "oauth", nil, nil, {data = access})
+			assert(result and not err and result.type == "result", tostring(err or result.error))
+			m.sortedEqual(expected, result.exports)
+		end
 		-- Draft asks for Mail.ReadWrite only, but Microsoft may keep Mail.Send from an
 		-- earlier grant to the same app: these routes are what refuse its sends.
 		for access, scopes in {read = {"Mail.Read"}, draft = {"Mail.ReadWrite"}, write = {"Mail.ReadWrite", "Mail.Send"}} do

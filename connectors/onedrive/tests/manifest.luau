@@ -2,6 +2,13 @@ return {
 	contract = function(m)
 		local graph = "https://graph.microsoft.com/v1.0"
 		local api = graph .. "/me/drive"
+		local reading = {"statFile", "files.getDrive", "files.get", "files.listChildren", "files.search", "files.download", "files.listPermissions"}
+		for access, expected in {read = reading, write = m.concat(reading, {"files.createFolder", "files.upload", "files.update", "files.copy",
+			"files.delete", "files.createLink", "files.invite", "files.deletePermission"})} do
+			local result, err = m.exports({}, "oauth", nil, nil, {data = access})
+			assert(result and not err and result.type == "result", tostring(err or result.error))
+			m.sortedEqual(expected, result.exports)
+		end
 		for access, scope in {read = "Files.Read", write = "Files.ReadWrite"} do
 			local r, err = m.resolve({client_id = "publisher-client", client_secret = "publisher-secret"}, {}, nil, "oauth", {data = access})
 			assert(r and not err, tostring(err))

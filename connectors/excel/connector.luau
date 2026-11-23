@@ -6,7 +6,6 @@
 type Options = {[string]: any}
 type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?}
 local GRAPH = "https://graph.microsoft.com/v1.0"
-local API = GRAPH .. "/me"
 -- Preauthenticated OneDrive download links, under either annotation, work without credentials,
 -- so results never carry them.
 local SIGNED = {"@microsoft.graph.downloadUrl", "@content.downloadUrl"}
@@ -142,9 +141,10 @@ local function nextLink(name: string, args: Options, ending: string): string?
 	return pageLink(link, ending)
 end
 
--- One Graph request built from args: {field} placeholders take URL-encoded path segments, query
--- names the query fields and, with body, the other fields form the JSON body. A list (the Lua
--- pattern its path ends with) also accepts nextLink and always returns a value array.
+-- One Graph request built from args, on a path under v1.0 such as /me/events: {field} placeholders
+-- take URL-encoded path segments, query names the query fields and, with body, the other fields
+-- form the JSON body. A list (the Lua pattern its path ends with) also accepts nextLink and always
+-- returns a value array.
 local function request(name: string, method: string, path: string, input: any, spec: Spec?): any
 	local args = options(input)
 	local s: Spec = spec or {}
@@ -159,16 +159,22 @@ local function request(name: string, method: string, path: string, input: any, s
 			args[field] = nil
 			return value
 		end)
-		href = API .. route .. query(args, s.query or {})
+		href = GRAPH .. route .. query(args, s.query or {})
 		if not s.body then done(name, args) end
 	end
 	local result = call(name, method, href :: string, if s.body then args else nil, s.headers)
 	if s.list and result.value == nil then result.value = json.decode("[]") end
 	return result
 end
+
+-- An operation namespace, whose help lists the functions added to it.
+local function namespace(summary: string): Options
+	return {help = {text = summary, functions = {} :: {[string]: any}}}
+end
 -- End of the shared request layer.
 
-local W = "/drive/items/{itemId}/workbook"
+local WRITES = houston.allows("data:write")
+local W = "/me/drive/items/{itemId}/workbook"
 -- Search results keep the fields that identify a workbook; ranges return their values only by
 -- default, since the full range object repeats the grid in seven forms.
 local ITEM_FIELDS = "id,name,size,webUrl,lastModifiedDateTime,parentReference,file"
@@ -180,11 +186,11 @@ own OneDrive; workbooks in SharePoint or shared from another OneDrive are out of
 take one named options object with Graph's camelCase fields and return Graph's JSON unchanged;
 deletes, clears and closes return {success=true}. Connector calls return completed values: use
 them directly, without await.
-itemId is the workbook's OneDrive item id, from findWorkbooks. A worksheet is named by its name
+itemId is the workbook's OneDrive item id, from workbooks.find. A worksheet is named by its name
 or its id; a name containing % works only by id. An address is A1-style, such as 'A1:C10', and
 may carry its sheet: 'Sales!A1:D50', or "'Q1 Sales'!A1" when the name has spaces. Whole columns
 or rows ('B:B', '2:5') return no values and cannot take values, formulas or formats: read and
-write bounded ranges or a used range; clearRange, insertRange and deleteRange accept them.
+write bounded ranges or a used range; ranges.clear, ranges.insert and ranges.delete accept them.
 Values are rows of cells: numbers, strings, booleans, '' for an empty cell, errors as strings
 such as '#N/A'. Dates are serial numbers in values (days since 1899-12-30, or since 1904-01-01 in
 workbooks using the 1904 date system) and formatted strings in text. Read large sheets in row
@@ -193,27 +199,32 @@ Send one request at a time per workbook: parallel calls on one workbook cause th
 timeouts and conflicts. Errors report the HTTP status, Graph's code and message, and Excel's
 innerError code when there is one, e.g. 'Microsoft Graph HTTP 409 (conflict): ...; innerError:
 itemAlreadyExists'. Errors marked retryable (429, and on reads 500, 502, 503, 504 or 509) carry
-Retry-After when Graph sends one; an Excel 500 seldom succeeds when repeated unchanged. Houston itself retries only a short 429 wait.]] .. (if houston.allows("data:write") then [[
+Retry-After when Graph sends one; an Excel 500 seldom succeeds when repeated unchanged. Houston itself retries only a short 429 wait.]] .. (if WRITES then [[
 
 Writes save to the file in OneDrive, with or without a session; the file's version history is
 the only undo. Strings in values are read as if typed: '00123' becomes 123 and '2026-11-10' a
 date, unless the cells' numberFormat is '@' (text). For more than two calls on one workbook,
-createSession, pass its id as sessionId to each call, then closeSession. A session expires after
+workbooks.createSession, pass its id as sessionId to each call, then workbooks.closeSession. A session expires after
 about 5 idle minutes (about 7 with persistChanges=false). An innerError code starting with
 invalidSession means the session is unusable: after invalidSessionReCreatable, or a 502 or 503
 within a session, create a new one; other codes, such as invalidSessionAccessConflict, need their
 cause fixed first. A failed or timed-out write may already have been saved: read the range before
-repeating it, especially addTableRows, which would add the rows twice.]] else ""),
+repeating it, especially tables.addRows, which would add the rows twice.]] else ""),
 	functions = {} :: {[string]: any},
 }
-local exports: {[string]: any} = {help = help}
+local workbooks = namespace(if WRITES then "Find, read and create workbooks, and open sessions for several calls." else "Find and read workbooks.")
+local worksheets = namespace(if WRITES then "List, add, rename, hide and delete worksheets." else "List worksheets.")
+local ranges = namespace(if WRITES then "Read, write, clear, insert and delete cells." else "Read cells: values, formulas and formats.")
+local tables = namespace(if WRITES then "List and add tables, and add rows to them." else "List tables.")
+local names = namespace("List named ranges.")
+local exports: {[string]: any} = {help = help, workbooks = workbooks, worksheets = worksheets, ranges = ranges, tables = tables, names = names}
 
 -- Schemas and hints shared by several operations.
-local ITEM = {type = "string", minLength = 1, description = "The workbook's OneDrive item id, from findWorkbooks."}
+local ITEM = {type = "string", minLength = 1, description = "The workbook's OneDrive item id, from workbooks.find."}
 local ITEM_ID = "01BYE5RZ6QN3ZWBTUFOFD3GSPGOHDJD36K"
-local SHEET = {type = "string", minLength = 1, description = "Worksheet name or id, from listWorksheets."}
-local NAME = {type = "string", minLength = 1, description = "A named range, from listNames."}
-local TABLE = {type = "string", minLength = 1, description = "Table name or id, from listTables."}
+local SHEET = {type = "string", minLength = 1, description = "Worksheet name or id, from worksheets.list."}
+local NAME = {type = "string", minLength = 1, description = "A named range, from names.list."}
+local TABLE = {type = "string", minLength = 1, description = "Table name or id, from tables.list."}
 local ADDRESS = {type = "string", minLength = 1, description = "A1-style address such as 'A1:C10', optionally with its sheet: 'Sales!A1:D50' or \"'Q1 Sales'!A1\"."}
 local SELECT = {type = {"string", "array"}, items = {type = "string"}, description = "Fields, comma-separated or as an array."}
 local NEXT = {type = "string", description = "The previous page's @odata.nextLink; pass it alone."}
@@ -231,8 +242,8 @@ local READ = {readOnlyHint = true, openWorldHint = true}
 local WRITE = {readOnlyHint = false, destructiveHint = false, openWorldHint = true}
 local DESTRUCTIVE = {readOnlyHint = false, destructiveHint = true, openWorldHint = true}
 -- Sessions exist only on connections with write access, which can create them.
-local SESSION: Options = if houston.allows("data:write")
-	then {sessionId = {type = "string", minLength = 1, description = "A session id from createSession; omit for a one-off call."}}
+local SESSION: Options = if WRITES
+	then {sessionId = {type = "string", minLength = 1, description = "A session id from workbooks.createSession; omit for a one-off call."}}
 	else {}
 
 local function with(base: Options, extra: Options): Options
@@ -243,9 +254,9 @@ end
 
 -- Moves sessionId from args into Graph's workbook-session-id header.
 local function session(args: Options): HttpHeaders
-	if not houston.allows("data:write") or args.sessionId == nil then return {} end
+	if not WRITES or args.sessionId == nil then return {} end
 	local id = text(args.sessionId, "sessionId")
-	assert(not string.find(id, "%c"), "sessionId must be a session id from createSession")
+	assert(not string.find(id, "%c"), "sessionId must be a session id from workbooks.createSession")
 	args.sessionId = nil
 	return {["workbook-session-id"] = {id}}
 end
@@ -344,7 +355,7 @@ local function fields(name: string, args: Options, kinds: {[string]: any})
 	end
 end
 
-help.functions.findWorkbooks = {
+workbooks.help.functions.find = {
 	description = [[One page of .xlsx workbooks in the user's own OneDrive whose name, metadata or content match q:
 {value={{id, name, size, webUrl, lastModifiedDateTime, parentReference, file}},
 ['@odata.nextLink']?}. Other files and files shared from other drives are left out, so a page can
@@ -358,52 +369,52 @@ be empty while a nextLink remains. q cannot contain / or %.]],
 	},
 	annotations = READ,
 }
-function exports.findWorkbooks(input: any): Options
+function workbooks.find(input: any): Options
 	local args = options(input)
 	local path = ""
 	if args.nextLink == nil then
 		-- OData quotes a literal by doubling its single quotes.
-		path = "/drive/root/search(q='" .. url.segment((string.gsub(text(args.q, "q"), "'", "''")), "q") .. "')"
+		path = "/me/drive/root/search(q='" .. url.segment((string.gsub(text(args.q, "q"), "'", "''")), "q") .. "')"
 		assert(args.top == nil or (type(args.top) == "number" and args.top >= 1 and math.floor(args.top) == args.top), "top must be a positive integer")
-		assert(args.select == nil, "findWorkbooks received an unknown option select")
+		assert(args.select == nil, "workbooks.find received an unknown option select")
 		args.q = nil
 		-- remoteItem marks files shared from other drives, which are dropped below.
 		args.select = ITEM_FIELDS .. ",remoteItem"
 	end
-	local result = request("findWorkbooks", "GET", path, args, {list = "[/%.]search%(.*%)$", query = {"$select", "$top"}})
-	local workbooks = json.decode("[]")
+	local result = request("workbooks.find", "GET", path, args, {list = "[/%.]search%(.*%)$", query = {"$select", "$top"}})
+	local found = json.decode("[]")
 	for _, item in result.value do
 		if type(item) == "table" and type(item.file) == "table" and item.remoteItem == nil and type(item.name) == "string"
 			and string.lower(string.sub(item.name, -5)) == ".xlsx" then
-			table.insert(workbooks, item)
+			table.insert(found, item)
 		end
 	end
-	result.value = workbooks
+	result.value = found
 	return result
 end
 
-help.functions.getWorkbook = {
+workbooks.help.functions.get = {
 	description = "The workbook's OneDrive item: {id, name, size, webUrl, lastModifiedDateTime, parentReference, file={mimeType}}.",
 	inputSchema = {type = "object", properties = {itemId = ITEM, select = SELECT}, required = {"itemId"}, additionalProperties = false, examples = {{itemId = ITEM_ID}}},
 	annotations = READ,
 }
-function exports.getWorkbook(args: Options?): Options
-	return request("getWorkbook", "GET", "/drive/items/{itemId}", args, {query = {"$select"}, defaults = {select = ITEM_FIELDS}})
+function workbooks.get(args: Options?): Options
+	return request("workbooks.get", "GET", "/me/drive/items/{itemId}", args, {query = {"$select"}, defaults = {select = ITEM_FIELDS}})
 end
 
-help.functions.listWorksheets = {
+worksheets.help.functions.list = {
 	description = "The workbook's worksheets in order: {value={{id, name, position, visibility}}}. An id stays the same when the sheet is renamed.",
 	inputSchema = {type = "object", properties = with({itemId = ITEM, select = SELECT}, SESSION), required = {"itemId"}, additionalProperties = false, examples = {{itemId = ITEM_ID}}},
 	annotations = READ,
 }
-function exports.listWorksheets(input: any): Options
+function worksheets.list(input: any): Options
 	local args = options(input)
 	local headers = session(args)
-	return list(request("listWorksheets", "GET", W .. "/worksheets", args, {headers = headers, query = {"$select"}, defaults = {select = "id,name,position,visibility"}}))
+	return list(request("worksheets.list", "GET", W .. "/worksheets", args, {headers = headers, query = {"$select"}, defaults = {select = "id,name,position,visibility"}}))
 end
 
-help.functions.listTables = {
-	description = "The workbook's tables, or one worksheet's: {value={{id, name, showHeaders, showTotals, style}}}. getRange({table=...}) reads a table's cells.",
+tables.help.functions.list = {
+	description = "The workbook's tables, or one worksheet's: {value={{id, name, showHeaders, showTotals, style}}}. ranges.get({table=...}) reads a table's cells.",
 	inputSchema = {
 		type = "object",
 		properties = with({itemId = ITEM, worksheet = SHEET}, SESSION),
@@ -413,15 +424,15 @@ help.functions.listTables = {
 	},
 	annotations = READ,
 }
-function exports.listTables(input: any): Options
+function tables.list(input: any): Options
 	local args = options(input)
 	local headers = session(args)
-	return list(request("listTables", "GET", if args.worksheet == nil then W .. "/tables" else W .. "/worksheets/{worksheet}/tables", args, {headers = headers}))
+	return list(request("tables.list", "GET", if args.worksheet == nil then W .. "/tables" else W .. "/worksheets/{worksheet}/tables", args, {headers = headers}))
 end
 
-help.functions.listNames = {
+names.help.functions.list = {
 	description = [[The workbook's named items, or those scoped to one worksheet: {value={{name, type, value, scope,
-visible, comment}}}. Workbook-scoped names of type 'Range' work with getRange({name=...}); pass a
+visible, comment}}}. Workbook-scoped names of type 'Range' work with ranges.get({name=...}); pass a
 worksheet-scoped name's value as address instead.]],
 	inputSchema = {
 		type = "object",
@@ -432,13 +443,13 @@ worksheet-scoped name's value as address instead.]],
 	},
 	annotations = READ,
 }
-function exports.listNames(input: any): Options
+function names.list(input: any): Options
 	local args = options(input)
 	local headers = session(args)
-	return list(request("listNames", "GET", if args.worksheet == nil then W .. "/names" else W .. "/worksheets/{worksheet}/names", args, {headers = headers}))
+	return list(request("names.list", "GET", if args.worksheet == nil then W .. "/names" else W .. "/worksheets/{worksheet}/names", args, {headers = headers}))
 end
 
-help.functions.getRange = {
+ranges.help.functions.get = {
 	description = [[Cells of an address, a named range, a table (with its header and totals rows) or a worksheet's
 used range: {address, rowCount, columnCount, values}. address in the result carries the sheet.
 Add text, formulas, numberFormat or valueTypes to select for those grids. The used range covers
@@ -458,13 +469,13 @@ cells with values; valuesOnly=false also counts formatted empty cells.]],
 	},
 	annotations = READ,
 }
-function exports.getRange(input: any): Options
+function ranges.get(input: any): Options
 	local args = options(input)
 	local headers = session(args)
-	return request("getRange", "GET", rangePath(args, true), args, {headers = headers, query = {"$select"}, defaults = {select = RANGE_FIELDS}})
+	return request("ranges.get", "GET", rangePath(args, true), args, {headers = headers, query = {"$select"}, defaults = {select = RANGE_FIELDS}})
 end
 
-if houston.allows("data:write") then
+if WRITES then
 	-- A minimal package: one empty worksheet, Sheet1, and the default Normal cell style.
 	local XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
 	local RELATIONSHIPS = "http://schemas.openxmlformats.org/package/2006/relationships"
@@ -497,13 +508,13 @@ if houston.allows("data:write") then
 	-- The archive's bytes, built on first use: a string body is sent with its length.
 	local workbook: string? = nil
 
-	help.functions.createWorkbook = {
+	workbooks.help.functions.create = {
 		description = [[Creates an empty workbook with one worksheet, Sheet1, in parentId or the root folder and returns
 its OneDrive item: {id, name, size, webUrl, lastModifiedDateTime, parentReference, file}. name
 ends in .xlsx, does not start with a space and has none of " * : < > ? / \ | %. An existing
 file is never replaced: its name fails with HTTP 409 (nameAlreadyExists). A failed call may
 still have created the workbook, and repeating it then also fails with 409: look for it with
-findWorkbooks. Fill the sheet with updateRange and rename it with updateWorksheet.]],
+workbooks.find. Fill the sheet with ranges.update and rename it with worksheets.update.]],
 		inputSchema = {
 			type = "object",
 			properties = {
@@ -516,7 +527,7 @@ findWorkbooks. Fill the sheet with updateRange and rename it with updateWorkshee
 		},
 		annotations = WRITE,
 	}
-	function exports.createWorkbook(input: any): Options
+	function workbooks.create(input: any): Options
 		local args = options(input)
 		local name = text(args.name, "name")
 		assert(string.lower(string.sub(name, -5)) == ".xlsx" and #name > 5, "name must end in .xlsx, such as 'Budget 2026.xlsx'")
@@ -524,25 +535,25 @@ findWorkbooks. Fill the sheet with updateRange and rename it with updateWorkshee
 		-- addressing early.
 		assert(not string.find(name, '[%c"*:<>?/\\|%%]') and not string.find(name, "^%s"),
 			'name cannot start with a space or contain " * : < > ? / \\ | %')
-		local folder = if args.parentId == nil then "/drive/root" else "/drive/items/" .. url.segment(text(args.parentId, "parentId"), "parentId")
+		local folder = if args.parentId == nil then "/me/drive/root" else "/me/drive/items/" .. url.segment(text(args.parentId, "parentId"), "parentId")
 		args.name, args.parentId = nil, nil
-		done("createWorkbook", args)
+		done("workbooks.create", args)
 		workbook = workbook or await(zip.create(PACKAGE):readAll())
-		local item = decode("createWorkbook", await(http.request({
+		local item = decode("workbooks.create", await(http.request({
 			method = "PUT",
-			url = API .. folder .. ":/" .. url.segment(name, "name") .. ":/content?@microsoft.graph.conflictBehavior=fail",
+			url = GRAPH .. folder .. ":/" .. url.segment(name, "name") .. ":/content?@microsoft.graph.conflictBehavior=fail",
 			headers = {["Content-Type"] = {MEDIA .. "sheet"}},
 			body = workbook,
 		})), true)
 		if type(item.id) ~= "string" then
-			houston.fail({operation = "createWorkbook", layer = "upstream", retryable = false, message = "Microsoft Graph returned no item for the new workbook"})
+			houston.fail({operation = "workbooks.create", layer = "upstream", retryable = false, message = "Microsoft Graph returned no item for the new workbook"})
 		end
 		local result: Options = {}
 		for field in string.gmatch(ITEM_FIELDS, "[^,]+") do result[field] = item[field] end
 		return result
 	end
 
-	help.functions.updateRange = {
+	ranges.help.functions.update = {
 		description = [[Writes values, formulas or number formats to an address or a named range and returns
 {address, rowCount, columnCount, values}. Each grid matches the range's size. In values, null
 (json.decode('null')) leaves a cell unchanged, '' clears it and a string starting with = is a
@@ -563,16 +574,16 @@ formula. Write dates as serial numbers with a numberFormat such as 'yyyy-mm-dd'.
 		},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.updateRange(input: any): Options
+	function ranges.update(input: any): Options
 		local args = options(input)
 		local headers = session(args)
 		local path = rangePath(args, false)
-		assert(args.values ~= nil or args.formulas ~= nil or args.numberFormat ~= nil, "updateRange requires values, formulas or numberFormat")
-		fields("updateRange", args, {itemId = true, select = true, values = "grid", formulas = "grid", numberFormat = "formats"})
-		return request("updateRange", "PATCH", path, args, {body = true, headers = headers, query = {"$select"}, defaults = {select = RANGE_FIELDS}})
+		assert(args.values ~= nil or args.formulas ~= nil or args.numberFormat ~= nil, "ranges.update requires values, formulas or numberFormat")
+		fields("ranges.update", args, {itemId = true, select = true, values = "grid", formulas = "grid", numberFormat = "formats"})
+		return request("ranges.update", "PATCH", path, args, {body = true, headers = headers, query = {"$select"}, defaults = {select = RANGE_FIELDS}})
 	end
 
-	help.functions.clearRange = {
+	ranges.help.functions.clear = {
 		description = "Clears an address or a named range and returns {success=true}: applyTo Contents (the default) keeps formats, Formats keeps values, All clears both.",
 		inputSchema = {
 			type = "object",
@@ -584,15 +595,15 @@ formula. Write dates as serial numbers with a numberFormat such as 'yyyy-mm-dd'.
 		},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.clearRange(input: any): Options
+	function ranges.clear(input: any): Options
 		local args = options(input)
 		local headers = session(args)
 		local path = rangePath(args, false) .. "/clear"
-		fields("clearRange", args, {itemId = true, applyTo = {"Contents", "Formats", "All"}})
-		return request("clearRange", "POST", path, args, {body = true, headers = headers, defaults = {applyTo = "Contents"}})
+		fields("ranges.clear", args, {itemId = true, applyTo = {"Contents", "Formats", "All"}})
+		return request("ranges.clear", "POST", path, args, {body = true, headers = headers, defaults = {applyTo = "Contents"}})
 	end
 
-	help.functions.insertRange = {
+	ranges.help.functions.insert = {
 		description = "Inserts empty cells at an address, shifting the cells there Down or Right, and returns the new range with its cells. Insert whole rows or columns, such as 'Sheet1!5:7' for three rows, rather than large blocks, whose reply can exceed Graph's size limit.",
 		inputSchema = {
 			type = "object",
@@ -604,16 +615,16 @@ formula. Write dates as serial numbers with a numberFormat such as 'yyyy-mm-dd'.
 		},
 		annotations = WRITE,
 	}
-	function exports.insertRange(input: any): Options
+	function ranges.insert(input: any): Options
 		local args = options(input)
 		local headers = session(args)
 		local path = rangePath(args, false) .. "/insert"
-		assert(args.shift ~= nil, "insertRange requires shift: Down or Right")
-		fields("insertRange", args, {itemId = true, shift = {"Down", "Right"}})
-		return request("insertRange", "POST", path, args, {body = true, headers = headers})
+		assert(args.shift ~= nil, "ranges.insert requires shift: Down or Right")
+		fields("ranges.insert", args, {itemId = true, shift = {"Down", "Right"}})
+		return request("ranges.insert", "POST", path, args, {body = true, headers = headers})
 	end
 
-	help.functions.deleteRange = {
+	ranges.help.functions.delete = {
 		description = "Deletes the cells at an address, shifting the cells after them Up or Left, and returns {success=true}. 'Sheet1!5:5' deletes row 5.",
 		inputSchema = {
 			type = "object",
@@ -625,16 +636,16 @@ formula. Write dates as serial numbers with a numberFormat such as 'yyyy-mm-dd'.
 		},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.deleteRange(input: any): Options
+	function ranges.delete(input: any): Options
 		local args = options(input)
 		local headers = session(args)
 		local path = rangePath(args, false) .. "/delete"
-		assert(args.shift ~= nil, "deleteRange requires shift: Up or Left")
-		fields("deleteRange", args, {itemId = true, shift = {"Up", "Left"}})
-		return request("deleteRange", "POST", path, args, {body = true, headers = headers})
+		assert(args.shift ~= nil, "ranges.delete requires shift: Up or Left")
+		fields("ranges.delete", args, {itemId = true, shift = {"Up", "Left"}})
+		return request("ranges.delete", "POST", path, args, {body = true, headers = headers})
 	end
 
-	help.functions.addTableRows = {
+	tables.help.functions.addRows = {
 		description = [[Adds rows to a table, one cell per table column, at the end or at a 0-based index, and returns
 the added row: {index, values}. Add many rows per call rather than one call per row. A 504 may
 still have added the rows: read the table before repeating the call.]],
@@ -647,15 +658,15 @@ still have added the rows: read the table before repeating the call.]],
 		},
 		annotations = WRITE,
 	}
-	function exports.addTableRows(input: any): Options
+	function tables.addRows(input: any): Options
 		local args = options(input)
 		local headers = session(args)
-		assert(args.values ~= nil, "addTableRows requires values")
-		fields("addTableRows", args, {itemId = true, table = true, values = "grid", index = "index"})
-		return request("addTableRows", "POST", W .. "/tables/{table}/rows/add", args, {body = true, headers = headers})
+		assert(args.values ~= nil, "tables.addRows requires values")
+		fields("tables.addRows", args, {itemId = true, table = true, values = "grid", index = "index"})
+		return request("tables.addRows", "POST", W .. "/tables/{table}/rows/add", args, {body = true, headers = headers})
 	end
 
-	help.functions.addTable = {
+	tables.help.functions.add = {
 		description = [[Turns a range into a table and returns it: {id, name, showHeaders, ...}. Its first row is the
 header; with hasHeaders=false, Excel adds a header row and shifts the data down one row. A range overlapping another table fails.]],
 		inputSchema = {
@@ -667,15 +678,15 @@ header; with hasHeaders=false, Excel adds a header row and shifts the data down 
 		},
 		annotations = WRITE,
 	}
-	function exports.addTable(input: any): Options
+	function tables.add(input: any): Options
 		local args = options(input)
 		local headers = session(args)
 		args.worksheet, args.address = sheetOf(args)
-		fields("addTable", args, {itemId = true, worksheet = true, address = true, hasHeaders = "boolean"})
-		return request("addTable", "POST", W .. "/worksheets/{worksheet}/tables/add", args, {body = true, headers = headers, defaults = {hasHeaders = true}})
+		fields("tables.add", args, {itemId = true, worksheet = true, address = true, hasHeaders = "boolean"})
+		return request("tables.add", "POST", W .. "/worksheets/{worksheet}/tables/add", args, {body = true, headers = headers, defaults = {hasHeaders = true}})
 	end
 
-	help.functions.addWorksheet = {
+	worksheets.help.functions.add = {
 		description = "Adds a worksheet after the others and returns it: {id, name, position, visibility}. Without name, Excel picks one such as Sheet2.",
 		inputSchema = {
 			type = "object",
@@ -686,14 +697,14 @@ header; with hasHeaders=false, Excel adds a header row and shifts the data down 
 		},
 		annotations = WRITE,
 	}
-	function exports.addWorksheet(input: any): Options
+	function worksheets.add(input: any): Options
 		local args = options(input)
 		local headers = session(args)
-		fields("addWorksheet", args, {itemId = true, name = "text"})
-		return request("addWorksheet", "POST", W .. "/worksheets/add", args, {body = true, headers = headers})
+		fields("worksheets.add", args, {itemId = true, name = "text"})
+		return request("worksheets.add", "POST", W .. "/worksheets/add", args, {body = true, headers = headers})
 	end
 
-	help.functions.updateWorksheet = {
+	worksheets.help.functions.update = {
 		description = "Renames, moves (0-based position) or hides a worksheet and returns it.",
 		inputSchema = {
 			type = "object",
@@ -708,39 +719,39 @@ header; with hasHeaders=false, Excel adds a header row and shifts the data down 
 		},
 		annotations = WRITE,
 	}
-	function exports.updateWorksheet(input: any): Options
+	function worksheets.update(input: any): Options
 		local args = options(input)
 		local headers = session(args)
-		assert(args.name ~= nil or args.position ~= nil or args.visibility ~= nil, "updateWorksheet requires name, position or visibility")
-		fields("updateWorksheet", args, {itemId = true, worksheet = true, name = "text", position = "index", visibility = {"Visible", "Hidden", "VeryHidden"}})
-		return request("updateWorksheet", "PATCH", W .. "/worksheets/{worksheet}", args, {body = true, headers = headers})
+		assert(args.name ~= nil or args.position ~= nil or args.visibility ~= nil, "worksheets.update requires name, position or visibility")
+		fields("worksheets.update", args, {itemId = true, worksheet = true, name = "text", position = "index", visibility = {"Visible", "Hidden", "VeryHidden"}})
+		return request("worksheets.update", "PATCH", W .. "/worksheets/{worksheet}", args, {body = true, headers = headers})
 	end
 
-	help.functions.deleteWorksheet = {
+	worksheets.help.functions.delete = {
 		description = "Deletes a worksheet and its data and returns {success=true}.",
 		inputSchema = {type = "object", properties = with({itemId = ITEM, worksheet = SHEET}, SESSION), required = {"itemId", "worksheet"}, additionalProperties = false, examples = {{itemId = ITEM_ID, worksheet = "Archive"}}},
 		annotations = DESTRUCTIVE,
 	}
-	function exports.deleteWorksheet(input: any): Options
+	function worksheets.delete(input: any): Options
 		local args = options(input)
 		local headers = session(args)
-		return request("deleteWorksheet", "DELETE", W .. "/worksheets/{worksheet}", args, {headers = headers})
+		return request("worksheets.delete", "DELETE", W .. "/worksheets/{worksheet}", args, {headers = headers})
 	end
 
-	help.functions.createSession = {
+	workbooks.help.functions.createSession = {
 		description = [[Opens a workbook session and returns {id, persistChanges}; pass id as sessionId to the following
-calls on that workbook, then closeSession. persistChanges=false makes a scratch copy whose changes
+calls on that workbook, then workbooks.closeSession. persistChanges=false makes a scratch copy whose changes
 are dropped when the session ends.]],
 		inputSchema = {type = "object", properties = {itemId = ITEM, persistChanges = {type = "boolean"}}, required = {"itemId"}, additionalProperties = false, examples = {{itemId = ITEM_ID}}},
 		annotations = WRITE,
 	}
-	function exports.createSession(input: any): Options
+	function workbooks.createSession(input: any): Options
 		local args = options(input)
-		fields("createSession", args, {itemId = true, persistChanges = "boolean"})
-		return request("createSession", "POST", W .. "/createSession", args, {body = true, defaults = {persistChanges = true}})
+		fields("workbooks.createSession", args, {itemId = true, persistChanges = "boolean"})
+		return request("workbooks.createSession", "POST", W .. "/createSession", args, {body = true, defaults = {persistChanges = true}})
 	end
 
-	help.functions.closeSession = {
+	workbooks.help.functions.closeSession = {
 		description = "Closes a workbook session and returns {success=true}.",
 		inputSchema = {
 			type = "object",
@@ -751,11 +762,11 @@ are dropped when the session ends.]],
 		},
 		annotations = WRITE,
 	}
-	function exports.closeSession(input: any): Options
+	function workbooks.closeSession(input: any): Options
 		local args = options(input)
 		text(args.sessionId, "sessionId")
 		local headers = session(args)
-		return request("closeSession", "POST", W .. "/closeSession", args, {headers = headers})
+		return request("workbooks.closeSession", "POST", W .. "/closeSession", args, {headers = headers})
 	end
 end
 

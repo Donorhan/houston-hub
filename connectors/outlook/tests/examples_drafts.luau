@@ -1,14 +1,17 @@
 -- Every documented example of a Draft connection runs as a real call against a
 -- permissive Graph mock.
+local function operations(node: any, prefix: string, names: {string}): {string}
+	for _, name in node.functions do table.insert(names, prefix .. name) end
+	for _, name in node.namespaces do operations(node[name], prefix .. name .. ".", names) end
+	return names
+end
 local function run(c)
 	local file = fs.open("report.pdf", "w")
 	file:write("%PDF")
 	await(file:close())
-	local names = {}
-	for name in c do table.insert(names, name) end
-	table.sort(names)
+	local names = operations(c, "", {})
 	for _, name in names do fixture.example(name) end
-	for _, name in {"listMessages", "getMessage"} do fixture.example(name, 2) end
+	for _, name in {"messages.list", "messages.get"} do fixture.example(name, 2) end
 	assert(calls >= #names + 2, "an example made no request")
 end
 return {
