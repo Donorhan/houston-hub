@@ -168,8 +168,8 @@ local function request(name: string, method: string, path: string, input: any, s
 end
 
 -- An operation namespace, whose help lists the functions added to it.
-local function namespace(text: string): Options
-	return {help = {text = text, functions = {} :: {[string]: any}}}
+local function namespace(summary: string): Options
+	return {help = {text = summary, functions = {} :: {[string]: any}}}
 end
 -- End of the shared request layer.
 
@@ -289,14 +289,14 @@ end
 
 -- Prefer picks the time zone of returned times (Graph defaults to UTC) and, for events, the body
 -- format (text unless bodyFormat is html).
-local function prefer(args: Options, events: boolean): HttpHeaders
+local function prefer(args: Options, withBody: boolean): HttpHeaders
 	local values: {string} = {}
 	if args.timeZone ~= nil then
 		local zone = text(args.timeZone, "timeZone")
 		assert(string.match(zone, "^[%w %(%)%.%-+/_]+$"), "timeZone must be a time zone name")
 		table.insert(values, "outlook.timezone=\"" .. zone .. "\"")
 	end
-	if events then
+	if withBody then
 		local format = if args.bodyFormat == nil then "text" else args.bodyFormat
 		assert(format == "text" or format == "html", "bodyFormat must be text or html")
 		table.insert(values, "outlook.body-content-type=\"" .. format .. "\"")

@@ -167,8 +167,8 @@ local function request(name: string, method: string, path: string, input: any, s
 end
 
 -- An operation namespace, whose help lists the functions added to it.
-local function namespace(text: string): Options
-	return {help = {text = text, functions = {} :: {[string]: any}}}
+local function namespace(summary: string): Options
+	return {help = {text = summary, functions = {} :: {[string]: any}}}
 end
 -- End of the shared request layer.
 

@@ -168,8 +168,8 @@ local function request(name: string, method: string, path: string, input: any, s
 end
 
 -- An operation namespace, whose help lists the functions added to it.
-local function namespace(text: string): Options
-	return {help = {text = text, functions = {} :: {[string]: any}}}
+local function namespace(summary: string): Options
+	return {help = {text = summary, functions = {} :: {[string]: any}}}
 end
 -- End of the shared request layer.
 
@@ -201,7 +201,7 @@ local messages = namespace(if SENDS then "Read, search, send, reply to, forward,
 	elseif COMPOSES then "Read and search messages; create, change and delete drafts, replies and forwards." else "Read and search messages.")
 local attachments = namespace(if COMPOSES then "Save message attachments to session files, and attach session files to drafts."
 	else "Save message attachments to session files.")
-local folders = namespace((if SENDS then "Read and create mail folders" else "Read a mail folder's counts")
+local folders = namespace((if SENDS then "Read and create mail folders" else "Read a mail folder")
 	.. "; the root listMailFolders lists every folder.")
 local exports: {[string]: any} = {help = help, messages = messages, attachments = attachments, folders = folders}
 
@@ -298,11 +298,11 @@ local function compose(value: any, field: string): Options
 	local message = options(value)
 	plain(message)
 	if message.attachments ~= nil then
-		local attachments = fileAttachments(message.attachments)
+		local files = fileAttachments(message.attachments)
 		message.attachments = nil
 		local size = #json.encode(message)
-		for _, attachment in attachments do size += #attachment.contentBytes + #attachment.name + 128 end
-		message.attachments = attachments
+		for _, attachment in files do size += #attachment.contentBytes + #attachment.name + 128 end
+		message.attachments = files
 		assert(size <= MAX_REQUEST, "the message and its attachments must stay under 4 MB; share larger files from OneDrive")
 	end
 	return message
