@@ -22,6 +22,7 @@ return {
 				"GET " .. graph .. "/sites?search=marketing&$select=id", "GET " .. graph .. "/sites/root", "GET " .. site, "GET " .. encoded,
 				"GET " .. graph .. "/sites/contoso.sharepoint.com", "GET " .. graph .. "/sites/contoso.sharepoint.com:/sites/marketing",
 				"GET " .. graph .. "/sites/contoso.sharepoint.com:/teams/launch?$select=id", "GET " .. site .. "/sites",
+				"GET " .. graph .. "/sites/contoso-my.sharepoint.com:/personal/ana_contoso_com",
 				"GET " .. graph .. "/me/followedSites", "GET " .. site .. "/drive", "GET " .. encoded .. "/drives",
 				"GET " .. drive, "GET " .. drive .. "/root", "GET " .. graph .. "/drives/b%21hl4/root/children", "GET " .. drive .. "/root/children?$skiptoken=MjAx",
 				"GET " .. drive .. "/root/search(q='10:30%20notes')", "GET " .. drive .. "/root:/Proposals/Q3%20plan.docx:",
@@ -51,7 +52,9 @@ return {
 			if access == "write" then m.rejectOverrides(r, writes) end
 			-- Deferred features stay refused at every level: sharing, link redemption, list and column
 			-- creation, page writes, item writes outside fields, check-out, following, upload sessions and
-			-- permanent deletes.
+			-- permanent deletes. The path rules root/{search} and root:/* also match root/permissions and a
+			-- path-addressed item's permissions, which the matcher cannot narrow: the connector builds those
+			-- URLs itself and follows only nextLinks of its own routes (reads.luau).
 			m.routes(r, "Bearer fixture-token", false, {
 				"GET " .. drive .. "/items/01ABC/permissions", "POST " .. drive .. "/items/01ABC/createLink",
 				"POST " .. drive .. "/items/01ABC/invite", "DELETE " .. drive .. "/items/01ABC/permissions/p1",

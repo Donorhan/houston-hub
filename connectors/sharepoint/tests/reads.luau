@@ -54,13 +54,15 @@ return {
 		assert(last().url == GRAPH .. "/sites?search=marketing&" .. SITES .. "&$top=10", last().url)
 		assert(found_sites.value[1].id == SITE_ID and found_sites["@odata.nextLink"] == nextSites)
 		assert(json.encode(c.sites.search({nextLink = nextSites}).value) == "[]" and last().url == nextSites)
-		responses = {{body = '{"id":"s"}'}, {body = '{"id":"s"}'}, {body = '{"id":"s"}'}, {body = '{"id":"s"}'}, {body = '{"id":"s"}'}}
+		responses = {{body = '{"id":"s"}'}, {body = '{"id":"s"}'}, {body = '{"id":"s"}'}, {body = '{"id":"s"}'}, {body = '{"id":"s"}'}, {body = '{"id":"s"}'}}
 		c.sites.get({siteId = SITE_ID})
 		assert(last().url == SITE .. "?" .. SITES and last().headers["User-Agent"][1] == UA, last().url)
 		c.sites.get({webUrl = "https://Contoso.SharePoint.com/sites/marketing/SitePages/Home.aspx", select = "id"})
 		assert(last().url == GRAPH .. "/sites/contoso.sharepoint.com:/sites/marketing?$select=id", last().url)
 		c.sites.get({webUrl = "https://contoso.sharepoint.com/Teams/launch-2026", select = "id"})
 		assert(last().url == GRAPH .. "/sites/contoso.sharepoint.com:/teams/launch-2026?$select=id", last().url)
+		c.sites.get({webUrl = "https://contoso-my.sharepoint.com/personal/ana_contoso_com/Documents/plan.docx", select = "id"})
+		assert(last().url == GRAPH .. "/sites/contoso-my.sharepoint.com:/personal/ana_contoso_com?$select=id", last().url)
 		c.sites.get({webUrl = "https://contoso.sharepoint.com/Shared%20Documents/plan.docx", select = "id"})
 		assert(last().url == GRAPH .. "/sites/contoso.sharepoint.com?$select=id", last().url)
 		c.sites.get({webUrl = "https://contoso.sharepoint.com", select = "id"})
@@ -128,8 +130,11 @@ return {
 		local rows = c.lists.listItems({siteId = SITE_ID, listId = "L1", fields = {"Title", "Status"}, filter = "fields/Status eq 'Done'", orderby = "fields/Modified desc", top = 50})
 		assert(last().url == SITE .. "/lists/L1/items?$expand=fields(select=Title,Status)&$filter=fields%2FStatus%20eq%20%27Done%27&$orderby=fields%2FModified%20desc&$top=50", last().url)
 		assert(rows.value[1].fields.Title == "Launch")
+		-- Graph filters and sorts on unindexed columns only with this header, on every page.
+		assert(last().headers.Prefer[1] == "HonorNonIndexedQueriesWarningMayFailRandomly")
 		assert(json.encode(c.lists.listItems({nextLink = nextItems}).value) == "[]")
 		assert(last().url == SITE .. "/lists/L1/items?%24skiptoken=UGFn&%24expand=fields(select%3DTitle%2CStatus)", last().url)
+		assert(last().headers.Prefer[1] == "HonorNonIndexedQueriesWarningMayFailRandomly")
 		c.lists.listItems({nextLink = SITE .. "/lists/L1/items?$skiptoken=1"})
 		assert(last().url == SITE .. "/lists/L1/items?$skiptoken=1", last().url)
 		c.lists.getItem({siteId = SITE_ID, listId = "L1", itemId = "4", fields = "Title, Status"})

@@ -96,11 +96,12 @@ local function identified(extra: HttpHeaders?): HttpHeaders
 	return sent
 end
 
-local function call(operation: string, method: string, href: string, body: any?, headers: HttpHeaders?): any
+-- A request other than GET counts as a write unless write says otherwise, as for a search POST.
+local function call(operation: string, method: string, href: string, body: any?, headers: HttpHeaders?, write: boolean?): any
 	local sent = identified(headers)
 	if body ~= nil then sent["Content-Type"] = {"application/json"} end
 	return decode(operation, await(http.request({method = method, url = href, headers = sent,
-		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), method ~= "GET")
+		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), if write == nil then method ~= "GET" else write)
 end
 
 -- Streams fetch()'s response to a session file; the path changes only when the whole body arrived.
@@ -124,6 +125,10 @@ end
 -- paging options and a calendar view's time range: an $expand, or another route such as
 -- thumbnails, could return attachment bytes or signed links. Graph may name entities by OData
 -- key, as in mailFolders('inbox'), which the routes accept in their path form, mailFolders/inbox.
+local function unescape(value: string): string
+	return (string.gsub(value, "%%(%x%x)", function(hex: string): string return string.char(tonumber(hex, 16) or 0) end))
+end
+
 local PAGING = {select = true, top = true, skip = true, skiptoken = true, orderby = true, filter = true, search = true, count = true,
 	startdatetime = true, enddatetime = true}
 local function pageLink(link: string, ending: string): string
@@ -132,9 +137,7 @@ local function pageLink(link: string, ending: string): string
 	local path = string.gsub((string.gsub(raw, "%%27", "'")), "/(%w+)%('([^'/]+)'%)", "/%1/%2")
 	assert(string.find(path, ending), "nextLink must come from the same list")
 	for pair in string.gmatch(string.sub(search, 2), "[^&]+") do
-		local name = string.lower((string.gsub(string.match(pair, "^[^=]*") or "", "%%(%x%x)", function(hex: string): string
-			return string.char(tonumber(hex, 16) or 0)
-		end)))
+		local name = string.lower(unescape(string.match(pair, "^[^=]*") or ""))
 		assert(PAGING[(string.gsub(name, "^%$", ""))], "nextLink may carry only paging options")
 	end
 	return path .. search
@@ -186,6 +189,9 @@ local SITE = "id,displayName,name,webUrl,description,lastModifiedDateTime"
 local DRIVE = "id,name,driveType,webUrl"
 local LIST = "id,name,displayName,description,webUrl,list,lastModifiedDateTime"
 local MAX_UPLOAD = 250 * 1024 * 1024
+-- Without this header, Graph refuses to filter or sort list items on a column that is not indexed,
+-- even in small lists; lists over 5,000 items still refuse it.
+local UNINDEXED: HttpHeaders = {Prefer = {"HonorNonIndexedQueriesWarningMayFailRandomly"}}
 -- File content redirects to a short-lived preauthenticated URL on these hosts, fetched without credentials.
 local DOWNLOAD_HOSTS = {"%.sharepoint%.com$", "%.svc%.ms$"}
 -- Microsoft Search's SharePoint and OneDrive entity types; mail, events and people stay out of reach.
@@ -250,10 +256,6 @@ local function more(args: Options, names: {string}): string
 	return if rest == "" then "" else "&" .. string.sub(rest, 2)
 end
 
-local function unescape(value: string): string
-	return (string.gsub(value, "%%(%x%x)", function(hex: string): string return string.char(tonumber(hex, 16) or 0) end))
-end
-
 -- A nextLink's whole path, after Graph's own prefix, so a link cannot reach another route through
 -- the proxy's path-addressed rules.
 local function ending(path: string): string
@@ -264,8 +266,9 @@ local function sitePath(siteId: any): string
 	return "/sites/" .. url.segment(text(siteId, "siteId"), "siteId")
 end
 
--- A site URL's site: /sites/<name> and /teams/<name> name one; any other URL on the host, such as a
--- page or a document, belongs to the host's root site.
+-- A site URL's site: /sites/<name>, /teams/<name> and a OneDrive's /personal/<name> name one; any other
+-- URL on the host, such as a page or a document, belongs to the host's root site. A URL cannot tell a
+-- subsite from a folder, so subsites resolve to their parent site.
 local function siteByUrl(webUrl: string): string
 	local host = string.match(webUrl, "^https://([%w%.%-]+)") or ""
 	local rest = string.sub(webUrl, #"https://" + #host + 1)
@@ -274,7 +277,7 @@ local function siteByUrl(webUrl: string): string
 	host = string.lower(host)
 	local kind = string.lower(string.match(rest, "^/(%a+)/") or "")
 	local name = string.match(rest, "^/%a+/([^/?#]+)") or ""
-	if (kind ~= "sites" and kind ~= "teams") or name == "" then return "/sites/" .. host end
+	if (kind ~= "sites" and kind ~= "teams" and kind ~= "personal") or name == "" then return "/sites/" .. host end
 	assert(string.match(name, "^[%w_%-][%w_%-%.]*$"), "webUrl's site name may contain only letters, digits, '-', '_' and '.'")
 	return "/sites/" .. host .. ":/" .. kind .. "/" .. name
 end
@@ -448,9 +451,8 @@ function exports.search(input: any): Options
 	end
 	args.queryString, args.entityTypes, args.from, args.size, args.fields, args.sortProperties = nil, nil, nil, nil, nil, nil
 	done("search", args)
-	-- Not call(): a search is a read, so its transient server errors stay retryable.
-	local result = decode("search", await(http.request({method = "POST", url = GRAPH .. "/search/query",
-		headers = identified({["Content-Type"] = {"application/json"}}), body = json.encode({requests = {search}})})))
+	-- A search is a read, so its transient server errors stay retryable.
+	local result = call("search", "POST", GRAPH .. "/search/query", {requests = {search}}, nil, false)
 	for _, response in each(result.value) do
 		for _, container in each(if type(response) == "table" then response.hitsContainers else nil) do
 			for _, hit in each(if type(container) == "table" then container.hits else nil) do
@@ -481,9 +483,10 @@ function sites.search(input: any): Options
 end
 
 sites.help.functions.get = {
-	description = [[One site by siteId, or by webUrl: https://contoso.sharepoint.com/sites/<name> and /teams/<name>
-name a site, and any other URL on the host, such as a page or document, finds the host's root site.
-Subsites are reached with sites.listSubsites.]],
+	description = [[One site by siteId, or by webUrl: https://contoso.sharepoint.com/sites/<name>, /teams/<name> and
+a OneDrive's https://contoso-my.sharepoint.com/personal/<name> name a site, and any other URL on the
+host, such as a page or document, finds the host's root site. A subsite's URL finds its parent site: check
+the result's webUrl, and reach subsites with sites.listSubsites.]],
 	inputSchema = {
 		type = "object",
 		properties = {siteId = SITE_ID, webUrl = {type = "string", minLength = 1}, select = selected(SITE)},
@@ -618,7 +621,7 @@ files.help.functions.search = {
 	description = "One page of driveItems in one document library whose name, metadata or content match q: {value={driveItem}, ['@odata.nextLink']?}. q cannot contain / or %. To search every site, use search.",
 	inputSchema = {
 		type = "object",
-		properties = {driveId = DRIVE_ID, q = {type = "string", minLength = 1}, select = selected(ITEM), top = {type = "integer", minimum = 1}, nextLink = NEXT},
+		properties = {driveId = DRIVE_ID, q = {type = "string", minLength = 1}, select = selected(ITEM), top = TOP, nextLink = NEXT},
 		additionalProperties = false,
 		examples = {{driveId = DRIVE_EXAMPLE, q = "quarterly budget", top = 10}},
 	},
@@ -751,7 +754,7 @@ function lists.listItems(input: any): Options
 		href ..= more(args, {"$filter", "$orderby", "$top"})
 		done("lists.listItems", args)
 	end
-	local result = call("lists.listItems", "GET", href)
+	local result = call("lists.listItems", "GET", href, nil, UNINDEXED)
 	if result.value == nil then result.value = json.decode("[]") end
 	return result
 end

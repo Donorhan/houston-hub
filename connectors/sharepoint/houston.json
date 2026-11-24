@@ -155,7 +155,8 @@
         ],
         "path": [
           "/v1.0/sites/{hostname}/sites/{name}",
-          "/v1.0/sites/{hostname}/teams/{name}"
+          "/v1.0/sites/{hostname}/teams/{name}",
+          "/v1.0/sites/{hostname}/personal/{name}"
         ],
         "colon_path_parameters": [
           "hostname"

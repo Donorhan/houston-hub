@@ -97,11 +97,12 @@ local function identified(extra: HttpHeaders?): HttpHeaders
 	return sent
 end
 
-local function call(operation: string, method: string, href: string, body: any?, headers: HttpHeaders?): any
+-- A request other than GET counts as a write unless write says otherwise, as for a search POST.
+local function call(operation: string, method: string, href: string, body: any?, headers: HttpHeaders?, write: boolean?): any
 	local sent = identified(headers)
 	if body ~= nil then sent["Content-Type"] = {"application/json"} end
 	return decode(operation, await(http.request({method = method, url = href, headers = sent,
-		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), method ~= "GET")
+		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), if write == nil then method ~= "GET" else write)
 end
 
 -- Streams fetch()'s response to a session file; the path changes only when the whole body arrived.
@@ -125,6 +126,10 @@ end
 -- paging options and a calendar view's time range: an $expand, or another route such as
 -- thumbnails, could return attachment bytes or signed links. Graph may name entities by OData
 -- key, as in mailFolders('inbox'), which the routes accept in their path form, mailFolders/inbox.
+local function unescape(value: string): string
+	return (string.gsub(value, "%%(%x%x)", function(hex: string): string return string.char(tonumber(hex, 16) or 0) end))
+end
+
 local PAGING = {select = true, top = true, skip = true, skiptoken = true, orderby = true, filter = true, search = true, count = true,
 	startdatetime = true, enddatetime = true}
 local function pageLink(link: string, ending: string): string
@@ -133,9 +138,7 @@ local function pageLink(link: string, ending: string): string
 	local path = string.gsub((string.gsub(raw, "%%27", "'")), "/(%w+)%('([^'/]+)'%)", "/%1/%2")
 	assert(string.find(path, ending), "nextLink must come from the same list")
 	for pair in string.gmatch(string.sub(search, 2), "[^&]+") do
-		local name = string.lower((string.gsub(string.match(pair, "^[^=]*") or "", "%%(%x%x)", function(hex: string): string
-			return string.char(tonumber(hex, 16) or 0)
-		end)))
+		local name = string.lower(unescape(string.match(pair, "^[^=]*") or ""))
 		assert(PAGING[(string.gsub(name, "^%$", ""))], "nextLink may carry only paging options")
 	end
 	return path .. search
