@@ -152,3 +152,24 @@ func TestQueryManagedOAuthAndManualSecrets(t *testing.T) {
 		}
 	}
 }
+
+func TestQueryInjectionDropsNamesPHPReadsAsTheInjectedOne(t *testing.T) {
+	m := parseRules(t, `[{"match":{"protocol":"http","host":["api.example.com"]},"action":{"query":{"access_token":"{{config.token}}"}}}]`)
+	r, err := m.Resolve(Inputs{Config: map[string]any{"token": "private"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	recipe, err := r.Proxy.HTTPRecipe("GET", "https://api.example.com/?access_token%5B%5D=forged&access.token=forged&%20access%20token=forged&access_token%00x=forged&Access_Token=kept&page=2", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := recipe.PrepareURL(r.Context)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u, _ := url.Parse(prepared)
+	q := u.Query()
+	if strings.Contains(prepared, "forged") || !reflect.DeepEqual(q["access_token"], []string{"private"}) || q.Get("Access_Token") != "kept" || q.Get("page") != "2" || len(q) != 3 {
+		t.Fatalf("prepared query: %s", prepared)
+	}
+}

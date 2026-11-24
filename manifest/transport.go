@@ -473,7 +473,8 @@ func headerValues(headers map[string]HeaderValue) []string {
 }
 
 // PrepareURL injects private query values after the original request has selected
-// its rule. Parameter names are case-sensitive; every existing value is replaced.
+// its rule. Parameter names are case-sensitive; every existing value is replaced,
+// including names PHP reads as the same parameter, such as key[] or access.token.
 func (r HTTPRecipe) PrepareURL(c Context) (string, error) {
 	if len(r.Query) == 0 {
 		return r.URL, nil
@@ -485,6 +486,13 @@ func (r HTTPRecipe) PrepareURL(c Context) (string, error) {
 	query, err := url.ParseQuery(u.RawQuery)
 	if err != nil {
 		return "", fmt.Errorf("invalid proxy request query")
+	}
+	for name := range query {
+		for injected := range r.Query {
+			if phpName(name) == phpName(injected) {
+				delete(query, name)
+			}
+		}
 	}
 	for name, tmpl := range r.Query {
 		value, err := RenderString(tmpl, c)
@@ -806,12 +814,17 @@ func methodOverride(rawURL string, caller http.Header) error {
 
 var phpNameSeparators = strings.NewReplacer(".", "_", " ", "_")
 
-// overrideName reads a query name as PHP does: it drops leading spaces, ends
-// the name at NUL or "[", and reads "." and " " as "_".
-func overrideName(name string) string {
+// phpName reads a query name as PHP does: it drops leading spaces, ends the
+// name at NUL or "[", and reads "." and " " as "_".
+func phpName(name string) string {
 	name, _, _ = strings.Cut(strings.TrimLeft(name, " "), "\x00")
 	name, _, _ = strings.Cut(name, "[")
-	return strings.ToLower(phpNameSeparators.Replace(name))
+	return phpNameSeparators.Replace(name)
+}
+
+// overrideName compares PHP names without case, as method overrides do.
+func overrideName(name string) string {
+	return strings.ToLower(phpName(name))
 }
 
 func (r HTTPRecipe) Prepare(c Context, caller http.Header) (http.Header, error) {
