@@ -321,8 +321,24 @@ return {
   "query": [],
   "read": false,
   "result": [
-   "xxxxxxxx",
-   "xxxxxxxx"
+   {
+    "id": "123e4567-e89b-42d3-a456-426614174000",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-01T00:00:00Z",
+    "logoUrl": null,
+    "twoFactorRequired": false,
+    "deletedAt": null,
+    "name": "Example team",
+    "accessCode": "example-code"
+   },
+   {
+    "id": "123e4567-e89b-42d3-a456-426614174001",
+    "userId": "123e4567-e89b-42d3-a456-426614174002",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "updatedAt": "2026-01-01T00:00:00Z",
+    "role": "team-owner",
+    "teamId": "123e4567-e89b-42d3-a456-426614174000"
+   }
   ],
   "route": "/teams"
  },
