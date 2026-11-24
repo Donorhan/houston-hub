@@ -82,6 +82,9 @@ return {
 		assert(c.calendars.getSchedule(window).value[1].error.responseCode == "5009" and last().headers.Prefer == nil)
 		local empty = c.calendars.getSchedule(window)
 		assert(json.encode(empty.value) == "[]", "calendars.getSchedule returned " .. json.encode(empty))
+		-- getSchedule only reads, so a transient server error stays retryable although it is a POST.
+		responses = {{status = 503, body = '{"error":{"code":"ServiceUnavailable","message":"Try later"}}'}}
+		fails({"Microsoft Graph HTTP 503 (ServiceUnavailable)", '"retryable":true'}, c.calendars.getSchedule, window)
 
 		-- Invalid input never reaches the network.
 		local before = #requests

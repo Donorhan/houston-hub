@@ -70,6 +70,8 @@ return {
 			function() return c.files.createFolder({driveId = "b!hl4"}) end,
 			function() return c.files.update({driveId = "b!hl4", itemId = "../root"}) end,
 			function() return c.files.delete({itemId = "F1"}) end,
+			function() return c.files.copy({driveId = "b!hl4", itemId = "F1", parentReference = {id = "dir"}, nmae = "Copy.pdf"}) end,
+			function() return c.files.copy({driveId = "b!hl4", itemId = "F1"}) end,
 			function() return c.lists.createItem({siteId = SITE_ID, listId = "L1"}) end,
 			function() return c.lists.createItem({siteId = SITE_ID, listId = "L1", fields = {}}) end,
 			function() return c.lists.createItem({siteId = SITE_ID, listId = "L1", fields = {"Title"}}) end,

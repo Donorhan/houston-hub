@@ -3,7 +3,7 @@
 -- Request layer shared verbatim by the Microsoft Graph connectors; Hub runs each copy against
 -- every consumer's fixtures.
 type Options = {[string]: any}
-type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?}
+type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?, write: boolean?}
 local GRAPH = "https://graph.microsoft.com/v1.0"
 -- When SharePoint Online throttles, it serves traffic identified in Microsoft's ISV format first.
 local USER_AGENT = "ISV|AIBakery|Houston/1.0"
@@ -96,7 +96,7 @@ local function identified(extra: HttpHeaders?): HttpHeaders
 	return sent
 end
 
--- A request other than GET counts as a write unless write says otherwise, as for a search POST.
+-- A request other than GET counts as a write unless write says otherwise, as for a read-only POST.
 local function call(operation: string, method: string, href: string, body: any?, headers: HttpHeaders?, write: boolean?): any
 	local sent = identified(headers)
 	if body ~= nil then sent["Content-Type"] = {"application/json"} end
@@ -121,14 +121,14 @@ local function save(operation: string, path: string, fetch: () -> HttpResponse):
 	return {path = path, url = await(fs.signedGetUrl(path)), size = await(fs.stat(path)).size}
 end
 
--- Follows an @odata.nextLink of the list whose path ends with the pattern ending. It may carry only
--- paging options and a calendar view's time range: an $expand, or another route such as
--- thumbnails, could return attachment bytes or signed links. Graph may name entities by OData
--- key, as in mailFolders('inbox'), which the routes accept in their path form, mailFolders/inbox.
 local function unescape(value: string): string
 	return (string.gsub(value, "%%(%x%x)", function(hex: string): string return string.char(tonumber(hex, 16) or 0) end))
 end
 
+-- Follows an @odata.nextLink of the list whose path ends with the pattern ending. It may carry only
+-- paging options and a calendar view's time range: an $expand, or another route such as
+-- thumbnails, could return attachment bytes or signed links. Graph may name entities by OData
+-- key, as in mailFolders('inbox'), which the routes accept in their path form, mailFolders/inbox.
 local PAGING = {select = true, top = true, skip = true, skiptoken = true, orderby = true, filter = true, search = true, count = true,
 	startdatetime = true, enddatetime = true}
 local function pageLink(link: string, ending: string): string
@@ -155,7 +155,7 @@ end
 -- One Graph request built from args, on a path under v1.0 such as /me/events: {field} placeholders
 -- take URL-encoded path segments, query names the query fields and, with body, the other fields
 -- form the JSON body. A list (the Lua pattern its path ends with) also accepts nextLink and always
--- returns a value array.
+-- returns a value array. write = false marks a POST that only reads, so it stays retryable.
 local function request(name: string, method: string, path: string, input: any, spec: Spec?): any
 	local args = options(input)
 	local s: Spec = spec or {}
@@ -173,7 +173,7 @@ local function request(name: string, method: string, path: string, input: any, s
 		href = GRAPH .. route .. query(args, s.query or {})
 		if not s.body then done(name, args) end
 	end
-	local result = call(name, method, href :: string, if s.body then args else nil, s.headers)
+	local result = call(name, method, href :: string, if s.body then args else nil, s.headers, s.write)
 	if s.list and result.value == nil then result.value = json.decode("[]") end
 	return result
 end
@@ -268,13 +268,19 @@ end
 
 -- A site URL's site: /sites/<name>, /teams/<name> and a OneDrive's /personal/<name> name one; any other
 -- URL on the host, such as a page or a document, belongs to the host's root site. A URL cannot tell a
--- subsite from a folder, so subsites resolve to their parent site.
+-- subsite from a folder, so subsites resolve to their parent site. Office's copied links put a
+-- /:<app>:/<kind> prefix before the path: r and g keep the full path, s abbreviates /sites.
 local function siteByUrl(webUrl: string): string
 	local host = string.match(webUrl, "^https://([%w%.%-]+)") or ""
 	local rest = string.sub(webUrl, #"https://" + #host + 1)
 	assert(string.find(string.lower(host), "%.sharepoint%.com$") and (rest == "" or string.find(rest, "^[/?#]")),
 		"webUrl must be an https:// URL on a sharepoint.com host")
 	host = string.lower(host)
+	if string.find(rest, "^/:") then
+		local link, path = string.match(rest, "^/:%a+:/(%a)(/.*)$")
+		assert(link == "r" or link == "g" or link == "s", "webUrl is a sharing link that names no site; find the file with search instead")
+		rest = (if link == "s" then "/sites" else "") .. (path :: string)
+	end
 	local kind = string.lower(string.match(rest, "^/(%a+)/") or "")
 	local name = string.match(rest, "^/%a+/([^/?#]+)") or ""
 	if (kind ~= "sites" and kind ~= "teams" and kind ~= "personal") or name == "" then return "/sites/" .. host end
@@ -905,8 +911,14 @@ destination to find the copy.]],
 		},
 		annotations = WRITE,
 	}
-	function files.copy(args: Options?): Options
-		return request("files.copy", "POST", "/drives/{driveId}/items/{itemId}/copy", args, {body = true})
+	function files.copy(input: any): Options
+		local args = options(input)
+		local href = GRAPH .. itemPath(args.driveId, text(args.itemId, "itemId"), "itemId") .. "/copy"
+		assert(type(args.parentReference) == "table", "parentReference must be {driveId?, id}")
+		local body = {parentReference = args.parentReference, name = if args.name ~= nil then text(args.name, "name") else nil}
+		args.driveId, args.itemId, args.parentReference, args.name = nil, nil, nil, nil
+		done("files.copy", args)
+		return call("files.copy", "POST", href, body)
 	end
 
 	files.help.functions.delete = {

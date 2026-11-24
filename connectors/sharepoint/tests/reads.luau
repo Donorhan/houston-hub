@@ -63,6 +63,14 @@ return {
 		assert(last().url == GRAPH .. "/sites/contoso.sharepoint.com:/teams/launch-2026?$select=id", last().url)
 		c.sites.get({webUrl = "https://contoso-my.sharepoint.com/personal/ana_contoso_com/Documents/plan.docx", select = "id"})
 		assert(last().url == GRAPH .. "/sites/contoso-my.sharepoint.com:/personal/ana_contoso_com?$select=id", last().url)
+		-- Office's copied links prefix the path: r and g keep it whole, s abbreviates /sites.
+		responses = {{body = '{"id":"s"}'}, {body = '{"id":"s"}'}, {body = '{"id":"s"}'}, {body = '{"id":"s"}'}, {body = '{"id":"s"}'}}
+		c.sites.get({webUrl = "https://contoso.sharepoint.com/:x:/r/sites/marketing/Shared%20Documents/budget.xlsx?d=w1", select = "id"})
+		assert(last().url == GRAPH .. "/sites/contoso.sharepoint.com:/sites/marketing?$select=id", last().url)
+		c.sites.get({webUrl = "https://contoso.sharepoint.com/:f:/s/marketing/EaBcToken", select = "id"})
+		assert(last().url == GRAPH .. "/sites/contoso.sharepoint.com:/sites/marketing?$select=id", last().url)
+		c.sites.get({webUrl = "https://contoso-my.sharepoint.com/:w:/g/personal/ana_contoso_com/EToken", select = "id"})
+		assert(last().url == GRAPH .. "/sites/contoso-my.sharepoint.com:/personal/ana_contoso_com?$select=id", last().url)
 		c.sites.get({webUrl = "https://contoso.sharepoint.com/Shared%20Documents/plan.docx", select = "id"})
 		assert(last().url == GRAPH .. "/sites/contoso.sharepoint.com?$select=id", last().url)
 		c.sites.get({webUrl = "https://contoso.sharepoint.com", select = "id"})
@@ -193,6 +201,8 @@ return {
 			function() return c.sites.get({webUrl = "https://contoso.sharepoint.com/sites/..%2F"}) end,
 			function() return c.sites.get({webUrl = "https://contoso.sharepoint.com/sites/a:b"}) end,
 			function() return c.sites.get({webUrl = "https://contoso.sharepoint.comx/sites/a"}) end,
+			function() return c.sites.get({webUrl = "https://contoso.sharepoint.com/:u:/x/Token"}) end,
+			function() return c.sites.get({webUrl = "https://contoso.sharepoint.com/:w:"}) end,
 			function() return c.sites.get({siteId = "a/b"}) end,
 			function() return c.files.getDrive({}) end,
 			function() return c.files.getDrive({driveId = "b!1", siteId = "root"}) end,
