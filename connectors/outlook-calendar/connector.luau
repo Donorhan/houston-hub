@@ -6,6 +6,8 @@
 type Options = {[string]: any}
 type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?}
 local GRAPH = "https://graph.microsoft.com/v1.0"
+-- When SharePoint Online throttles, it serves traffic identified in Microsoft's ISV format first.
+local USER_AGENT = "ISV|AIBakery|Houston/1.0"
 -- Preauthenticated OneDrive download links, under either annotation, work without credentials,
 -- so results never carry them.
 local SIGNED = {"@microsoft.graph.downloadUrl", "@content.downloadUrl"}
@@ -88,8 +90,15 @@ local function decode(operation: string, response: HttpResponse, write: boolean?
 	return value
 end
 
+-- Headers for every request to Graph or its download hosts, with the extra ones given.
+local function identified(extra: HttpHeaders?): HttpHeaders
+	local sent: HttpHeaders = if extra then table.clone(extra) else {}
+	sent["User-Agent"] = {USER_AGENT}
+	return sent
+end
+
 local function call(operation: string, method: string, href: string, body: any?, headers: HttpHeaders?): any
-	local sent: HttpHeaders = if headers then table.clone(headers) else {}
+	local sent = identified(headers)
 	if body ~= nil then sent["Content-Type"] = {"application/json"} end
 	return decode(operation, await(http.request({method = method, url = href, headers = sent,
 		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), method ~= "GET")

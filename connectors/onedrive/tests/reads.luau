@@ -24,6 +24,7 @@ return {
 		responses = {{body = '{"id":"d1","driveType":"personal"}'}}
 		assert(c.files.getDrive().driveType == "personal")
 		assert(requests[1].url == API .. "/drive" and requests[1].method == "GET", requests[1].url)
+		assert(requests[1].headers["User-Agent"][1] == "ISV|AIBakery|Houston/1.0", "Graph calls identify Houston in Microsoft's ISV format")
 
 		-- Lists keep Graph's page, drop preauthenticated links and always carry a value array.
 		local next = "https://graph.microsoft.com/v1.0/me/drive/root/children?$skiptoken=MjAx"
@@ -114,6 +115,7 @@ return {
 		responses = {{status = 302, headers = {location = {signed}}}, {body = bytes}}
 		local saved = c.files.download({itemId = "f1", path = "downloads/report.bin"})
 		assert(requests[#requests - 1].url == API .. "/drive/items/f1/content" and requests[#requests].url == signed)
+		assert(requests[#requests - 1].headers["User-Agent"][1] == "ISV|AIBakery|Houston/1.0" and requests[#requests].headers["User-Agent"][1] == "ISV|AIBakery|Houston/1.0")
 		assert(saved.path == "downloads/report.bin" and saved.url == "https://houston.test/downloads/report.bin" and saved.size == #bytes)
 		local fd = fs.open("downloads/report.bin", "r")
 		assert(await(fd:readAll()) == bytes)

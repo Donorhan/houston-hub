@@ -87,6 +87,7 @@ return {
 		local created = c.workbooks.create({name = "Budget 2026.xlsx"})
 		assert(last().method == "PUT" and last().url == ME .. "/root:/Budget%202026.xlsx:/content?@microsoft.graph.conflictBehavior=fail", last().url)
 		assert(last().headers["Content-Type"][1] == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+		assert(last().headers["User-Agent"][1] == "ISV|AIBakery|Houston/1.0", "the workbook upload identifies Houston")
 		assert(created.id == "N1" and created.parentReference.id == "P1" and created.file.mimeType ~= nil and created.createdBy == nil and created["@microsoft.graph.downloadUrl"] == nil)
 		local archive = await(zip.open(last().body))
 		local parts = {}
