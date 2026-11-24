@@ -755,7 +755,10 @@ Provider and database grants remain authoritative.
 
 Supply structured `help` metadata for precisely the configured functions: a
 nonempty `text`, local `functions` records with descriptions, JSON Schema input
-schemas and valid examples, and optional prose `sections`. A pure zero-argument
+schemas and valid examples, optional `outputSchema`, and optional prose `sections`.
+Input schemas require an object root. Output schemas describe one returned value,
+including objects, arrays, scalars or unions; fixtures validate the actual value.
+Keep multiple-return APIs and describe them in prose. A pure zero-argument
 producer may return the same metadata. Include arguments, return shapes,
 pagination, and meaningful provider caveats. Houston
 evaluates help with native transports disabled and excludes it from the callable
@@ -789,7 +792,8 @@ return {
 
 Scripts call `connection.websites.list({page=1})`. Connection `help()` shows immediate
 functions and namespaces; `connection.websites.help()` shows that namespace's
-index, and `.help({section="list"})` shows the complete function reference. Each scope's
+index, and `.help({section="list"})` shows runnable examples and essential contracts.
+Use `.help({section="list.schema"})` for complete input/output schemas. Each scope's
 `.functions` and `.namespaces` lists its immediate children. Namespace summaries
 come from child help text unless supplied in the optional `help.namespaces` map.
 Omit disabled operations and their documentation together, and omit namespaces

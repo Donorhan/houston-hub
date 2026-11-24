@@ -153,7 +153,7 @@ local function request(name: string, endpoint: Endpoint, input: Options?): any
 end
 
 local usage = {
-		"Umami 3.4.1 API. Call functions directly, without await. Read help() on a resource namespace, then help({section = 'functionName'}) for complete request/response schemas. Only configured operations are listed.",
+		"Umami 3.4.1 API. Call functions directly, without await. Read help() on a resource namespace, then help({section = 'functionName'}) for examples and essential contracts or help({section = 'functionName.schema'}) for complete request/response schemas. Only configured operations are listed.",
 		"Each function takes one options object: path IDs and query options at the top level, JSON request bodies under body. A filter object accepts the operation's query fields (for example country, browser, path, event, search); do not repeat a field at both levels. Native filter strings preserve Umami operators such as eq.US and c.pricing. match='all' or 'any' applies where listed. Arrays for steps/fields are JSON-encoded automatically.",
 		"Dates use startAt/endAt Unix milliseconds or the operation's documented date/period alternatives. Lists fetch one page: increment page while page*pageSize<count, or use limit/offset where listed. No hidden paging, polling or mutation retries. Smaller pages/date ranges keep JSON responses within 8 MiB. Preserve null with json.decode('null') and empty arrays with json.decode('[]').",
 		"Results retain Umami fields and pagination. batch returns processed/errors/details: inspect each failure before resending. A failed or timed-out write may already have succeeded. HTTP errors include status, provider code/message and Retry-After. Cloud allows 50 calls per 15 seconds; provider roles and feature availability still apply.",
@@ -222,10 +222,16 @@ for name, endpoint in endpoints do
   if name == "listWebsites" then input.examples = {{page=1,pageSize=20,filter={search="Store",includeTeams=true}}}
   elseif name == "getWebsiteMetrics" then input.examples = {{websiteId="123e4567-e89b-42d3-a456-426614174000",startAt=1767225600000,endAt=1767312000000,type="path",filter={country="US",browser="Chrome"}}}
   elseif name == "createWebsite" then input.examples = {{body={name="Demo",domain="example.com"}}} end
-  local returns = if endpoint.text then "JavaScript source text (never executed)." elseif endpoint.response then json.encode(expand(schemas[endpoint.response])) else "Provider JSON."
+  local returns = if endpoint.text then "JavaScript source text (never executed)." else "Provider JSON with the documented response fields."
+  local output = if endpoint.text then {type="string"} elseif endpoint.response then expand(schemas[endpoint.response]) else nil
+  if name == "exportWebsite" then
+   output = {anyOf={output,{type="object",properties={path={type="string"},size={type="integer",minimum=0},url={type="string"}},required={"path","size","url"}}}}
+   returns = "Without destination: {zip=base64 string}. With destination: {path,size,url} for the decoded ZIP session file."
+  end
   local node, localName = namespace(endpoint.export)
   node.help.functions[localName] = {description=endpoint.description .. " Access area: " .. endpoint.group .. ". Read this namespace's help({section = 'usage'}) for shared request, filter and pagination conventions. Returns: " .. returns,
-   inputSchema=input,annotations={readOnlyHint=endpoint.read,openWorldHint=true}}
+   inputSchema=input,outputSchema=output,
+   annotations={readOnlyHint=endpoint.read,openWorldHint=true}}
   node[localName] = function(args: Options?): any return request(name, endpoint, args) end
  end
 end
