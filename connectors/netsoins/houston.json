@@ -1,0 +1,72 @@
+{
+  "schema_version": 2,
+  "name": "NETSoins",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.png",
+  "config": {
+    "host": {
+      "description": "The address you open NETSoins at, without https:// or a path.",
+      "label": "NETSoins domain",
+      "max_length": 253,
+      "order": 1,
+      "placeholder": "monetablissement.netsoins.org",
+      "required": true,
+      "type": "string"
+    },
+    "type": {
+      "default": "isiapp",
+      "description": "The API access type Orisha gave you with the key. Keep isiapp unless Orisha named another one.",
+      "label": "API access type",
+      "max_length": 64,
+      "order": 3,
+      "required": true,
+      "type": "string"
+    }
+  },
+  "auth": {
+    "key": {
+      "config": {
+        "token": {
+          "label": "API key",
+          "max_length": 256,
+          "order": 2,
+          "required": true,
+          "type": "secret"
+        }
+      },
+      "label": "NETSoins API key",
+      "type": "manual"
+    }
+  },
+  "proxy": [
+    {
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization",
+            "Cookie"
+          ]
+        },
+        "query": {
+          "key": "{{auth.key.token}}",
+          "type": "{{config.type}}"
+        }
+      },
+      "match": {
+        "host": [
+          "{{config.host}}"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/webservice.php/teranga/Personnel",
+          "/webservice.php/teranga/CategorieProfessionnelle"
+        ],
+        "protocol": "http"
+      }
+    }
+  ]
+}

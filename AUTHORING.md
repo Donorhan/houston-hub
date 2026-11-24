@@ -631,7 +631,8 @@ For providers that only accept query credentials, use
 a Houston deployment supporting query injection. The server selects the rule
 using the original request, then renders and URL-encodes its query values.
 Names match `[A-Za-z][A-Za-z0-9_-]*` and are case-sensitive. All existing values
-for each configured name are replaced; unrelated values are preserved and
+for each configured name are replaced, and so are names PHP reads as that name
+(`key[]` for `key`, `api.key` for `api_key`); unrelated values are preserved and
 malformed queries are rejected. Query templates have the same secret and
 publisher-recipient restrictions as headers. Keep credential names out of the
 connector's arguments and URLs: secrets and prepared URLs never enter Luau.
