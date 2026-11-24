@@ -13,7 +13,8 @@ Let agents work with the numbers in your spreadsheets.
 
 Works with Excel workbooks (`.xlsx`) in your own work or school OneDrive.
 Microsoft's Excel API does not support personal Microsoft accounts, and the
-connection does not reach SharePoint sites or files others share with you.
+connection does not reach SharePoint sites or files others share with you;
+the Microsoft SharePoint connector can download and replace those files.
 Read access cannot change your workbooks. To create workbooks, Write access
 can also write a file by name in your OneDrive. Changes with Write access are
 saved to the file right away; the file's version history

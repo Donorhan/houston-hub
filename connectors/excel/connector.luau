@@ -191,7 +191,8 @@ local RANGE_FIELDS = "address,rowCount,columnCount,values"
 
 local help = {
 	text = [[Microsoft Graph v1.0 workbook API for .xlsx workbooks in the connected work or school account's
-own OneDrive; workbooks in SharePoint or shared from another OneDrive are out of reach. Operations
+own OneDrive; workbooks in SharePoint or shared from another OneDrive are out of reach (a SharePoint
+connection can download and replace those files). Operations
 take one named options object with Graph's camelCase fields and return Graph's JSON unchanged;
 deletes, clears and closes return {success=true}. Connector calls return completed values: use
 them directly, without await.
