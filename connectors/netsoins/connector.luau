@@ -1,10 +1,11 @@
 -- NETSoins webservice (/webservice.php/teranga), read-only staff and reference data. Arguments and results keep NETSoins' native field names.
 type Options = {[string]: any}
-type Resource = {name: string, fields: {string}, allowed: {[string]: boolean}}
+type Resource = {name: string, fields: {string}, allowed: {[string]: boolean}, uri: string}
 
 local API = "https://" .. string.lower(config.host) .. "/webservice.php/teranga/"
 local MAX_BODY = 8 * 1024 * 1024
 local STATUS = "^[%a_]+$"
+local NULL = json.decode("null")
 
 -- The webservice also serves resident and care records. Only these fields of these two
 -- resources reach callers, every record must carry its own resource's Uri, and linked
@@ -12,7 +13,8 @@ local STATUS = "^[%a_]+$"
 local function resource(name: string, fields: {string}): Resource
 	local allowed: {[string]: boolean} = {}
 	for _, field in fields do allowed[field] = true end
-	return table.freeze({name = name, fields = table.freeze(fields), allowed = table.freeze(allowed)})
+	return table.freeze({name = name, fields = table.freeze(fields), allowed = table.freeze(allowed),
+		uri = "^teranga://[^/#%s]+/" .. name .. "#[%w%.%-_]+$"})
 end
 local PERSONNEL = resource("Personnel", {
 	"Uri", "Actif", "IdentifiantAdministratif", "Login", "RPPS", "Adeli", "IdentifiantNational",
@@ -45,7 +47,7 @@ Connector calls return completed values: use them directly, without await.]],
 local exports: {[string]: any} = {help = help}
 
 -- Builds the query from closed option names; Houston adds the key and access type.
-local function query(name: string, target: Resource, input: any): (string, boolean)
+local function query(name: string, target: Resource, input: any): (string, boolean, string?)
 	if input ~= nil then assert(type(input) == "table", name .. " takes one options object") end
 	local opts: Options = input or {}
 	local parts: {string} = {"output=json"}
@@ -64,8 +66,7 @@ local function query(name: string, target: Resource, input: any): (string, boole
 				table.insert(fields, field)
 			end
 		elseif key == "Uri" then
-			assert(type(value) == "string" and #value <= 256
-				and string.match(value, "^teranga://[%w%.%-]+/" .. target.name .. "#[%w%.]+$"),
+			assert(type(value) == "string" and #value <= 256 and string.match(value, target.uri),
 				"Uri must be a " .. target.name .. " record's Uri, such as teranga://<instance>/" .. target.name .. "#395214.18b3f92f1c")
 			table.insert(parts, "Uri=" .. url.encode(value))
 		else
@@ -74,13 +75,10 @@ local function query(name: string, target: Resource, input: any): (string, boole
 	end
 	-- Every record is checked by its Uri, so it is always requested.
 	local asked = table.find(fields, "Uri") ~= nil
-	if not asked then
-		fields = table.clone(fields)
-		table.insert(fields, "Uri")
-	end
+	if not asked then table.insert(fields, "Uri") end
 	table.insert(parts, "fields=" .. url.encode(table.concat(fields, ",")))
 	table.sort(parts)
-	return table.concat(parts, "&"), asked
+	return table.concat(parts, "&"), asked, opts.Uri
 end
 
 local function fail(name: string, status: number, retryable: boolean, message: string): never
@@ -105,9 +103,10 @@ local function failure(name: string, response: HttpResponse): never
 	local raw = await(response.body:readPrefix(16 * 1024))
 	local message = "NETSoins HTTP " .. tostring(status)
 	local ok, value = pcall(json.decode, raw)
+	local detail = if ok and type(value) == "table" then wsMessage(value) else ""
 	local title = string.match(raw, "<title>%s*(.-)%s*</title>")
-	if ok and type(value) == "table" and wsMessage(value) ~= "" then
-		message ..= ": " .. wsMessage(value)
+	if detail ~= "" then
+		message ..= ": " .. detail
 	elseif title then
 		message ..= ": " .. string.sub(title, 1, 200)
 	end
@@ -123,19 +122,26 @@ local function failure(name: string, response: HttpResponse): never
 	return fail(name, status, status == 429 or status >= 500, message)
 end
 
--- Linked objects, alone or in arrays, keep only the Uri and Libelle that name them.
+-- Linked objects, alone or in arrays, keep only the text Uri and Libelle that name them,
+-- and a link to a resident or care record is dropped.
 local function linked(value: any): any
-	if type(value) ~= "table" then return value end
-	if value[1] ~= nil or next(value) == nil then
+	if type(value) ~= "table" or next(value) == nil then return value end
+	if value[1] ~= nil then
 		local items: {any} = json.decode("[]")
-		for _, item in value do table.insert(items, linked(item)) end
+		for _, item in value do
+			local kept = linked(item)
+			if kept ~= nil then table.insert(items, kept) end
+		end
 		return items
 	end
-	return {Uri = value.Uri, Libelle = value.Libelle}
+	local uri = if type(value.Uri) == "string" then value.Uri else nil
+	local target = if uri then string.match(uri, "^teranga://[^/]*/(%a+)") else nil
+	if target and (string.sub(target, 1, 8) == "Resident" or target == "Transmission") then return nil end
+	return {Uri = uri, Libelle = if type(value.Libelle) == "string" then value.Libelle else nil}
 end
 
 local function list(name: string, target: Resource, input: any): Options
-	local search, keepUri = query(name, target, input)
+	local search, keepUri, only = query(name, target, input)
 	local href = API .. target.name .. "?" .. search
 	local response = await(http.request({method = "GET", url = href, headers = {Accept = {"application/json"}}}))
 	if response.statusCode < 200 or response.statusCode >= 300 then failure(name, response) end
@@ -144,22 +150,28 @@ local function list(name: string, target: Resource, input: any): Options
 		if type(raw) ~= "table" or raw.code ~= "limit_exceeded" then error(raw, 0) end
 		fail(name, response.statusCode, false, "NETSoins' answer exceeds Houston's 8 MiB limit; pass fields to return fewer fields")
 	end
-	local ok, value = pcall(json.decode, raw)
-	if not ok or type(value) ~= "table" or not string.match(raw, "^%s*{") then
+	-- A page that is not a JSON object, however large, is never decoded.
+	local ok, value = false, nil
+	if string.match(raw, "^%s*{") then ok, value = pcall(json.decode, raw) end
+	if not ok or type(value) ~= "table" then
 		fail(name, response.statusCode, false, "NETSoins returned a response that is not a JSON object; check the connection's NETSoins domain")
 	end
 	local code = value["WS-Code"]
 	if code ~= nil and tonumber(code) ~= 0 then
 		fail(name, response.statusCode, false, "NETSoins refused the request: " .. wsMessage(value))
 	end
-	local records = value[target.name] or {}
+	local records = value[target.name]
+	if records == nil or records == NULL then records = {} end
 	assert(type(records) == "table", "NETSoins returned an invalid " .. target.name .. " list")
 	local kept: {Options} = json.decode("[]")
 	for index, record in records do
 		assert(type(index) == "number" and type(record) == "table", "NETSoins returned an invalid " .. target.name .. " list")
 		local uri = record.Uri
-		if not (type(uri) == "string" and string.match(uri, "^teranga://[^/]+/" .. target.name .. "#")) then
+		if not (type(uri) == "string" and string.match(uri, target.uri)) then
 			fail(name, response.statusCode, false, "NETSoins returned a record that is not a " .. target.name .. " record; nothing was returned")
+		end
+		if only and uri ~= only then
+			fail(name, response.statusCode, false, "NETSoins returned records other than the requested Uri; it may not filter " .. target.name .. " by Uri")
 		end
 		local copy: Options = {}
 		for field, item in record do
@@ -181,7 +193,7 @@ local function schemas(target: Resource, example: Options): (Options, Options)
 			statut_archive = STATUS_SCHEMA,
 			fields = {type = "array", minItems = 1, maxItems = #target.fields, items = {enum = target.fields},
 				description = "Return only these fields of each record."},
-			Uri = {type = "string", maxLength = 256, pattern = "^teranga://[A-Za-z0-9.-]+/" .. target.name .. "#[A-Za-z0-9.]+$",
+			Uri = {type = "string", maxLength = 256, pattern = "^teranga://[^/#\\s]+/" .. target.name .. "#[A-Za-z0-9._-]+$",
 				description = "Return only the record with this Uri."},
 		},
 		additionalProperties = false,

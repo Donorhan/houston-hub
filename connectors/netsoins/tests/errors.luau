@@ -64,6 +64,10 @@ return {
 		upstream(200, '{"Personnel":[{"Uri":"' .. RESIDENT .. '","ResidentPathologie":[{"Libelle":"Pathologie"}]}],"WS-Code":0}', {},
 			{"not a Personnel record; nothing was returned", '"retryable":false'})
 
+		status, payload = 200, '{"Personnel":[{"Uri":"teranga://ehpad-test.netsoins.org/Personnel#1.a","Nom":"Martin"},{"Uri":"teranga://ehpad-test.netsoins.org/Personnel#2.b","Nom":"Durand"}],"WS-Code":0}'
+		local unfiltered, ignored = pcall(function() netsoins.listPersonnel({Uri = "teranga://ehpad-test.netsoins.org/Personnel#1.a"}) end)
+		assert(not unfiltered and string.find(tostring(ignored), "other than the requested Uri", 1, true), tostring(ignored))
+
 		status, payload = 200, '{"WS-Code":1,"WS-Message":"' .. string.rep("y", 5000) .. '"}'
 		local ok, err = pcall(function() netsoins.listPersonnel() end)
 		assert(not ok and #tostring(err) < 2000, "an oversized NETSoins error was not bounded")
