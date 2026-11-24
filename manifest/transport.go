@@ -488,10 +488,8 @@ func (r HTTPRecipe) PrepareURL(c Context) (string, error) {
 		return "", fmt.Errorf("invalid proxy request query")
 	}
 	for name := range query {
-		for injected := range r.Query {
-			if phpName(name) == phpName(injected) {
-				delete(query, name)
-			}
+		if _, injected := r.Query[phpName(name)]; injected {
+			delete(query, name)
 		}
 	}
 	for name, tmpl := range r.Query {
@@ -815,11 +813,16 @@ func methodOverride(rawURL string, caller http.Header) error {
 var phpNameSeparators = strings.NewReplacer(".", "_", " ", "_")
 
 // phpName reads a query name as PHP does: it drops leading spaces, ends the
-// name at NUL or "[", and reads "." and " " as "_".
+// name at NUL, reads "." and " " as "_", and ends it at a "[" that a "]"
+// closes; an unclosed "[" becomes "_" and the rest is kept as written.
 func phpName(name string) string {
 	name, _, _ = strings.Cut(strings.TrimLeft(name, " "), "\x00")
-	name, _, _ = strings.Cut(name, "[")
-	return phpNameSeparators.Replace(name)
+	base, rest, bracket := strings.Cut(name, "[")
+	base = phpNameSeparators.Replace(base)
+	if !bracket || strings.Contains(rest, "]") {
+		return base
+	}
+	return base + "_" + rest
 }
 
 // overrideName compares PHP names without case, as method overrides do.

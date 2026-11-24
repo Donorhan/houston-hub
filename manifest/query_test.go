@@ -159,7 +159,7 @@ func TestQueryInjectionDropsNamesPHPReadsAsTheInjectedOne(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	recipe, err := r.Proxy.HTTPRecipe("GET", "https://api.example.com/?access_token%5B%5D=forged&access.token=forged&%20access%20token=forged&access_token%00x=forged&Access_Token=kept&page=2", nil)
+	recipe, err := r.Proxy.HTTPRecipe("GET", "https://api.example.com/?access_token%5B%5D=forged&access.token=forged&%20access%20token=forged&access_token%00x=forged&access%5Btoken=forged&Access_Token=kept&page=2", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
