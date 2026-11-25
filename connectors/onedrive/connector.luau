@@ -3,8 +3,10 @@
 -- Request layer shared verbatim by the Microsoft Graph connectors; Hub runs each copy against
 -- every consumer's fixtures.
 type Options = {[string]: any}
-type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?}
+type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?, write: boolean?}
 local GRAPH = "https://graph.microsoft.com/v1.0"
+-- When SharePoint Online throttles, it serves traffic identified in Microsoft's ISV format first.
+local USER_AGENT = "ISV|AIBakery|Houston/1.0"
 -- Preauthenticated OneDrive download links, under either annotation, work without credentials,
 -- so results never carry them.
 local SIGNED = {"@microsoft.graph.downloadUrl", "@content.downloadUrl"}
@@ -87,11 +89,19 @@ local function decode(operation: string, response: HttpResponse, write: boolean?
 	return value
 end
 
-local function call(operation: string, method: string, href: string, body: any?, headers: HttpHeaders?): any
-	local sent: HttpHeaders = if headers then table.clone(headers) else {}
+-- Headers for every request to Graph or its download hosts, with the extra ones given.
+local function identified(extra: HttpHeaders?): HttpHeaders
+	local sent: HttpHeaders = if extra then table.clone(extra) else {}
+	sent["User-Agent"] = {USER_AGENT}
+	return sent
+end
+
+-- A request other than GET counts as a write unless write says otherwise, as for a read-only POST.
+local function call(operation: string, method: string, href: string, body: any?, headers: HttpHeaders?, write: boolean?): any
+	local sent = identified(headers)
 	if body ~= nil then sent["Content-Type"] = {"application/json"} end
 	return decode(operation, await(http.request({method = method, url = href, headers = sent,
-		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), method ~= "GET")
+		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), if write == nil then method ~= "GET" else write)
 end
 
 -- Streams fetch()'s response to a session file; the path changes only when the whole body arrived.
@@ -111,6 +121,10 @@ local function save(operation: string, path: string, fetch: () -> HttpResponse):
 	return {path = path, url = await(fs.signedGetUrl(path)), size = await(fs.stat(path)).size}
 end
 
+local function unescape(value: string): string
+	return (string.gsub(value, "%%(%x%x)", function(hex: string): string return string.char(tonumber(hex, 16) or 0) end))
+end
+
 -- Follows an @odata.nextLink of the list whose path ends with the pattern ending. It may carry only
 -- paging options and a calendar view's time range: an $expand, or another route such as
 -- thumbnails, could return attachment bytes or signed links. Graph may name entities by OData
@@ -123,9 +137,7 @@ local function pageLink(link: string, ending: string): string
 	local path = string.gsub((string.gsub(raw, "%%27", "'")), "/(%w+)%('([^'/]+)'%)", "/%1/%2")
 	assert(string.find(path, ending), "nextLink must come from the same list")
 	for pair in string.gmatch(string.sub(search, 2), "[^&]+") do
-		local name = string.lower((string.gsub(string.match(pair, "^[^=]*") or "", "%%(%x%x)", function(hex: string): string
-			return string.char(tonumber(hex, 16) or 0)
-		end)))
+		local name = string.lower(unescape(string.match(pair, "^[^=]*") or ""))
 		assert(PAGING[(string.gsub(name, "^%$", ""))], "nextLink may carry only paging options")
 	end
 	return path .. search
@@ -143,7 +155,7 @@ end
 -- One Graph request built from args, on a path under v1.0 such as /me/events: {field} placeholders
 -- take URL-encoded path segments, query names the query fields and, with body, the other fields
 -- form the JSON body. A list (the Lua pattern its path ends with) also accepts nextLink and always
--- returns a value array.
+-- returns a value array. write = false marks a POST that only reads, so it stays retryable.
 local function request(name: string, method: string, path: string, input: any, spec: Spec?): any
 	local args = options(input)
 	local s: Spec = spec or {}
@@ -161,7 +173,7 @@ local function request(name: string, method: string, path: string, input: any, s
 		href = GRAPH .. route .. query(args, s.query or {})
 		if not s.body then done(name, args) end
 	end
-	local result = call(name, method, href :: string, if s.body then args else nil, s.headers)
+	local result = call(name, method, href :: string, if s.body then args else nil, s.headers, s.write)
 	if s.list and result.value == nil then result.value = json.decode("[]") end
 	return result
 end
@@ -383,7 +395,7 @@ function files.download(input: any): Options
 	href ..= query(args, {"format"})
 	done("files.download", args)
 	return save("files.download", path, function(): HttpResponse
-		local response = await(http.request({method = "GET", url = href}))
+		local response = await(http.request({method = "GET", url = href, headers = identified()}))
 		if response.statusCode < 300 or response.statusCode >= 400 then return response end
 		local location = response.headers.location
 		local link: string = if location and location[1] then location[1] else ""
@@ -392,7 +404,7 @@ function files.download(input: any): Options
 			houston.fail({operation = "files.download", layer = "upstream", upstream_status = response.statusCode, retryable = false,
 				message = if link == "" then "OneDrive redirected the download without a location" else "OneDrive redirected the download to an unexpected host"})
 		end
-		local signed = await(http.request({method = "GET", url = link}))
+		local signed = await(http.request({method = "GET", url = link, headers = identified()}))
 		local status = signed.statusCode
 		if status ~= 200 then
 			signed.body:close()
@@ -461,7 +473,7 @@ or a complete file: check with files.listChildren before retrying.]],
 		done("files.upload", args)
 		assert(await(fs.stat(path)).size <= MAX_UPLOAD, "files.upload handles files up to 250 MB")
 		return decode("files.upload", await(http.request({method = "PUT", url = href,
-			headers = {["Content-Type"] = {contentType}}, body = fs.open(path, "r")})), true)
+			headers = identified({["Content-Type"] = {contentType}}), body = fs.open(path, "r")})), true)
 	end
 
 	files.help.functions.update = {

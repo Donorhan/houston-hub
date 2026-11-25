@@ -1,0 +1,340 @@
+{
+  "schema_version": 2,
+  "name": "Microsoft SharePoint",
+  "warning": "**Work or school accounts only, usually with an administrator's approval.** Personal Microsoft accounts have no SharePoint, and most organizations require an administrator to approve Houston SharePoint once.",
+  "files": [
+    "connector.luau"
+  ],
+  "icon": "icon.svg",
+  "access": [
+    {
+      "name": "data",
+      "label": "Access",
+      "description": "Covers every site, library, list and page you can open in SharePoint, including OneDrive files of yours and files others shared with you. Write lets agents upload, change, move, copy and delete files and folders and create, change and delete list items wherever you can edit; deleted files go to the site's recycle bin.",
+      "levels": [
+        {
+          "value": "read",
+          "label": "Read"
+        },
+        {
+          "value": "write",
+          "label": "Write"
+        }
+      ],
+      "default": "read"
+    }
+  ],
+  "auth": {
+    "oauth": {
+      "type": "oauth2",
+      "label": "Connect with Microsoft",
+      "brand": "microsoft",
+      "authorize_url": "https://login.microsoftonline.com/organizations/oauth2/v2.0/authorize",
+      "token_url": "https://login.microsoftonline.com/organizations/oauth2/v2.0/token",
+      "client_id": "{{publisher.client_id}}",
+      "client_secret": "{{publisher.client_secret}}",
+      "client_auth": "body",
+      "pkce": "S256",
+      "require_refresh": true,
+      "authorize_params": {
+        "prompt": "select_account"
+      },
+      "scopes": [
+        {
+          "values": [
+            "offline_access",
+            "User.Read"
+          ]
+        },
+        {
+          "if": "{{ is access.data \"read\" }}",
+          "values": [
+            "Sites.Read.All"
+          ]
+        },
+        {
+          "if": "{{ is access.data \"write\" }}",
+          "values": [
+            "Sites.ReadWrite.All"
+          ]
+        }
+      ],
+      "account": {
+        "method": "GET",
+        "url": "https://graph.microsoft.com/v1.0/me?$select=userPrincipalName",
+        "headers": {
+          "Authorization": {
+            "value": "Bearer {{auth.oauth.access_token}}"
+          }
+        },
+        "label": "/userPrincipalName"
+      },
+      "token_response": {
+        "scopes_unreported": true,
+        "checks": [
+          {
+            "op": "equals",
+            "path": "/token_type",
+            "value": "Bearer"
+          },
+          {
+            "op": "exists",
+            "path": "/refresh_token"
+          }
+        ]
+      }
+    }
+  },
+  "publisher": {
+    "client_id": {
+      "type": "string",
+      "label": "Microsoft application (client) ID",
+      "required": true,
+      "order": 1
+    },
+    "client_secret": {
+      "type": "secret",
+      "label": "Microsoft client secret value",
+      "required": true,
+      "order": 2
+    }
+  },
+  "proxy": [
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1.0/sites",
+          "/v1.0/sites/{siteId}",
+          "/v1.0/sites/{siteId}/sites",
+          "/v1.0/me/followedSites",
+          "/v1.0/sites/{siteId}/drive",
+          "/v1.0/sites/{siteId}/drives",
+          "/v1.0/drives/{driveId}",
+          "/v1.0/drives/{driveId}/root",
+          "/v1.0/drives/{driveId}/root/children",
+          "/v1.0/drives/{driveId}/root/{search}",
+          "/v1.0/drives/{driveId}/root:/*",
+          "/v1.0/drives/{driveId}/items/{itemId}",
+          "/v1.0/drives/{driveId}/items/{itemId}/children",
+          "/v1.0/drives/{driveId}/items/{itemId}/content",
+          "/v1.0/sites/{siteId}/lists",
+          "/v1.0/sites/{siteId}/lists/{listId}",
+          "/v1.0/sites/{siteId}/lists/{listId}/columns",
+          "/v1.0/sites/{siteId}/lists/{listId}/items",
+          "/v1.0/sites/{siteId}/lists/{listId}/items/{itemId}",
+          "/v1.0/sites/{siteId}/pages",
+          "/v1.0/sites/{siteId}/pages/{pageId}/microsoft.graph.sitePage"
+        ],
+        "colon_path_parameters": [
+          "search"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/v1.0/sites/{hostname}/sites/{name}",
+          "/v1.0/sites/{hostname}/teams/{name}",
+          "/v1.0/sites/{hostname}/personal/{name}"
+        ],
+        "colon_path_parameters": [
+          "hostname"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1.0/search/query"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "POST"
+        ],
+        "path": [
+          "/v1.0/drives/{driveId}/root/children",
+          "/v1.0/drives/{driveId}/items/{itemId}/children",
+          "/v1.0/drives/{driveId}/items/{itemId}/copy",
+          "/v1.0/sites/{siteId}/lists/{listId}/items"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "PATCH"
+        ],
+        "path": [
+          "/v1.0/drives/{driveId}/items/{itemId}",
+          "/v1.0/sites/{siteId}/lists/{listId}/items/{itemId}/fields"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "DELETE"
+        ],
+        "path": [
+          "/v1.0/drives/{driveId}/items/{itemId}",
+          "/v1.0/sites/{siteId}/lists/{listId}/items/{itemId}"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/v1.0/drives/{driveId}/items/{itemId}/content"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "if": "{{ allows access.data \"write\" }}",
+      "match": {
+        "protocol": "http",
+        "host": [
+          "graph.microsoft.com"
+        ],
+        "method": [
+          "PUT"
+        ],
+        "path": [
+          "/v1.0/drives/{driveId}/root:/{fileName}/content",
+          "/v1.0/drives/{driveId}/items/{parentId}/{fileName}/content"
+        ],
+        "colon_path_parameters": [
+          "parentId",
+          "fileName"
+        ]
+      },
+      "action": {
+        "headers": {
+          "set": {
+            "Authorization": "Bearer {{auth.oauth.access_token}}"
+          }
+        }
+      }
+    },
+    {
+      "match": {
+        "protocol": "http",
+        "host": [
+          "*.sharepoint.com",
+          "*.svc.ms"
+        ],
+        "method": [
+          "GET"
+        ],
+        "path": [
+          "/*"
+        ],
+        "opaque_path_parameters": [
+          "*"
+        ]
+      },
+      "action": {
+        "headers": {
+          "remove": [
+            "Authorization"
+          ]
+        }
+      }
+    }
+  ]
+}

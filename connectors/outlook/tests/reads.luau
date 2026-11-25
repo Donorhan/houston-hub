@@ -68,6 +68,8 @@ return {
 		assert(last().url == API .. "/messages/m1/attachments?$select=id%2Cname%2CcontentType%2Csize%2CisInline%2ClastModifiedDateTime", last().url)
 		local saved = c.attachments.get({messageId = "m1", attachmentId = "A1=", path = "mail/invoice.pdf"})
 		assert(last().url == API .. "/messages/m1/attachments/A1%3D/$value", last().url)
+		-- Graph calls and the attachment download identify Houston in Microsoft's ISV format.
+		assert(requests[#requests - 1].headers["User-Agent"][1] == "ISV|AIBakery|Houston/1.0" and last().headers["User-Agent"][1] == "ISV|AIBakery|Houston/1.0")
 		assert(saved.path == "mail/invoice.pdf" and saved.size == 14 and saved.url == "https://houston.test/mail/invoice.pdf")
 		local fd = fs.open("mail/invoice.pdf", "r")
 		assert(await(fd:readAll()) == "%PDF-1.7 bytes")

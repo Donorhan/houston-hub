@@ -4,8 +4,10 @@
 -- Request layer shared verbatim by the Microsoft Graph connectors; Hub runs each copy against
 -- every consumer's fixtures.
 type Options = {[string]: any}
-type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?}
+type Spec = {query: {string}?, body: boolean?, list: string?, defaults: Options?, headers: HttpHeaders?, write: boolean?}
 local GRAPH = "https://graph.microsoft.com/v1.0"
+-- When SharePoint Online throttles, it serves traffic identified in Microsoft's ISV format first.
+local USER_AGENT = "ISV|AIBakery|Houston/1.0"
 -- Preauthenticated OneDrive download links, under either annotation, work without credentials,
 -- so results never carry them.
 local SIGNED = {"@microsoft.graph.downloadUrl", "@content.downloadUrl"}
@@ -88,11 +90,19 @@ local function decode(operation: string, response: HttpResponse, write: boolean?
 	return value
 end
 
-local function call(operation: string, method: string, href: string, body: any?, headers: HttpHeaders?): any
-	local sent: HttpHeaders = if headers then table.clone(headers) else {}
+-- Headers for every request to Graph or its download hosts, with the extra ones given.
+local function identified(extra: HttpHeaders?): HttpHeaders
+	local sent: HttpHeaders = if extra then table.clone(extra) else {}
+	sent["User-Agent"] = {USER_AGENT}
+	return sent
+end
+
+-- A request other than GET counts as a write unless write says otherwise, as for a read-only POST.
+local function call(operation: string, method: string, href: string, body: any?, headers: HttpHeaders?, write: boolean?): any
+	local sent = identified(headers)
 	if body ~= nil then sent["Content-Type"] = {"application/json"} end
 	return decode(operation, await(http.request({method = method, url = href, headers = sent,
-		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), method ~= "GET")
+		body = if body ~= nil then json.encode(body) elseif method == "POST" then "" else nil})), if write == nil then method ~= "GET" else write)
 end
 
 -- Streams fetch()'s response to a session file; the path changes only when the whole body arrived.
@@ -112,6 +122,10 @@ local function save(operation: string, path: string, fetch: () -> HttpResponse):
 	return {path = path, url = await(fs.signedGetUrl(path)), size = await(fs.stat(path)).size}
 end
 
+local function unescape(value: string): string
+	return (string.gsub(value, "%%(%x%x)", function(hex: string): string return string.char(tonumber(hex, 16) or 0) end))
+end
+
 -- Follows an @odata.nextLink of the list whose path ends with the pattern ending. It may carry only
 -- paging options and a calendar view's time range: an $expand, or another route such as
 -- thumbnails, could return attachment bytes or signed links. Graph may name entities by OData
@@ -124,9 +138,7 @@ local function pageLink(link: string, ending: string): string
 	local path = string.gsub((string.gsub(raw, "%%27", "'")), "/(%w+)%('([^'/]+)'%)", "/%1/%2")
 	assert(string.find(path, ending), "nextLink must come from the same list")
 	for pair in string.gmatch(string.sub(search, 2), "[^&]+") do
-		local name = string.lower((string.gsub(string.match(pair, "^[^=]*") or "", "%%(%x%x)", function(hex: string): string
-			return string.char(tonumber(hex, 16) or 0)
-		end)))
+		local name = string.lower(unescape(string.match(pair, "^[^=]*") or ""))
 		assert(PAGING[(string.gsub(name, "^%$", ""))], "nextLink may carry only paging options")
 	end
 	return path .. search
@@ -144,7 +156,7 @@ end
 -- One Graph request built from args, on a path under v1.0 such as /me/events: {field} placeholders
 -- take URL-encoded path segments, query names the query fields and, with body, the other fields
 -- form the JSON body. A list (the Lua pattern its path ends with) also accepts nextLink and always
--- returns a value array.
+-- returns a value array. write = false marks a POST that only reads, so it stays retryable.
 local function request(name: string, method: string, path: string, input: any, spec: Spec?): any
 	local args = options(input)
 	local s: Spec = spec or {}
@@ -162,7 +174,7 @@ local function request(name: string, method: string, path: string, input: any, s
 		href = GRAPH .. route .. query(args, s.query or {})
 		if not s.body then done(name, args) end
 	end
-	local result = call(name, method, href :: string, if s.body then args else nil, s.headers)
+	local result = call(name, method, href :: string, if s.body then args else nil, s.headers, s.write)
 	if s.list and result.value == nil then result.value = json.decode("[]") end
 	return result
 end
@@ -451,7 +463,7 @@ function calendars.getSchedule(input: any): Options
 	local headers = prefer(args, false)
 	assert(type(args.schedules) == "table" and args.schedules[1] ~= nil, "calendars.getSchedule requires schedules as a nonempty array of email addresses")
 	assert(type(args.startTime) == "table" and type(args.endTime) == "table", "calendars.getSchedule requires startTime and endTime as {dateTime, timeZone}")
-	local result = request("calendars.getSchedule", "POST", "/me/calendar/getSchedule", args, {body = true, headers = headers})
+	local result = request("calendars.getSchedule", "POST", "/me/calendar/getSchedule", args, {body = true, headers = headers, write = false})
 	if result.value == nil then result.value = json.decode("[]") end
 	return result
 end

@@ -28,6 +28,7 @@ return {
 		assert(created.id == "up" and created["@microsoft.graph.downloadUrl"] == nil)
 		assert(last().method == "PUT" and last().url == API .. "/drive/root:/report.pdf:/content?@microsoft.graph.conflictBehavior=rename", last().url)
 		assert(last().body == bytes and last().headers["Content-Type"][1] == "application/pdf")
+		assert(last().headers["User-Agent"][1] == "ISV|AIBakery|Houston/1.0", "uploads identify Houston")
 		responses = {{status = 201, body = '{"id":"up2"}'}, {body = '{"id":"F1"}'}}
 		c.files.upload({path = "uploads/report.pdf", parentId = "D4648F06C91D9D3D!101", name = "Q3 plan.pdf", conflictBehavior = "replace"})
 		assert(last().url == API .. "/drive/items/D4648F06C91D9D3D%21101:/Q3%20plan.pdf:/content?@microsoft.graph.conflictBehavior=replace", last().url)
